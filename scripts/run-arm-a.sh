@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ ! -f .env ]]; then
-  echo "Missing .env. Copy .env.example to .env and add keys."
+if [[ ! -f .secrets/anthropic.env ]]; then
+  echo "Missing .secrets/anthropic.env. Create it with ANTHROPIC_API_KEY=..."
   exit 1
 fi
 
-export ANTHROPIC_API_KEY="$(grep '^ANTHROPIC_API_KEY=' .env | cut -d= -f2-)"
+set -a
+source .secrets/anthropic.env
+set +a
+
+: "${ANTHROPIC_API_KEY:?ANTHROPIC_API_KEY is required}"
 
 unset ANTHROPIC_BASE_URL
 unset ANTHROPIC_AUTH_TOKEN
@@ -26,6 +30,7 @@ uv run harbor run \
   --dataset terminal-bench@2.0 \
   --agent claude-code \
   --model anthropic/claude-sonnet-4-6 \
+  --agent-env ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
   "${TASK_ARGS[@]}" \
   --n-attempts "${N_ATTEMPTS:-3}" \
   --n-concurrent "${N_CONCURRENT:-4}" \
