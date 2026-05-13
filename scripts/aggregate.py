@@ -13,19 +13,22 @@ ARM_DIRS = {
     "arm-a-anthropic": {
         "backend": "anthropic",
         "model_backend": "claude-sonnet-4-6",
-        "input_usd_per_million": 3.00,
+        "input_cache_miss_usd_per_million": 3.00,
+        "input_cache_hit_usd_per_million": 0.30,
         "output_usd_per_million": 15.00,
     },
     "arm-b-deepseek-pro": {
         "backend": "deepseek",
         "model_backend": "deepseek-v4-pro",
-        "input_usd_per_million": 0.435,
+        "input_cache_miss_usd_per_million": 0.435,
+        "input_cache_hit_usd_per_million": 0.003625,
         "output_usd_per_million": 0.87,
     },
     "arm-c-deepseek-flash": {
         "backend": "deepseek",
         "model_backend": "deepseek-v4-flash",
-        "input_usd_per_million": 0.14,
+        "input_cache_miss_usd_per_million": 0.14,
+        "input_cache_hit_usd_per_million": 0.0028,
         "output_usd_per_million": 0.28,
     },
 }
@@ -53,20 +56,29 @@ def read_json(path: Path) -> dict[str, Any]:
 
 def token_cost_usd(
     input_tokens: int | float | None,
+    cache_tokens: int | float | None,
     output_tokens: int | float | None,
-    input_usd_per_million: float,
+    input_cache_miss_usd_per_million: float,
+    input_cache_hit_usd_per_million: float,
     output_usd_per_million: float,
 ) -> float | None:
-    if input_tokens is None and output_tokens is None:
+    if input_tokens is None and cache_tokens is None and output_tokens is None:
         return None
 
     input_tokens = input_tokens or 0
+    cache_tokens = cache_tokens or 0
     output_tokens = output_tokens or 0
 
+    # Harbor's n_input_tokens appears to include cache-read tokens.
+    # Price cache hits separately and price the remaining input tokens as cache misses.
+    cache_miss_input_tokens = max(input_tokens - cache_tokens, 0)
+
     return (
-        input_tokens / 1_000_000 * input_usd_per_million
+        cache_miss_input_tokens / 1_000_000 * input_cache_miss_usd_per_million
+        + cache_tokens / 1_000_000 * input_cache_hit_usd_per_million
         + output_tokens / 1_000_000 * output_usd_per_million
     )
+
 
 
 def is_trial_result(path: Path) -> bool:
@@ -93,10 +105,17 @@ def flatten_trial(path: Path, arm_dir: str, arm_meta: dict[str, Any]) -> dict[st
 
     computed_cost = token_cost_usd(
         input_tokens=input_tokens,
+        cache_tokens=cache_tokens,
         output_tokens=output_tokens,
-        input_usd_per_million=arm_meta["input_usd_per_million"],
+        input_cache_miss_usd_per_million=arm_meta["input_cache_miss_usd_per_million"],
+        input_cache_hit_usd_per_million=arm_meta["input_cache_hit_usd_per_million"],
         output_usd_per_million=arm_meta["output_usd_per_million"],
     )
+
+    provider_reported_cost = agent_result.get("cost_usd")
+    effective_cost = provider_reported_cost
+    if effective_cost is None:
+        effective_cost = computed_cost
 
     reward = rewards.get("reward")
     success = None if reward is None else float(reward) >= 1.0
@@ -151,9 +170,11 @@ def flatten_trial(path: Path, arm_dir: str, arm_meta: dict[str, Any]) -> dict[st
         "n_input_tokens": input_tokens,
         "n_cache_tokens": cache_tokens,
         "n_output_tokens": output_tokens,
-        "provider_reported_cost_usd": agent_result.get("cost_usd"),
-        "computed_cost_usd": computed_cost,
-        "input_usd_per_million": arm_meta["input_usd_per_million"],
+        "provider_reported_cost_usd": provider_reported_cost,
+        "computed_cache_aware_cost_usd": computed_cost,
+        "effective_cost_usd": effective_cost,
+        "input_cache_miss_usd_per_million": arm_meta["input_cache_miss_usd_per_million"],
+        "input_cache_hit_usd_per_million": arm_meta["input_cache_hit_usd_per_million"],
         "output_usd_per_million": arm_meta["output_usd_per_million"],
         "result_json": str(path),
         "trial_dir": str(path.parent),
