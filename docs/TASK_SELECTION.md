@@ -17,7 +17,7 @@ The assignment asks for a representative subset stratified by difficulty and cat
 | modernize-scientific-stack | scientific Python modernization |
 | query-optimize | database/query optimization |
 | portfolio-optimization | numerical/performance |
-| rstan-to-pystan | statistical modeling / migration |
+| model-extraction-relu-logits | model extraction / ML reverse engineering |
 | mteb-retrieve | retrieval / ML evaluation |
 | llm-inference-batching-scheduler | LLM systems / scheduling |
 | torch-pipeline-parallelism | distributed ML systems |
