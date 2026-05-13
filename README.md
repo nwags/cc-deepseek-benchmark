@@ -26,3 +26,15 @@ The assignment PDF references older Harbor commands such as:
 harbor list-datasets
 harbor run --dataset terminal-bench@2.0
 ```
+
+## Environment used
+
+- Node.js: v24.14.0
+- npm: 11.14.1
+- Claude Code: 2.1.140
+- Docker: 29.4.3
+- Docker Compose: v5.1.3
+- uv: 0.10.11
+- Python via uv/Conda: 3.13.12
+- Harbor: 0.6.6
+- Dataset: terminal-bench@2.0
