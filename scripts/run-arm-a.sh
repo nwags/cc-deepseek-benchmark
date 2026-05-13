@@ -27,7 +27,7 @@ uv run harbor run \
   --agent claude-code \
   --model anthropic/claude-sonnet-4-6 \
   "${TASK_ARGS[@]}" \
-  --n-attempts 3 \
+  --n-attempts "${N_ATTEMPTS:-3}" \
   --n-concurrent "${N_CONCURRENT:-4}" \
   --jobs-dir ./results/arm-a-anthropic \
   --yes
