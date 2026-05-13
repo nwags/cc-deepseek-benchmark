@@ -113,9 +113,13 @@ def flatten_trial(path: Path, arm_dir: str, arm_meta: dict[str, Any]) -> dict[st
     )
 
     provider_reported_cost = agent_result.get("cost_usd")
-    effective_cost = provider_reported_cost
-    if effective_cost is None:
+
+    if arm_meta["backend"] == "deepseek":
         effective_cost = computed_cost
+    else:
+        effective_cost = provider_reported_cost
+        if effective_cost is None:
+            effective_cost = computed_cost
 
     reward = rewards.get("reward")
     success = None if reward is None else float(reward) >= 1.0
