@@ -1,0 +1,3266 @@
+Hit:1 http://deb.debian.org/debian bookworm InRelease
+Hit:2 http://deb.debian.org/debian bookworm-updates InRelease
+Hit:3 http://deb.debian.org/debian-security bookworm-security InRelease
+Reading package lists...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+curl is already the newest version (7.88.1-10+deb12u14).
+0 upgraded, 0 newly installed, 0 to remove and 26 not upgraded.
+downloading uv 0.9.5 x86_64-unknown-linux-gnu
+no checksums to verify
+installing to /root/.local/bin
+  uv
+  uvx
+everything's installed!
+
+To add $HOME/.local/bin to your PATH, either restart your shell or run:
+
+    source $HOME/.local/bin/env (sh, bash, zsh)
+    source $HOME/.local/bin/env.fish (fish)
+Downloading pygments (1.2MiB)
+ Downloading pygments
+Installed 6 packages in 12ms
+============================= test session starts ==============================
+platform linux -- Python 3.13.7, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 1 item
+
+../tests/test_outputs.py F                                               [100%]
+
+=================================== FAILURES ===================================
+_________________________________ test_interp __________________________________
+
+    def test_interp():
+        """
+        Test the interpreter works correctly
+        """
+        print("Scheme Interpreter Verification")
+        print("=" * 50)
+        print("Running tests through both interp.py and eval.scm\n")
+    
+        # Create temp directory for test outputs
+        with tempfile.TemporaryDirectory() as temp_dir:
+            original_dir = os.getcwd()
+    
+            test_files = find_test_files()
+            if not test_files:
+                print("No test files found!")
+                return 1
+    
+            passed = 0
+            failed = 0
+    
+            for test_file in test_files:
+                print(f"\nTesting: {test_file}")
+                print("-" * 40)
+    
+                # Detect if input is needed
+                test_input = detect_input_requirements(test_file)
+    
+                # Create isolated directories for each run
+                direct_dir = os.path.join(temp_dir, "direct")
+                eval_dir = os.path.join(temp_dir, "eval")
+    
+                os.makedirs(direct_dir, exist_ok=True)
+                os.makedirs(eval_dir, exist_ok=True)
+    
+                # Copy necessary files
+                for f in ["interp.py", "eval.scm", test_file]:
+                    if os.path.exists(f):
+                        shutil.copy2(f, direct_dir)
+                        shutil.copy2(f, eval_dir)
+    
+                # Run direct
+                os.chdir(direct_dir)
+                direct_out, direct_err, direct_code = run_scheme_direct(
+                    os.path.basename(test_file), test_input
+                )
+    
+                # Run through eval.scm
+                os.chdir(eval_dir)
+                eval_out, eval_err, eval_code = run_scheme_through_eval(
+                    os.path.basename(test_file), test_input
+                )
+    
+                if (
+                    "05-simple" in test_file
+                    or "calculator.scm" in test_file
+                    or "closures.scm" in test_file
+                ):
+                    # Run through eval.scm meta
+                    os.chdir(eval_dir)
+                    eval2_out, _, _ = run_scheme_through_eval(
+                        os.path.basename(test_file), test_input, metacirc=True
+                    )
+                else:
+                    eval2_out = eval_out
+    
+                os.chdir(original_dir)
+    
+                # Check for errors
+                if direct_err and direct_err != "TIMEOUT":
+                    print(f"Direct error: {direct_err}")
+                if eval_err and eval_err != "TIMEOUT":
+                    print(f"Eval.scm error: {eval_err}")
+    
+                # Compare outputs
+                if direct_err == "TIMEOUT" or eval_err == "TIMEOUT":
+                    print("FAILED: Timeout")
+                    failed += 1
+                elif direct_code != 0 and direct_code != -1:
+                    print(f"FAILED: Direct execution failed with code {direct_code}")
+                    failed += 1
+                else:
+                    match, message = compare_outputs(direct_out, eval_out, test_file)
+                    match2, message2 = compare_outputs(direct_out, eval2_out, test_file)
+                    match = match and match2
+    
+                    if match:
+                        print(f"PASSED: {message}")
+                        passed += 1
+                    else:
+                        print(f"FAILED: {message}")
+                        failed += 1
+    
+                # Clean up temp directories
+                shutil.rmtree(direct_dir, ignore_errors=True)
+                shutil.rmtree(eval_dir, ignore_errors=True)
+    
+        print("\n" + "=" * 50)
+        print(f"Summary: {passed} passed, {failed} failed out of {passed + failed} tests")
+    
+>       assert failed == 0
+E       assert 63 == 0
+
+/tests/test_outputs.py:220: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Scheme Interpreter Verification
+==================================================
+Running tests through both interp.py and eval.scm
+
+
+Testing: /tests/shadow_test/01-factorial.scm
+----------------------------------------
+takes 0.18591666221618652
+FAILED: OUTPUT MISMATCH:
+Direct:
+720
+40320
+1307674368000
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = 01-factorial.scm
+DEBUG: interpret-file called with 01-factorial.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+720DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+40320DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+1307674368000DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/shadow_test/02-fibonacci.scm
+----------------------------------------
+takes 4.482537508010864
+FAILED: OUTPUT MISMATCH:
+Direct:
+(0 1 1 2 3 5 8 13 21 34 55 89)
+75025
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = 02-fibonacci.scm
+DEBUG: interpret-file called with 02-fibonacci.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+(0 1 1 2 3 5 8 13 21 34 55 89)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+75025DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/shadow_test/03-list-operations.scm
+----------------------------------------
+takes 0.2085709571838379
+FAILED: OUTPUT MISMATCH:
+Direct:
+(2 4 6 8 10)
+5
+(10 8 6 4 2)
+(6 12 18 24 30)
+(6 8 10)
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = 03-list-operations.scm
+DEBUG: interpret-file called with 03-list-operations.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+(2 4 6 8 10)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+5DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+(10 8 6 4 2)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+(6 12 18 24 30)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+(6 8 10)DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/shadow_test/04-higher-order.scm
+----------------------------------------
+takes 0.11812424659729004
+FAILED: OUTPUT MISMATCH:
+Direct:
+12
+28
+11
+10
+20
+720
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = 04-higher-order.scm
+DEBUG: interpret-file called with 04-higher-order.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+12DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+28DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+11DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+10DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+20DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+720DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/shadow_test/05-simple-io.scm
+----------------------------------------
+takes 0.08387994766235352
+takes 13.400887250900269
+FAILED: OUTPUT MISMATCH:
+Direct:
+Starting I/O tests...
+Text: Greetings, Scheme!
+Integer: 99
+True value: True
+False value: False
+Pair list: (10 20 30 40)
+Letters: X Y Z
+Sequential outputs: Alpha Beta Gamma
+Conditional test: 2 is less than 7
+I/O testing finished!
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = 05-simple-io.scm
+DEBUG: interpret-file called with 05-simple-io.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+Starting I/O tests...DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Text: DEBUG: evaluating expression
+Greetings, Scheme!DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Integer: DEBUG: evaluating expression
+99DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+True value: DEBUG: evaluating expression
+TrueDEBUG: evaluating expression
+
+DEBUG: evaluating expression
+False value: DEBUG: evaluating expression
+FalseDEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Pair list: DEBUG: evaluating expression
+(10 20 30 40)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Letters: DEBUG: evaluating expression
+XDEBUG: evaluating expression
+ DEBUG: evaluating expression
+YDEBUG: evaluating expression
+ DEBUG: evaluating expression
+ZDEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Sequential outputs: DEBUG: evaluating expression
+Alpha Beta Gamma
+DEBUG: evaluating expression
+Conditional test: DEBUG: evaluating expression
+2 is less than 7DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+I/O testing finished!DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/shadow_test/06-interactive-io.scm
+----------------------------------------
+takes 0.09952878952026367
+FAILED: OUTPUT MISMATCH:
+Direct:
+Simple arithmetic program
+Input three numbers for calculation
+Enter first value: Enter second value: Select function (add, sub, mul, div): Answer: unknown-function
+Echo program (enter 'stop to finish)
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = 06-interactive-io.scm
+DEBUG: interpret-file called with 06-interactive-io.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+Simple arithmetic programDEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Input three numbers for calculationDEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Enter first value: DEBUG: evaluating expression
+DEBUG: evaluating expression
+Enter second value: DEBUG: evaluating expression
+DEBUG: evaluating expression
+Select function (add, sub, mul, div): DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Answer: DEBUG: evaluating expression
+unknown-functionDEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Echo program (enter 'stop to finish)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/shadow_test/08-progn-sequencing.scm
+----------------------------------------
+takes 0.19542765617370605
+FAILED: OUTPUT MISMATCH:
+Direct:
+Progn evaluation test:
+Step 1... Step 2... Step 3... Output: 40
+Sequence: 1 -> 2 -> 3
+Countdown from 5: 5 4 3 2 1 
+a = 15, b = 25, a * b = 375
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = 08-progn-sequencing.scm
+DEBUG: interpret-file called with 08-progn-sequencing.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+Progn evaluation test:DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Step 1... Step 2... Step 3... DEBUG: evaluating expression
+Output: DEBUG: evaluating expression
+40DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Sequence: DEBUG: evaluating expression
+1 -> 2 -> 3
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Countdown from 5: DEBUG: evaluating expression
+5 4 3 2 1 DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+a = 15, b = 25, a * b = 375
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/shadow_test/09-mutual-recursion.scm
+----------------------------------------
+takes 0.6250796318054199
+FAILED: OUTPUT MISMATCH:
+Direct:
+Even/odd number testing:
+0 is even
+3 is odd
+12 is even
+17 is odd
+50 is even
+Alternating elements from (10 20 30 40 50 60 70):
+First set: (10 30 50 70)
+Second set: (20 40 60)
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = 09-mutual-recursion.scm
+DEBUG: interpret-file called with 09-mutual-recursion.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Even/odd number testing:DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+0 is even
+DEBUG: evaluating expression
+3 is odd
+DEBUG: evaluating expression
+12 is even
+DEBUG: evaluating expression
+17 is odd
+DEBUG: evaluating expression
+50 is even
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Alternating elements from (10 20 30 40 50 60 70):DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+First set: DEBUG: evaluating expression
+(10 30 50 70)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Second set: DEBUG: evaluating expression
+(20 40 60)DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/shadow_test/10-advanced-features.scm
+----------------------------------------
+takes 0.5125391483306885
+FAILED: OUTPUT MISMATCH:
+Direct:
+Fibonacci using Y combinator:
+fib(7) = 13
+Employee record:
+Name: ('.' "Alice")
+Department: ('.' "Engineering")
+Accumulator object:
+After adding 5 and 3: 18
+After clear: 10
+Processing file with handler:
+File processed with result
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = 10-advanced-features.scm
+DEBUG: interpret-file called with 10-advanced-features.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Fibonacci using Y combinator:DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+fib(7) = DEBUG: evaluating expression
+13DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Employee record:DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Name: DEBUG: evaluating expression
+('.' "Alice")DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Department: DEBUG: evaluating expression
+('.' "Engineering")DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Accumulator object:DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+After adding 5 and 3: DEBUG: evaluating expression
+18DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+After clear: DEBUG: evaluating expression
+10DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Processing file with handler:DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+File processed with resultDEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/shadow_test/accumulator_patterns.scm
+----------------------------------------
+takes 0.3199491500854492
+FAILED: OUTPUT MISMATCH:
+Direct:
+Factorial of 7: 5040
+Reverse of (a b c d e): ('e' 'd' 'c' 'b' 'a')
+Sum of (15 25 35 45): 120
+Length of (p q r s t): 5
+Min and max of (4 2 7 1 9): (1 . 9)
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = accumulator_patterns.scm
+DEBUG: interpret-file called with accumulator_patterns.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Factorial of 7: DEBUG: evaluating expression
+5040DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Reverse of (a b c d e): DEBUG: evaluating expression
+('e' 'd' 'c' 'b' 'a')DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Sum of (15 25 35 45): DEBUG: evaluating expression
+120DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Length of (p q r s t): DEBUG: evaluating expression
+5DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Min and max of (4 2 7 1 9): DEBUG: evaluating expression
+(1 . 9)DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/shadow_test/binary_tree.scm
+----------------------------------------
+takes 0.4942820072174072
+FAILED: OUTPUT MISMATCH:
+Direct:
+In-order tree walk: (2 4 6 8 12)
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = binary_tree.scm
+DEBUG: interpret-file called with binary_tree.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+In-order tree walk: DEBUG: evaluating expression
+(2 4 6 8 12)DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/shadow_test/church_numerals.scm
+----------------------------------------
+takes 0.19846820831298828
+FAILED: OUTPUT MISMATCH:
+Direct:
+zero to int: 0
+two to int: 2
+three to int: 3
+four (succ three) to int: 4
+3 + 2 = 5
+3 * 2 = 6
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = church_numerals.scm
+DEBUG: interpret-file called with church_numerals.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+zero to int: DEBUG: evaluating expression
+0DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+two to int: DEBUG: evaluating expression
+2DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+three to int: DEBUG: evaluating expression
+3DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+four (succ three) to int: DEBUG: evaluating expression
+4DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+3 + 2 = DEBUG: evaluating expression
+5DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+3 * 2 = DEBUG: evaluating expression
+6DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/shadow_test/closures.scm
+----------------------------------------
+takes 0.10562801361083984
+takes 15.89329195022583
+FAILED: OUTPUT MISMATCH:
+Direct:
+Cnt1 first call: 1
+Cnt1 second call: 2
+Cnt2 first call: 1
+Cnt1 third call: 3
+scale4 of 5: 20
+scale8 of 5: 40
+minus6 of 10: 4
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = closures.scm
+DEBUG: interpret-file called with closures.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Cnt1 first call: DEBUG: evaluating expression
+1DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Cnt1 second call: DEBUG: evaluating expression
+2DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Cnt2 first call: DEBUG: evaluating expression
+1DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Cnt1 third call: DEBUG: evaluating expression
+3DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+scale4 of 5: DEBUG: evaluating expression
+20DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+scale8 of 5: DEBUG: evaluating expression
+40DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+minus6 of 10: DEBUG: evaluating expression
+4DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/shadow_test/continuation_passing.scm
+----------------------------------------
+takes 0.3484010696411133
+FAILED: OUTPUT MISMATCH:
+Direct:
+Regular factorial of 6: 720
+CPS factorial of 6: 720
+CPS fibonacci of 8: 21
+CPS product of (2 3 4 5): 120
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = continuation_passing.scm
+DEBUG: interpret-file called with continuation_passing.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Regular factorial of 6: DEBUG: evaluating expression
+720DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+CPS factorial of 6: DEBUG: evaluating expression
+720DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+CPS fibonacci of 8: DEBUG: evaluating expression
+21DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+CPS product of (2 3 4 5): DEBUG: evaluating expression
+120DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/shadow_test/currying.scm
+----------------------------------------
+takes 0.05416417121887207
+FAILED: OUTPUT MISMATCH:
+Direct:
+Curried subtract 10 from 3: 7
+sub10 from 25: -15
+div4 into 20: 0
+Curried compute 3 * 4 + 5: 17
+Partially applied compute3-4 + 7: 19
+Flipped division 20 / 4: 0
+(3 - 7) / 4 = -1
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = currying.scm
+DEBUG: interpret-file called with currying.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Curried subtract 10 from 3: DEBUG: evaluating expression
+7DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+sub10 from 25: DEBUG: evaluating expression
+-15DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+div4 into 20: DEBUG: evaluating expression
+0DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Curried compute 3 * 4 + 5: DEBUG: evaluating expression
+17DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Partially applied compute3-4 + 7: DEBUG: evaluating expression
+19DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Flipped division 20 / 4: DEBUG: evaluating expression
+0DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+(3 - 7) / 4 = DEBUG: evaluating expression
+-1DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/shadow_test/filter_operations.scm
+----------------------------------------
+takes 0.19189667701721191
+FAILED: OUTPUT MISMATCH:
+Direct:
+All values: (2 3 4 5 6 7 8 9 10 11)
+Even values: (2 4 6 8 10)
+Odd values: (3 5 7 9 11)
+Mixed values: (-5 -3 -1 0 2 4 6)
+Negative values: (-5 -3 -1)
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = filter_operations.scm
+DEBUG: interpret-file called with filter_operations.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+All values: DEBUG: evaluating expression
+(2 3 4 5 6 7 8 9 10 11)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Even values: DEBUG: evaluating expression
+(2 4 6 8 10)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Odd values: DEBUG: evaluating expression
+(3 5 7 9 11)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Mixed values: DEBUG: evaluating expression
+(-5 -3 -1 0 2 4 6)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Negative values: DEBUG: evaluating expression
+(-5 -3 -1)DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/shadow_test/fold_operations.scm
+----------------------------------------
+takes 0.08866453170776367
+FAILED: OUTPUT MISMATCH:
+Direct:
+Sum using fold-left: 20
+Product using fold-left: 720
+Original: (2 3 4 5 6)
+Reversed: (6 5 4 3 2)
+Copy list using fold-right: (2 3 4 5 6)
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = fold_operations.scm
+DEBUG: interpret-file called with fold_operations.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Sum using fold-left: DEBUG: evaluating expression
+20DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Product using fold-left: DEBUG: evaluating expression
+720DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Original: DEBUG: evaluating expression
+(2 3 4 5 6)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Reversed: DEBUG: evaluating expression
+(6 5 4 3 2)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Copy list using fold-right: DEBUG: evaluating expression
+(2 3 4 5 6)DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/shadow_test/function_composition.scm
+----------------------------------------
+takes 0.04852890968322754
+FAILED: OUTPUT MISMATCH:
+Direct:
+cube then increment of 2: 9
+increment then cube of 2: 27
+inc2 (twice increment) of 7: 9
+sextuple (twice triple) of 2: 18
+triple, increment, then cube of 1: 64
+Pipeline (triple, increment, cube) of 2: 343
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = function_composition.scm
+DEBUG: interpret-file called with function_composition.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+cube then increment of 2: DEBUG: evaluating expression
+9DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+increment then cube of 2: DEBUG: evaluating expression
+27DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+inc2 (twice increment) of 7: DEBUG: evaluating expression
+9DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+sextuple (twice triple) of 2: DEBUG: evaluating expression
+18DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+triple, increment, then cube of 1: DEBUG: evaluating expression
+64DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Pipeline (triple, increment, cube) of 2: DEBUG: evaluating expression
+343DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/shadow_test/lazy_evaluation.scm
+----------------------------------------
+takes 0.28162693977355957
+FAILED: OUTPUT MISMATCH:
+Direct:
+First 12 natural numbers: (0 1 2 3 4 5 6 7 8 9 10 11)
+First 6 cubes: (0 1 8 27 64 125)
+First 12 Fibonacci numbers: (1 1 2 3 5 8 13 21 34 55 89 144)
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = lazy_evaluation.scm
+DEBUG: interpret-file called with lazy_evaluation.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+First 12 natural numbers: DEBUG: evaluating expression
+(0 1 2 3 4 5 6 7 8 9 10 11)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+First 6 cubes: DEBUG: evaluating expression
+(0 1 8 27 64 125)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+First 12 Fibonacci numbers: DEBUG: evaluating expression
+(1 1 2 3 5 8 13 21 34 55 89 144)DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/shadow_test/list_operations.scm
+----------------------------------------
+takes 0.24556303024291992
+FAILED: OUTPUT MISMATCH:
+Direct:
+Pair up (a b c) with (1 2 3): (('a' . 1) ('b' . 2) ('c' . 3))
+Flatten ((a b) (c (d e)) f): ('a' 'b' 'c' 'd' 'e' 'f')
+Split odds from (1 2 3 4 5 6 7): ((1 3 5 7) 2 4 6)
+Unique elements from (a b c b d c e): ('a' 'b' 'd' 'c' 'e')
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = list_operations.scm
+DEBUG: interpret-file called with list_operations.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Pair up (a b c) with (1 2 3): DEBUG: evaluating expression
+(('a' . 1) ('b' . 2) ('c' . 3))DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Flatten ((a b) (c (d e)) f): DEBUG: evaluating expression
+('a' 'b' 'c' 'd' 'e' 'f')DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Split odds from (1 2 3 4 5 6 7): DEBUG: evaluating expression
+((1 3 5 7) 2 4 6)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Unique elements from (a b c b d c e): DEBUG: evaluating expression
+('a' 'b' 'd' 'c' 'e')DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/shadow_test/map_operations.scm
+----------------------------------------
+takes 0.15671634674072266
+FAILED: OUTPUT MISMATCH:
+Direct:
+Original list: (2 4 6 8 10)
+Cubed: (8 64 216 512 1000)
+Halved: (1 2 3 4 5)
+Minus 1: (1 3 5 7 9)
+Add 1 three times: (5 7 9 11 13)
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = map_operations.scm
+DEBUG: interpret-file called with map_operations.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Original list: DEBUG: evaluating expression
+(2 4 6 8 10)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Cubed: DEBUG: evaluating expression
+(8 64 216 512 1000)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Halved: DEBUG: evaluating expression
+(1 2 3 4 5)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Minus 1: DEBUG: evaluating expression
+(1 3 5 7 9)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Add 1 three times: DEBUG: evaluating expression
+(5 7 9 11 13)DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/shadow_test/memoization.scm
+----------------------------------------
+takes 0.11807608604431152
+FAILED: OUTPUT MISMATCH:
+Direct:
+Memoized fact(8): 40320
+Memoized fact(8) again (from cache): 40320
+First call: Computing double of 7...
+14
+Second call (cached): 14
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = memoization.scm
+DEBUG: interpret-file called with memoization.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Memoized fact(8): DEBUG: evaluating expression
+40320DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Memoized fact(8) again (from cache): DEBUG: evaluating expression
+40320DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+First call: DEBUG: evaluating expression
+Computing double of 7...
+14DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Second call (cached): DEBUG: evaluating expression
+14DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/shadow_test/mutual_recursion.scm
+----------------------------------------
+takes 3.4986448287963867
+FAILED: OUTPUT MISMATCH:
+Direct:
+Is 6 even? True
+Is 9 even? False
+Is 9 odd? True
+First 12 F-sequence values: 1 1 2 2 3 3 4 5 5 6 6 7 
+First 12 M-sequence values: 0 0 1 2 2 3 4 4 5 6 6 7 
+Items in tree: 6
+Parse tokens: ('x' 'y' 'p' 'q' 'z' 'w')
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = mutual_recursion.scm
+DEBUG: interpret-file called with mutual_recursion.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Is 6 even? DEBUG: evaluating expression
+TrueDEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Is 9 even? DEBUG: evaluating expression
+FalseDEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Is 9 odd? DEBUG: evaluating expression
+TrueDEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+First 12 F-sequence values: DEBUG: evaluating expression
+DEBUG: evaluating expression
+1 1 2 2 3 3 4 5 5 6 6 7 DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+First 12 M-sequence values: DEBUG: evaluating expression
+0 0 1 2 2 3 4 4 5 6 6 7 DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Items in tree: DEBUG: evaluating expression
+6DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Parse tokens: DEBUG: evaluating expression
+('x' 'y' 'p' 'q' 'z' 'w')DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/shadow_test/nested_defines.scm
+----------------------------------------
+takes 0.12147045135498047
+FAILED: OUTPUT MISMATCH:
+Direct:
+Nested defines result: 124303
+5 is positive-like
+8 is negative-like
+Nested compute: 49
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = nested_defines.scm
+DEBUG: interpret-file called with nested_defines.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Nested defines result: DEBUG: evaluating expression
+124303DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+5 is positive-like
+DEBUG: evaluating expression
+8 is negative-like
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Nested compute: DEBUG: evaluating expression
+49DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/shadow_test/oeis_sequences.scm
+----------------------------------------
+takes 9.377487897872925
+FAILED: OUTPUT MISMATCH:
+Direct:
+First 12 Fibonacci numbers (A000045): (0 1 1 2 3 5 8 13 21 34 55 89)
+First 11 Jacobsthal numbers (A001045): (0 1 1 3 5 11 21 43 85 171 341)
+First 7 Partition numbers (A000041): (1 1 2 3 5 7 11)
+First 7 Factorial numbers (A000142): (1 1 2 6 24 120 720)
+First 5 Bell numbers (A000110): (1 1 2 5 15)
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = oeis_sequences.scm
+DEBUG: interpret-file called with oeis_sequences.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+First 12 Fibonacci numbers (A000045): DEBUG: evaluating expression
+(0 1 1 2 3 5 8 13 21 34 55 89)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+First 11 Jacobsthal numbers (A001045): DEBUG: evaluating expression
+(0 1 1 3 5 11 21 43 85 171 341)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+First 7 Partition numbers (A000041): DEBUG: evaluating expression
+(1 1 2 3 5 7 11)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+First 7 Factorial numbers (A000142): DEBUG: evaluating expression
+(1 1 2 6 24 120 720)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+First 5 Bell numbers (A000110): DEBUG: evaluating expression
+(1 1 2 5 15)DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/shadow_test/oeis_sequences2.scm
+----------------------------------------
+takes 1.6700022220611572
+FAILED: OUTPUT MISMATCH:
+Direct:
+First 8 Catalan numbers (A000108): (1 1 2 5 14 42 132 429)
+First 7 Prime numbers (A000040): (2 2 3 5 7 11 13)
+First 4 Twin primes (A001097): (1 3 5 11)
+First 12 Triangular numbers (A000217): (0 1 3 6 10 15 21 28 36 45 55 66)
+First 11 Square numbers (A000290): (0 1 4 9 16 25 36 49 64 81 100)
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = oeis_sequences2.scm
+DEBUG: interpret-file called with oeis_sequences2.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+First 8 Catalan numbers (A000108): DEBUG: evaluating expression
+(1 1 2 5 14 42 132 429)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+First 7 Prime numbers (A000040): DEBUG: evaluating expression
+(2 2 3 5 7 11 13)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+First 4 Twin primes (A001097): DEBUG: evaluating expression
+(1 3 5 11)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+First 12 Triangular numbers (A000217): DEBUG: evaluating expression
+(0 1 3 6 10 15 21 28 36 45 55 66)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+First 11 Square numbers (A000290): DEBUG: evaluating expression
+(0 1 4 9 16 25 36 49 64 81 100)DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/shadow_test/oeis_sequences3.scm
+----------------------------------------
+takes 5.802318811416626
+FAILED: OUTPUT MISMATCH:
+Direct:
+Collatz steps for 1-12 (A006577): (0 1 7 2 5 8 16 3 19 6 14 9)
+First 11 Pell numbers (A000129): (0 1 2 5 12 29 70 169 408 985 2378)
+First 5 Primorial numbers (A002110): (2 4 12 60 420)
+First 5 Central binomial coefficients (A000984): (1 2 6 20 70)
+First 7 Derangements (A000166): (1 0 1 2 9 44 265)
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = oeis_sequences3.scm
+DEBUG: interpret-file called with oeis_sequences3.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Collatz steps for 1-12 (A006577): DEBUG: evaluating expression
+(0 1 7 2 5 8 16 3 19 6 14 9)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+First 11 Pell numbers (A000129): DEBUG: evaluating expression
+DEBUG: evaluating expression
+(0 1 2 5 12 29 70 169 408 985 2378)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+First 5 Primorial numbers (A002110): DEBUG: evaluating expression
+(2 4 12 60 420)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+First 5 Central binomial coefficients (A000984): DEBUG: evaluating expression
+DEBUG: evaluating expression
+(1 2 6 20 70)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+First 7 Derangements (A000166): DEBUG: evaluating expression
+DEBUG: evaluating expression
+(1 0 1 2 9 44 265)DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/shadow_test/recursive_structures.scm
+----------------------------------------
+takes 0.49570369720458984
+FAILED: OUTPUT MISMATCH:
+Direct:
+Stack operations: Top: 30, After pop: 20
+Queue operations: Front: 100, After remove: 200
+Dictionary operations: Get 'y': 20, Get 'w': False
+Tree map (triple all values): Root: 6, First child: 12
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = recursive_structures.scm
+DEBUG: interpret-file called with recursive_structures.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Stack operations: DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Top: DEBUG: evaluating expression
+30DEBUG: evaluating expression
+, After pop: DEBUG: evaluating expression
+20DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Queue operations: DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Front: DEBUG: evaluating expression
+100DEBUG: evaluating expression
+, After remove: DEBUG: evaluating expression
+200DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Dictionary operations: DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Get 'y': DEBUG: evaluating expression
+20DEBUG: evaluating expression
+, Get 'w': DEBUG: evaluating expression
+FalseDEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Tree map (triple all values): DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Root: DEBUG: evaluating expression
+6DEBUG: evaluating expression
+, First child: DEBUG: evaluating expression
+12DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/shadow_test/test_read.scm
+----------------------------------------
+takes 0.02053213119506836
+FAILED: OUTPUT MISMATCH:
+Direct:
+Input test
+hello
+Complete
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = test_read.scm
+DEBUG: interpret-file called with test_read.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+Input testDEBUG: evaluating expression
+
+DEBUG: evaluating expression
+helloDEBUG: evaluating expression
+
+DEBUG: evaluating expression
+CompleteDEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/shadow_test/variadic_functions.scm
+----------------------------------------
+takes 0.3388359546661377
+FAILED: OUTPUT MISMATCH:
+Direct:
+Sum of (3 4 5 6 7): 25
+Product of (2 4 5): 40
+Max of (5 2 8 3 9 1 6): 9
+Min of (5 2 8 3 9 1 6): 1
+Join ((a b) (c d) (e f)): ('a' 'b' 'c' 'd' 'e' 'f')
+Triple all (2 3 4 5): (6 9 12 15)
+((x + 1) * 3) / 2 of 5: 9
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = variadic_functions.scm
+DEBUG: interpret-file called with variadic_functions.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Sum of (3 4 5 6 7): DEBUG: evaluating expression
+25DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Product of (2 4 5): DEBUG: evaluating expression
+40DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Max of (5 2 8 3 9 1 6): DEBUG: evaluating expression
+9DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Min of (5 2 8 3 9 1 6): DEBUG: evaluating expression
+1DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Join ((a b) (c d) (e f)): DEBUG: evaluating expression
+('a' 'b' 'c' 'd' 'e' 'f')DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Triple all (2 3 4 5): DEBUG: evaluating expression
+(6 9 12 15)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+((x + 1) * 3) / 2 of 5: DEBUG: evaluating expression
+9DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/shadow_test/y_combinator.scm
+----------------------------------------
+takes 2.305070161819458
+FAILED: OUTPUT MISMATCH:
+Direct:
+Factorial of 7 using Y combinator: 5040
+First 10 Fibonacci numbers: 0 1 1 2 3 5 8 13 21 34
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = y_combinator.scm
+DEBUG: interpret-file called with y_combinator.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Factorial of 7 using Y combinator: DEBUG: evaluating expression
+5040DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+First 10 Fibonacci numbers: DEBUG: evaluating expression
+DEBUG: evaluating expression
+0 1 1 2 3 5 8 13 21 34 DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/test/01-factorial.scm
+----------------------------------------
+takes 0.2798314094543457
+FAILED: OUTPUT MISMATCH:
+Direct:
+120
+3628800
+2432902008176640000
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = 01-factorial.scm
+DEBUG: interpret-file called with 01-factorial.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+120DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+3628800DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+2432902008176640000DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/test/02-fibonacci.scm
+----------------------------------------
+takes 1.7689292430877686
+FAILED: OUTPUT MISMATCH:
+Direct:
+(0 1 1 2 3 5 8 13 21 34)
+6765
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = 02-fibonacci.scm
+DEBUG: interpret-file called with 02-fibonacci.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+(0 1 1 2 3 5 8 13 21 34)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+6765DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/test/03-list-operations.scm
+----------------------------------------
+takes 0.2084498405456543
+FAILED: OUTPUT MISMATCH:
+Direct:
+(1 2 3 4 5)
+5
+(5 4 3 2 1)
+(1 4 9 16 25)
+(2 4)
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = 03-list-operations.scm
+DEBUG: interpret-file called with 03-list-operations.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+(1 2 3 4 5)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+5DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+(5 4 3 2 1)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+(1 4 9 16 25)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+(2 4)DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/test/04-higher-order.scm
+----------------------------------------
+takes 0.11983180046081543
+FAILED: OUTPUT MISMATCH:
+Direct:
+8
+13
+26
+36
+15
+120
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = 04-higher-order.scm
+DEBUG: interpret-file called with 04-higher-order.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+8DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+13DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+26DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+36DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+15DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+120DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/test/05-simple-io.scm
+----------------------------------------
+takes 0.03919363021850586
+takes 9.124645233154297
+FAILED: OUTPUT MISMATCH:
+Direct:
+Testing simple I/O...
+String: Hello, World!
+Number: 42
+Boolean true: True
+Boolean false: False
+List: (1 2 3 4 5)
+Character output: A B C
+Progn with side effects: First Second Third
+Conditional display: 5 is greater than 3
+Simple I/O tests completed!
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = 05-simple-io.scm
+DEBUG: interpret-file called with 05-simple-io.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+Testing simple I/O...DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+String: DEBUG: evaluating expression
+Hello, World!DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Number: DEBUG: evaluating expression
+42DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Boolean true: DEBUG: evaluating expression
+TrueDEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Boolean false: DEBUG: evaluating expression
+FalseDEBUG: evaluating expression
+
+DEBUG: evaluating expression
+List: DEBUG: evaluating expression
+(1 2 3 4 5)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Character output: DEBUG: evaluating expression
+ADEBUG: evaluating expression
+ DEBUG: evaluating expression
+BDEBUG: evaluating expression
+ DEBUG: evaluating expression
+CDEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Progn with side effects: DEBUG: evaluating expression
+First Second Third
+DEBUG: evaluating expression
+Conditional display: DEBUG: evaluating expression
+5 is greater than 3DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Simple I/O tests completed!DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/test/06-interactive-io.scm
+----------------------------------------
+takes 0.04086899757385254
+FAILED: OUTPUT MISMATCH:
+Direct:
+Interactive calculator
+Enter two numbers and an operation (+, -, *, /)
+First number: Second number: Operation (+, -, *, /): Result: 123
+Mini expression evaluator (type 'quit to exit)
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = 06-interactive-io.scm
+DEBUG: interpret-file called with 06-interactive-io.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+Interactive calculatorDEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Enter two numbers and an operation (+, -, *, /)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+First number: DEBUG: evaluating expression
+DEBUG: evaluating expression
+Second number: DEBUG: evaluating expression
+DEBUG: evaluating expression
+Operation (+, -, *, /): DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Result: DEBUG: evaluating expression
+123DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Mini expression evaluator (type 'quit to exit)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/test/08-progn-sequencing.scm
+----------------------------------------
+takes 0.06407427787780762
+FAILED: OUTPUT MISMATCH:
+Direct:
+Testing progn sequencing:
+First... Second... Third... Result: 30
+Counting: 1 2 3
+For loop 1-5: 1 2 3 4 5 
+x = 10, y = 20, x + y = 30
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = 08-progn-sequencing.scm
+DEBUG: interpret-file called with 08-progn-sequencing.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+Testing progn sequencing:DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+First... Second... Third... DEBUG: evaluating expression
+Result: DEBUG: evaluating expression
+30DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Counting: DEBUG: evaluating expression
+1 2 3
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+For loop 1-5: DEBUG: evaluating expression
+1 2 3 4 5 DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+x = 10, y = 20, x + y = 30
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/test/09-mutual-recursion.scm
+----------------------------------------
+takes 0.31630945205688477
+FAILED: OUTPUT MISMATCH:
+Direct:
+Testing even? and odd?:
+0 is even
+1 is odd
+10 is even
+15 is odd
+100 is even
+Alternate elements of (1 2 3 4 5 6 7 8):
+Even positions: (1 3 5 7)
+Odd positions: (2 4 6 8)
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = 09-mutual-recursion.scm
+DEBUG: interpret-file called with 09-mutual-recursion.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Testing even? and odd?:DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+0 is even
+DEBUG: evaluating expression
+1 is odd
+DEBUG: evaluating expression
+10 is even
+DEBUG: evaluating expression
+15 is odd
+DEBUG: evaluating expression
+100 is even
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Alternate elements of (1 2 3 4 5 6 7 8):DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Even positions: DEBUG: evaluating expression
+(1 3 5 7)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Odd positions: DEBUG: evaluating expression
+(2 4 6 8)DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/test/10-advanced-features.scm
+----------------------------------------
+takes 0.0884251594543457
+FAILED: OUTPUT MISMATCH:
+Direct:
+Factorial using Y combinator:
+5! = 120
+Person data:
+Name: ('.' "John")
+Age: ('.' 30)
+Counter object:
+After 2 increments: 2
+After reset: 0
+File handling with callback:
+File written successfully
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = 10-advanced-features.scm
+DEBUG: interpret-file called with 10-advanced-features.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Factorial using Y combinator:DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+5! = DEBUG: evaluating expression
+120DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Person data:DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Name: DEBUG: evaluating expression
+('.' "John")DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Age: DEBUG: evaluating expression
+('.' 30)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Counter object:DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+After 2 increments: DEBUG: evaluating expression
+2DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+After reset: DEBUG: evaluating expression
+0DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+File handling with callback:DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+File written successfullyDEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/test/accumulator_patterns.scm
+----------------------------------------
+takes 0.12386512756347656
+FAILED: OUTPUT MISMATCH:
+Direct:
+Factorial of 6: 720
+Reverse of (1 2 3 4 5): (5 4 3 2 1)
+Sum of (10 20 30 40): 100
+Length of (a b c d e f): 6
+Sum and product of (2 3 4): (9 . 24)
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = accumulator_patterns.scm
+DEBUG: interpret-file called with accumulator_patterns.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Factorial of 6: DEBUG: evaluating expression
+720DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Reverse of (1 2 3 4 5): DEBUG: evaluating expression
+(5 4 3 2 1)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Sum of (10 20 30 40): DEBUG: evaluating expression
+100DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Length of (a b c d e f): DEBUG: evaluating expression
+6DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Sum and product of (2 3 4): DEBUG: evaluating expression
+(9 . 24)DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/test/binary_tree.scm
+----------------------------------------
+takes 0.14790821075439453
+FAILED: OUTPUT MISMATCH:
+Direct:
+Tree in-order traversal: (1 3 5 7 9)
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = binary_tree.scm
+DEBUG: interpret-file called with binary_tree.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Tree in-order traversal: DEBUG: evaluating expression
+(1 3 5 7 9)DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/test/calculator.scm
+----------------------------------------
+takes 0.0444486141204834
+takes 3.425915241241455
+FAILED: OUTPUT MISMATCH:
+Direct:
+Reading
+123
+Done
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = calculator.scm
+DEBUG: interpret-file called with calculator.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+ReadingDEBUG: evaluating expression
+
+DEBUG: evaluating expression
+123DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DoneDEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/test/church_numerals.scm
+----------------------------------------
+takes 0.055774688720703125
+FAILED: OUTPUT MISMATCH:
+Direct:
+zero as int: 0
+one as int: 1
+two as int: 2
+three (succ two) as int: 3
+2 + 3 = 5
+2 * 3 = 6
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = church_numerals.scm
+DEBUG: interpret-file called with church_numerals.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+zero as int: DEBUG: evaluating expression
+0DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+one as int: DEBUG: evaluating expression
+1DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+two as int: DEBUG: evaluating expression
+2DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+three (succ two) as int: DEBUG: evaluating expression
+3DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+2 + 3 = DEBUG: evaluating expression
+5DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+2 * 3 = DEBUG: evaluating expression
+6DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/test/closures.scm
+----------------------------------------
+takes 0.03911924362182617
+takes 8.02297067642212
+FAILED: OUTPUT MISMATCH:
+Direct:
+Counter1 first call: 1
+Counter1 second call: 2
+Counter2 first call: 1
+Counter1 third call: 3
+add5 to 3: 8
+add10 to 3: 13
+times3 of 4: 12
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = closures.scm
+DEBUG: interpret-file called with closures.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Counter1 first call: DEBUG: evaluating expression
+1DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Counter1 second call: DEBUG: evaluating expression
+2DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Counter2 first call: DEBUG: evaluating expression
+1DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Counter1 third call: DEBUG: evaluating expression
+3DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+add5 to 3: DEBUG: evaluating expression
+8DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+add10 to 3: DEBUG: evaluating expression
+13DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+times3 of 4: DEBUG: evaluating expression
+12DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/test/continuation_passing.scm
+----------------------------------------
+takes 0.15217089653015137
+FAILED: OUTPUT MISMATCH:
+Direct:
+Normal factorial of 5: 120
+CPS factorial of 5: 120
+CPS fibonacci of 6: 8
+CPS sum of (1 2 3 4 5): 15
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = continuation_passing.scm
+DEBUG: interpret-file called with continuation_passing.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Normal factorial of 5: DEBUG: evaluating expression
+120DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+CPS factorial of 5: DEBUG: evaluating expression
+120DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+CPS fibonacci of 6: DEBUG: evaluating expression
+8DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+CPS sum of (1 2 3 4 5): DEBUG: evaluating expression
+15DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/test/currying.scm
+----------------------------------------
+takes 0.04995417594909668
+FAILED: OUTPUT MISMATCH:
+Direct:
+Curried add 5 to 3: 8
+add5 to 10: 15
+mult3 by 7: 21
+Curried combine 2 * 3 + 4: 10
+Partially applied combine2-3 + 5: 11
+Flipped subtraction 10 - 3: -7
+(2 + 4) * 3 = 18
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = currying.scm
+DEBUG: interpret-file called with currying.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Curried add 5 to 3: DEBUG: evaluating expression
+8DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+add5 to 10: DEBUG: evaluating expression
+15DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+mult3 by 7: DEBUG: evaluating expression
+21DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Curried combine 2 * 3 + 4: DEBUG: evaluating expression
+10DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Partially applied combine2-3 + 5: DEBUG: evaluating expression
+11DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Flipped subtraction 10 - 3: DEBUG: evaluating expression
+-7DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+(2 + 4) * 3 = DEBUG: evaluating expression
+18DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/test/filter_operations.scm
+----------------------------------------
+takes 0.17710256576538086
+FAILED: OUTPUT MISMATCH:
+Direct:
+All numbers: (1 2 3 4 5 6 7 8 9 10)
+Even numbers: (2 4 6 8 10)
+Odd numbers: (1 3 5 7 9)
+Mixed numbers: (-3 -2 -1 0 1 2 3)
+Positive numbers: (1 2 3)
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = filter_operations.scm
+DEBUG: interpret-file called with filter_operations.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+All numbers: DEBUG: evaluating expression
+(1 2 3 4 5 6 7 8 9 10)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Even numbers: DEBUG: evaluating expression
+(2 4 6 8 10)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Odd numbers: DEBUG: evaluating expression
+(1 3 5 7 9)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Mixed numbers: DEBUG: evaluating expression
+(-3 -2 -1 0 1 2 3)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Positive numbers: DEBUG: evaluating expression
+(1 2 3)DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/test/fold_operations.scm
+----------------------------------------
+takes 0.08276653289794922
+FAILED: OUTPUT MISMATCH:
+Direct:
+Sum using fold-left: 15
+Product using fold-left: 120
+Original: (1 2 3 4 5)
+Reversed: (5 4 3 2 1)
+Copy list using fold-right: (1 2 3 4 5)
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = fold_operations.scm
+DEBUG: interpret-file called with fold_operations.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Sum using fold-left: DEBUG: evaluating expression
+15DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Product using fold-left: DEBUG: evaluating expression
+120DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Original: DEBUG: evaluating expression
+(1 2 3 4 5)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Reversed: DEBUG: evaluating expression
+(5 4 3 2 1)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Copy list using fold-right: DEBUG: evaluating expression
+(1 2 3 4 5)DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/test/function_composition.scm
+----------------------------------------
+takes 0.046762943267822266
+FAILED: OUTPUT MISMATCH:
+Direct:
+square then add1 of 3: 10
+add1 then square of 3: 16
+add2 (twice add1) of 5: 7
+quad (twice double) of 3: 12
+double, add1, then square of 2: 25
+Pipeline (double, add1, square) of 3: 49
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = function_composition.scm
+DEBUG: interpret-file called with function_composition.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+square then add1 of 3: DEBUG: evaluating expression
+10DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+add1 then square of 3: DEBUG: evaluating expression
+16DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+add2 (twice add1) of 5: DEBUG: evaluating expression
+7DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+quad (twice double) of 3: DEBUG: evaluating expression
+12DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+double, add1, then square of 2: DEBUG: evaluating expression
+25DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Pipeline (double, add1, square) of 3: DEBUG: evaluating expression
+49DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/test/lazy_evaluation.scm
+----------------------------------------
+takes 0.2619020938873291
+FAILED: OUTPUT MISMATCH:
+Direct:
+First 10 natural numbers: (1 2 3 4 5 6 7 8 9 10)
+First 8 squares: (1 4 9 16 25 36 49 64)
+First 10 Fibonacci numbers: (0 1 1 2 3 5 8 13 21 34)
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = lazy_evaluation.scm
+DEBUG: interpret-file called with lazy_evaluation.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+First 10 natural numbers: DEBUG: evaluating expression
+(1 2 3 4 5 6 7 8 9 10)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+First 8 squares: DEBUG: evaluating expression
+(1 4 9 16 25 36 49 64)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+First 10 Fibonacci numbers: DEBUG: evaluating expression
+(0 1 1 2 3 5 8 13 21 34)DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/test/list_operations.scm
+----------------------------------------
+takes 0.22918176651000977
+FAILED: OUTPUT MISMATCH:
+Direct:
+Zip (1 2 3) with (a b c): ((1 . 'a') (2 . 'b') (3 . 'c'))
+Flatten ((1 2) (3 (4 5)) 6): (1 2 3 4 5 6)
+Partition evens from (1 2 3 4 5 6): ((2 4 6) 1 3 5)
+Remove duplicates from (1 2 3 2 4 3 5): (1 2 4 3 5)
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = list_operations.scm
+DEBUG: interpret-file called with list_operations.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Zip (1 2 3) with (a b c): DEBUG: evaluating expression
+((1 . 'a') (2 . 'b') (3 . 'c'))DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Flatten ((1 2) (3 (4 5)) 6): DEBUG: evaluating expression
+(1 2 3 4 5 6)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Partition evens from (1 2 3 4 5 6): DEBUG: evaluating expression
+((2 4 6) 1 3 5)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Remove duplicates from (1 2 3 2 4 3 5): DEBUG: evaluating expression
+(1 2 4 3 5)DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/test/map_operations.scm
+----------------------------------------
+takes 0.12295746803283691
+FAILED: OUTPUT MISMATCH:
+Direct:
+Original list: (1 2 3 4 5)
+Squared: (1 4 9 16 25)
+Doubled: (2 4 6 8 10)
+Add 1: (2 3 4 5 6)
+Double then double again: (4 8 12 16 20)
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = map_operations.scm
+DEBUG: interpret-file called with map_operations.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Original list: DEBUG: evaluating expression
+(1 2 3 4 5)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Squared: DEBUG: evaluating expression
+(1 4 9 16 25)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Doubled: DEBUG: evaluating expression
+(2 4 6 8 10)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Add 1: DEBUG: evaluating expression
+(2 3 4 5 6)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Double then double again: DEBUG: evaluating expression
+(4 8 12 16 20)DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/test/memoization.scm
+----------------------------------------
+takes 0.2012476921081543
+FAILED: OUTPUT MISMATCH:
+Direct:
+Memoized fib(10): 55
+Memoized fib(10) again (from cache): 55
+First call: Computing square of 5...
+25
+Second call (cached): 25
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = memoization.scm
+DEBUG: interpret-file called with memoization.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Memoized fib(10): DEBUG: evaluating expression
+55DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Memoized fib(10) again (from cache): DEBUG: evaluating expression
+55DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+First call: DEBUG: evaluating expression
+Computing square of 5...
+25DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Second call (cached): DEBUG: evaluating expression
+25DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/test/mutual_recursion.scm
+----------------------------------------
+takes 1.471001148223877
+FAILED: OUTPUT MISMATCH:
+Direct:
+Is 4 even? True
+Is 7 even? False
+Is 7 odd? True
+First 10 Female sequence values: 1 1 2 2 3 3 4 5 5 6 
+First 10 Male sequence values: 0 0 1 2 2 3 4 4 5 6 
+Nodes in tree: 6
+Parse expression: ('a' 'b' 'c' 'd' 'e' 'f')
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = mutual_recursion.scm
+DEBUG: interpret-file called with mutual_recursion.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Is 4 even? DEBUG: evaluating expression
+TrueDEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Is 7 even? DEBUG: evaluating expression
+FalseDEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Is 7 odd? DEBUG: evaluating expression
+TrueDEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+First 10 Female sequence values: DEBUG: evaluating expression
+DEBUG: evaluating expression
+1 1 2 2 3 3 4 5 5 6 DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+First 10 Male sequence values: DEBUG: evaluating expression
+0 0 1 2 2 3 4 4 5 6 DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Nodes in tree: DEBUG: evaluating expression
+6DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Parse expression: DEBUG: evaluating expression
+('a' 'b' 'c' 'd' 'e' 'f')DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/test/nested_defines.scm
+----------------------------------------
+takes 0.059949398040771484
+FAILED: OUTPUT MISMATCH:
+Direct:
+Nested defines result: 20289
+4 is even
+7 is odd
+Nested define: 25
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = nested_defines.scm
+DEBUG: interpret-file called with nested_defines.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Nested defines result: DEBUG: evaluating expression
+20289DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+4 is even
+DEBUG: evaluating expression
+7 is odd
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Nested define: DEBUG: evaluating expression
+25DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/test/oeis_sequences.scm
+----------------------------------------
+takes 3.2848927974700928
+FAILED: OUTPUT MISMATCH:
+Direct:
+First 10 Fibonacci numbers (A000045): (0 1 1 2 3 5 8 13 21 34)
+First 10 Jacobsthal numbers (A001045): (0 1 1 3 5 11 21 43 85 171)
+First 8 Partition numbers (A000041): (1 1 2 3 5 7 11 15)
+First 8 Factorial numbers (A000142): (1 1 2 6 24 120 720 5040)
+First 6 Bell numbers (A000110): (1 1 2 5 15 52)
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = oeis_sequences.scm
+DEBUG: interpret-file called with oeis_sequences.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+First 10 Fibonacci numbers (A000045): DEBUG: evaluating expression
+(0 1 1 2 3 5 8 13 21 34)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+First 10 Jacobsthal numbers (A001045): DEBUG: evaluating expression
+(0 1 1 3 5 11 21 43 85 171)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+First 8 Partition numbers (A000041): DEBUG: evaluating expression
+(1 1 2 3 5 7 11 15)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+First 8 Factorial numbers (A000142): DEBUG: evaluating expression
+(1 1 2 6 24 120 720 5040)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+First 6 Bell numbers (A000110): DEBUG: evaluating expression
+(1 1 2 5 15 52)DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/test/oeis_sequences2.scm
+----------------------------------------
+takes 1.1785900592803955
+FAILED: OUTPUT MISMATCH:
+Direct:
+First 8 Catalan numbers (A000108): (1 1 2 5 14 42 132 429)
+First 8 Prime numbers (A000040): (2 2 3 5 7 11 13 17)
+First 5 Twin primes (A001097): (1 3 5 11 17)
+First 10 Triangular numbers (A000217): (0 1 3 6 10 15 21 28 36 45)
+First 10 Square numbers (A000290): (0 1 4 9 16 25 36 49 64 81)
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = oeis_sequences2.scm
+DEBUG: interpret-file called with oeis_sequences2.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+First 8 Catalan numbers (A000108): DEBUG: evaluating expression
+(1 1 2 5 14 42 132 429)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+First 8 Prime numbers (A000040): DEBUG: evaluating expression
+(2 2 3 5 7 11 13 17)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+First 5 Twin primes (A001097): DEBUG: evaluating expression
+(1 3 5 11 17)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+First 10 Triangular numbers (A000217): DEBUG: evaluating expression
+(0 1 3 6 10 15 21 28 36 45)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+First 10 Square numbers (A000290): DEBUG: evaluating expression
+(0 1 4 9 16 25 36 49 64 81)DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/test/oeis_sequences3.scm
+----------------------------------------
+takes 2.5620810985565186
+FAILED: OUTPUT MISMATCH:
+Direct:
+Collatz steps for 1-10 (A006577): (0 1 7 2 5 8 16 3 19 6)
+First 10 Pell numbers (A000129): (0 1 2 5 12 29 70 169 408 985)
+First 6 Primorial numbers (A002110): (2 4 12 60 420 4620)
+First 6 Central binomial coefficients (A000984): (1 2 6 20 70 252)
+First 8 Derangements (A000166): (1 0 1 2 9 44 265 1854)
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = oeis_sequences3.scm
+DEBUG: interpret-file called with oeis_sequences3.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Collatz steps for 1-10 (A006577): DEBUG: evaluating expression
+(0 1 7 2 5 8 16 3 19 6)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+First 10 Pell numbers (A000129): DEBUG: evaluating expression
+DEBUG: evaluating expression
+(0 1 2 5 12 29 70 169 408 985)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+First 6 Primorial numbers (A002110): DEBUG: evaluating expression
+(2 4 12 60 420 4620)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+First 6 Central binomial coefficients (A000984): DEBUG: evaluating expression
+DEBUG: evaluating expression
+(1 2 6 20 70 252)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+First 8 Derangements (A000166): DEBUG: evaluating expression
+DEBUG: evaluating expression
+(1 0 1 2 9 44 265 1854)DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/test/recursive_structures.scm
+----------------------------------------
+takes 0.23901009559631348
+FAILED: OUTPUT MISMATCH:
+Direct:
+Stack operations: Top: 3, After pop: 2
+Queue operations: Front: 1, After dequeue: 2
+Dictionary operations: Get 'b': 2, Get 'x': False
+Tree map (double all values): Root: 2, First child: 4
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = recursive_structures.scm
+DEBUG: interpret-file called with recursive_structures.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Stack operations: DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Top: DEBUG: evaluating expression
+3DEBUG: evaluating expression
+, After pop: DEBUG: evaluating expression
+2DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Queue operations: DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Front: DEBUG: evaluating expression
+1DEBUG: evaluating expression
+, After dequeue: DEBUG: evaluating expression
+2DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Dictionary operations: DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Get 'b': DEBUG: evaluating expression
+2DEBUG: evaluating expression
+, Get 'x': DEBUG: evaluating expression
+FalseDEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Tree map (double all values): DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Root: DEBUG: evaluating expression
+2DEBUG: evaluating expression
+, First child: DEBUG: evaluating expression
+4DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/test/test_read.scm
+----------------------------------------
+takes 0.022147417068481445
+FAILED: OUTPUT MISMATCH:
+Direct:
+Reading
+hello
+Done
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = test_read.scm
+DEBUG: interpret-file called with test_read.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+ReadingDEBUG: evaluating expression
+
+DEBUG: evaluating expression
+helloDEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DoneDEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/test/variadic_functions.scm
+----------------------------------------
+takes 0.19203448295593262
+FAILED: OUTPUT MISMATCH:
+Direct:
+Sum of (1 2 3 4 5): 15
+Product of (2 3 4): 24
+Max of (3 1 4 1 5 9 2 6): 9
+Min of (3 1 4 1 5 9 2 6): 1
+Concatenate ((1 2) (3 4) (5 6)): (1 2 3 4 5 6)
+Square all (1 2 3 4): (1 4 9 16)
+((x + 1) * 2)^2 of 3: 64
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = variadic_functions.scm
+DEBUG: interpret-file called with variadic_functions.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Sum of (1 2 3 4 5): DEBUG: evaluating expression
+15DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Product of (2 3 4): DEBUG: evaluating expression
+24DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Max of (3 1 4 1 5 9 2 6): DEBUG: evaluating expression
+9DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Min of (3 1 4 1 5 9 2 6): DEBUG: evaluating expression
+1DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+Concatenate ((1 2) (3 4) (5 6)): DEBUG: evaluating expression
+(1 2 3 4 5 6)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Square all (1 2 3 4): DEBUG: evaluating expression
+(1 4 9 16)DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+((x + 1) * 2)^2 of 3: DEBUG: evaluating expression
+64DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+Testing: /tests/test/y_combinator.scm
+----------------------------------------
+takes 0.4025280475616455
+FAILED: OUTPUT MISMATCH:
+Direct:
+Factorial of 5 using Y combinator: 120
+First 8 Fibonacci numbers: 0 1 1 2 3 5 8 13
+
+Through eval.scm:
+DEBUG: eval.scm loaded
+DEBUG: global env setup complete
+DEBUG: interpret-file defined
+DEBUG: about to read filename
+DEBUG: filename = y_combinator.scm
+DEBUG: interpret-file called with y_combinator.scm
+DEBUG: starting read-loop
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+Factorial of 5 using Y combinator: DEBUG: evaluating expression
+120DEBUG: evaluating expression
+
+DEBUG: evaluating expression
+DEBUG: evaluating expression
+First 8 Fibonacci numbers: DEBUG: evaluating expression
+DEBUG: evaluating expression
+0 1 1 2 3 5 8 13 DEBUG: evaluating expression
+
+DEBUG: EOF reached
+DEBUG: done with read-loop, closing file
+
+==================================================
+Summary: 0 passed, 63 failed out of 63 tests
+=========================== short test summary info ============================
+FAILED ../tests/test_outputs.py::test_interp - assert 63 == 0
+========================= 1 failed in 98.75s (0:01:38) =========================
