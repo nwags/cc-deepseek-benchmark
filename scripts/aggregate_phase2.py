@@ -22,6 +22,16 @@ PHASE2_ARM_DIRS: dict[str, dict[str, Any]] = {
         "input_cache_hit_usd_per_million": None,
         "output_usd_per_million": None,
     },
+        "arm-anthropic-opus": {
+        "phase": "phase2",
+        "backend": "anthropic",
+        "model_backend": "claude-opus-4-7",
+        "requested_model": "opus",
+        "cost_rule": "provider_reported",
+        "input_cache_miss_usd_per_million": None,
+        "input_cache_hit_usd_per_million": None,
+        "output_usd_per_million": None,
+    },
     "arm-anthropic-sonnet": {
         "phase": "phase2",
         "backend": "anthropic",
@@ -260,45 +270,61 @@ def extract_bash_command(obj: Any) -> str | None:
 
 
 def trajectory_metrics(trial_dir: Path) -> dict[str, Any]:
+    sources = []
     trajectory = load_trajectory(trial_dir)
+    if trajectory:
+        sources.extend(trajectory)
+    sources.extend(load_claude_code_events(trial_dir))
 
     tool_counts: Counter[str] = Counter()
     bash_commands: list[str] = []
-    agent_turns = 0
+    seen_tool_uses: set[str] = set()
+    assistant_message_ids: set[str] = set()
 
-    for step in trajectory:
-        if isinstance(step, dict):
-            source = step.get("source") or step.get("role")
-            if source == "agent" or source == "assistant":
-                agent_turns += 1
+    for source in sources:
+        for obj in walk_json(source):
+            if not isinstance(obj, dict):
+                continue
 
-            tool_name = extract_tool_name(step)
-            if tool_name:
-                tool_counts[tool_name] += 1
-                if tool_name == "Bash":
-                    cmd = extract_bash_command(step)
-                    if cmd:
-                        bash_commands.append(cmd)
+            if obj.get("type") == "assistant" and isinstance(obj.get("message"), dict):
+                mid = obj["message"].get("id") or obj.get("uuid")
+                if mid:
+                    assistant_message_ids.add(str(mid))
 
-            # Some trajectory formats store nested messages/events.
-            for key in ("content", "messages", "events", "steps"):
-                nested = step.get(key)
-                if isinstance(nested, list):
-                    for item in nested:
-                        tool_name = extract_tool_name(item)
-                        if tool_name:
-                            tool_counts[tool_name] += 1
-                            if tool_name == "Bash":
-                                cmd = extract_bash_command(item)
-                                if cmd:
-                                    bash_commands.append(cmd)
+            if obj.get("role") == "assistant":
+                mid = obj.get("id") or obj.get("uuid") or json.dumps(obj, sort_keys=True, default=str)[:200]
+                assistant_message_ids.add(str(mid))
+
+            if obj.get("type") != "tool_use":
+                continue
+
+            name = obj.get("name")
+            if not isinstance(name, str):
+                continue
+
+            tool_id = obj.get("id")
+            if not tool_id:
+                tool_id = json.dumps(obj, sort_keys=True, default=str)
+
+            if tool_id in seen_tool_uses:
+                continue
+            seen_tool_uses.add(str(tool_id))
+
+            tool_counts[name] += 1
+
+            if name == "Bash":
+                tool_input = obj.get("input")
+                if isinstance(tool_input, dict):
+                    command = tool_input.get("command")
+                    if isinstance(command, str):
+                        bash_commands.append(command)
 
     repeated_bash_commands = sum(
         count - 1 for count in Counter(bash_commands).values() if count > 1
     )
 
     return {
-        "agent_turns": agent_turns if agent_turns else None,
+        "agent_turns": len(assistant_message_ids) if assistant_message_ids else None,
         "tool_calls": sum(tool_counts.values()),
         "bash_calls": tool_counts.get("Bash", 0),
         "edit_write_calls": sum(tool_counts.get(t, 0) for t in WRITE_TOOLS),
@@ -468,6 +494,33 @@ def collect_rows(results_root: Path, arms: dict[str, dict[str, Any]]) -> list[di
             rows.append(flatten_trial(path, arm_dir, arm_meta))
 
     return rows
+
+
+def walk_json(obj: Any):
+    if isinstance(obj, dict):
+        yield obj
+        for value in obj.values():
+            yield from walk_json(value)
+    elif isinstance(obj, list):
+        for value in obj:
+            yield from walk_json(value)
+
+
+def load_claude_code_events(trial_dir: Path) -> list[Any]:
+    path = trial_dir / "agent" / "claude-code.txt"
+    if not path.exists():
+        return []
+
+    events = []
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            events.append(json.loads(line))
+        except Exception:
+            continue
+    return events
 
 
 def main() -> None:

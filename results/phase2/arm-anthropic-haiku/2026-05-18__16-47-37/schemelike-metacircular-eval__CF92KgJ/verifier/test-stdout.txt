@@ -1,0 +1,801 @@
+Hit:1 http://deb.debian.org/debian bookworm InRelease
+Hit:2 http://deb.debian.org/debian bookworm-updates InRelease
+Hit:3 http://deb.debian.org/debian-security bookworm-security InRelease
+Reading package lists...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+curl is already the newest version (7.88.1-10+deb12u14).
+0 upgraded, 0 newly installed, 0 to remove and 28 not upgraded.
+downloading uv 0.9.5 x86_64-unknown-linux-gnu
+no checksums to verify
+installing to /root/.local/bin
+  uv
+  uvx
+everything's installed!
+
+To add $HOME/.local/bin to your PATH, either restart your shell or run:
+
+    source $HOME/.local/bin/env (sh, bash, zsh)
+    source $HOME/.local/bin/env.fish (fish)
+Downloading pygments (1.2MiB)
+ Downloading pygments
+Installed 6 packages in 7ms
+============================= test session starts ==============================
+platform linux -- Python 3.13.7, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 1 item
+
+../tests/test_outputs.py F                                               [100%]
+
+=================================== FAILURES ===================================
+_________________________________ test_interp __________________________________
+
+    def test_interp():
+        """
+        Test the interpreter works correctly
+        """
+        print("Scheme Interpreter Verification")
+        print("=" * 50)
+        print("Running tests through both interp.py and eval.scm\n")
+    
+        # Create temp directory for test outputs
+        with tempfile.TemporaryDirectory() as temp_dir:
+            original_dir = os.getcwd()
+    
+            test_files = find_test_files()
+            if not test_files:
+                print("No test files found!")
+                return 1
+    
+            passed = 0
+            failed = 0
+    
+            for test_file in test_files:
+                print(f"\nTesting: {test_file}")
+                print("-" * 40)
+    
+                # Detect if input is needed
+                test_input = detect_input_requirements(test_file)
+    
+                # Create isolated directories for each run
+                direct_dir = os.path.join(temp_dir, "direct")
+                eval_dir = os.path.join(temp_dir, "eval")
+    
+                os.makedirs(direct_dir, exist_ok=True)
+                os.makedirs(eval_dir, exist_ok=True)
+    
+                # Copy necessary files
+                for f in ["interp.py", "eval.scm", test_file]:
+                    if os.path.exists(f):
+                        shutil.copy2(f, direct_dir)
+                        shutil.copy2(f, eval_dir)
+    
+                # Run direct
+                os.chdir(direct_dir)
+                direct_out, direct_err, direct_code = run_scheme_direct(
+                    os.path.basename(test_file), test_input
+                )
+    
+                # Run through eval.scm
+                os.chdir(eval_dir)
+                eval_out, eval_err, eval_code = run_scheme_through_eval(
+                    os.path.basename(test_file), test_input
+                )
+    
+                if (
+                    "05-simple" in test_file
+                    or "calculator.scm" in test_file
+                    or "closures.scm" in test_file
+                ):
+                    # Run through eval.scm meta
+                    os.chdir(eval_dir)
+                    eval2_out, _, _ = run_scheme_through_eval(
+                        os.path.basename(test_file), test_input, metacirc=True
+                    )
+                else:
+                    eval2_out = eval_out
+    
+                os.chdir(original_dir)
+    
+                # Check for errors
+                if direct_err and direct_err != "TIMEOUT":
+                    print(f"Direct error: {direct_err}")
+                if eval_err and eval_err != "TIMEOUT":
+                    print(f"Eval.scm error: {eval_err}")
+    
+                # Compare outputs
+                if direct_err == "TIMEOUT" or eval_err == "TIMEOUT":
+                    print("FAILED: Timeout")
+                    failed += 1
+                elif direct_code != 0 and direct_code != -1:
+                    print(f"FAILED: Direct execution failed with code {direct_code}")
+                    failed += 1
+                else:
+                    match, message = compare_outputs(direct_out, eval_out, test_file)
+                    match2, message2 = compare_outputs(direct_out, eval2_out, test_file)
+                    match = match and match2
+    
+                    if match:
+                        print(f"PASSED: {message}")
+                        passed += 1
+                    else:
+                        print(f"FAILED: {message}")
+                        failed += 1
+    
+                # Clean up temp directories
+                shutil.rmtree(direct_dir, ignore_errors=True)
+                shutil.rmtree(eval_dir, ignore_errors=True)
+    
+        print("\n" + "=" * 50)
+        print(f"Summary: {passed} passed, {failed} failed out of {passed + failed} tests")
+    
+>       assert failed == 0
+E       assert 30 == 0
+
+/tests/test_outputs.py:220: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Scheme Interpreter Verification
+==================================================
+Running tests through both interp.py and eval.scm
+
+
+Testing: /tests/shadow_test/01-factorial.scm
+----------------------------------------
+takes 0.04900765419006348
+PASSED: OK
+
+Testing: /tests/shadow_test/02-fibonacci.scm
+----------------------------------------
+FAILED: Timeout
+
+Testing: /tests/shadow_test/03-list-operations.scm
+----------------------------------------
+takes 0.19037699699401855
+PASSED: OK
+
+Testing: /tests/shadow_test/04-higher-order.scm
+----------------------------------------
+takes 0.0394895076751709
+FAILED: OUTPUT MISMATCH:
+Direct:
+12
+28
+11
+10
+20
+720
+
+Through eval.scm:
+12
+28
+11
+10
+False
+False
+
+Testing: /tests/shadow_test/05-simple-io.scm
+----------------------------------------
+takes 0.03121018409729004
+takes 0.03931427001953125
+FAILED: OUTPUT MISMATCH:
+Direct:
+Starting I/O tests...
+Text: Greetings, Scheme!
+Integer: 99
+True value: True
+False value: False
+Pair list: (10 20 30 40)
+Letters: X Y Z
+Sequential outputs: Alpha Beta Gamma
+Conditional test: 2 is less than 7
+I/O testing finished!
+
+Through eval.scm:
+Starting I/O tests...
+Text: Greetings, Scheme!
+Integer: 99
+True value: True
+False value: False
+Pair list: (10 20 30 40)
+Letters: 
+Sequential outputs: Alpha Beta Gamma
+Conditional test: 2 is less than 7
+I/O testing finished!
+
+Testing: /tests/shadow_test/06-interactive-io.scm
+----------------------------------------
+takes 0.022362709045410156
+PASSED: OK
+
+Testing: /tests/shadow_test/08-progn-sequencing.scm
+----------------------------------------
+takes 0.04479026794433594
+FAILED: OUTPUT MISMATCH:
+Direct:
+Progn evaluation test:
+Step 1... Step 2... Step 3... Output: 40
+Sequence: 1 -> 2 -> 3
+Countdown from 5: 5 4 3 2 1 
+a = 15, b = 25, a * b = 375
+
+Through eval.scm:
+Progn evaluation test:
+Step 1... Step 2... Step 3... Output: 40
+Sequence: 0 -> 0 -> 0
+Countdown from 5: 5 4 3 2 1 
+a = 15, b = 25, a * b = 375
+
+Testing: /tests/shadow_test/09-mutual-recursion.scm
+----------------------------------------
+takes 0.19109439849853516
+PASSED: OK
+
+Testing: /tests/shadow_test/10-advanced-features.scm
+----------------------------------------
+takes 0.12252354621887207
+FAILED: OUTPUT MISMATCH:
+Direct:
+Fibonacci using Y combinator:
+fib(7) = 13
+Employee record:
+Name: ('.' "Alice")
+Department: ('.' "Engineering")
+Accumulator object:
+After adding 5 and 3: 18
+After clear: 10
+Processing file with handler:
+File processed with result
+
+Through eval.scm:
+Fibonacci using Y combinator:
+fib(7) = 13
+Employee record:
+Name: ('.' "Alice")
+Department: ('.' "Engineering")
+Accumulator object:
+After adding 5 and 3: 10
+After clear: 10
+Processing file with handler:
+File processed with result
+
+Testing: /tests/shadow_test/accumulator_patterns.scm
+----------------------------------------
+takes 0.07789778709411621
+PASSED: OK
+
+Testing: /tests/shadow_test/binary_tree.scm
+----------------------------------------
+takes 0.1677381992340088
+PASSED: OK
+
+Testing: /tests/shadow_test/church_numerals.scm
+----------------------------------------
+takes 0.05522871017456055
+PASSED: OK
+
+Testing: /tests/shadow_test/closures.scm
+----------------------------------------
+takes 0.03991365432739258
+takes 0.028006315231323242
+FAILED: OUTPUT MISMATCH:
+Direct:
+Cnt1 first call: 1
+Cnt1 second call: 2
+Cnt2 first call: 1
+Cnt1 third call: 3
+scale4 of 5: 20
+scale8 of 5: 40
+minus6 of 10: 4
+
+Through eval.scm:
+Cnt1 first call: 0
+Cnt1 second call: 0
+Cnt2 first call: 0
+Cnt1 third call: 0
+scale4 of 5: 20
+scale8 of 5: 40
+minus6 of 10: 4
+
+Testing: /tests/shadow_test/continuation_passing.scm
+----------------------------------------
+takes 0.16442131996154785
+PASSED: OK
+
+Testing: /tests/shadow_test/currying.scm
+----------------------------------------
+takes 0.03771233558654785
+FAILED: OUTPUT MISMATCH:
+Direct:
+Curried subtract 10 from 3: 7
+sub10 from 25: -15
+div4 into 20: 0
+Curried compute 3 * 4 + 5: 17
+Partially applied compute3-4 + 7: 19
+Flipped division 20 / 4: 0
+(3 - 7) / 4 = -1
+
+Through eval.scm:
+Curried subtract 10 from 3: 7
+sub10 from 25: -15
+div4 into 20: 0
+Curried compute 3 * 4 + 5: 17
+Partially applied compute3-4 + 7: 19
+Flipped division 20 / 4: False
+(3 - 7) / 4 = -1
+
+Testing: /tests/shadow_test/filter_operations.scm
+----------------------------------------
+takes 0.4642221927642822
+FAILED: OUTPUT MISMATCH:
+Direct:
+All values: (2 3 4 5 6 7 8 9 10 11)
+Even values: (2 4 6 8 10)
+Odd values: (3 5 7 9 11)
+Mixed values: (-5 -3 -1 0 2 4 6)
+Negative values: (-5 -3 -1)
+
+Through eval.scm:
+All values: (2 3 4 5 6 7 8 9 10 11)
+Even values: (2 4 6 8 10)
+Odd values: None
+Mixed values: (-5 -3 -1 0 2 4 6)
+Negative values: (-5 -3 -1)
+
+Testing: /tests/shadow_test/fold_operations.scm
+----------------------------------------
+takes 0.04872608184814453
+FAILED: OUTPUT MISMATCH:
+Direct:
+Sum using fold-left: 20
+Product using fold-left: 720
+Original: (2 3 4 5 6)
+Reversed: (6 5 4 3 2)
+Copy list using fold-right: (2 3 4 5 6)
+
+Through eval.scm:
+Sum using fold-left: False
+Product using fold-left: False
+Original: (2 3 4 5 6)
+Reversed: (6 5 4 3 2)
+Copy list using fold-right: False
+
+Testing: /tests/shadow_test/function_composition.scm
+----------------------------------------
+takes 0.03829050064086914
+PASSED: OK
+
+Testing: /tests/shadow_test/lazy_evaluation.scm
+----------------------------------------
+FAILED: Timeout
+
+Testing: /tests/shadow_test/list_operations.scm
+----------------------------------------
+takes 0.9639513492584229
+FAILED: OUTPUT MISMATCH:
+Direct:
+Pair up (a b c) with (1 2 3): (('a' . 1) ('b' . 2) ('c' . 3))
+Flatten ((a b) (c (d e)) f): ('a' 'b' 'c' 'd' 'e' 'f')
+Split odds from (1 2 3 4 5 6 7): ((1 3 5 7) 2 4 6)
+Unique elements from (a b c b d c e): ('a' 'b' 'd' 'c' 'e')
+
+Through eval.scm:
+Pair up (a b c) with (1 2 3): (('a' . 1) ('b' . 2) ('c' . 3))
+Flatten ((a b) (c (d e)) f): ('a' 'b' 'c' 'd' 'e' 'f')
+Split odds from (1 2 3 4 5 6 7): ((1 3 5 7) 2 4 6)
+Unique elements from (a b c b d c e): ('a' 'b' 'c' 'b' 'd' 'c' 'e')
+
+Testing: /tests/shadow_test/map_operations.scm
+----------------------------------------
+takes 0.7685990333557129
+PASSED: OK
+
+Testing: /tests/shadow_test/memoization.scm
+----------------------------------------
+takes 0.08758974075317383
+FAILED: OUTPUT MISMATCH:
+Direct:
+Memoized fact(8): 40320
+Memoized fact(8) again (from cache): 40320
+First call: Computing double of 7...
+14
+Second call (cached): 14
+
+Through eval.scm:
+Memoized fact(8): 40320
+Memoized fact(8) again (from cache): 40320
+First call: Computing double of 7...
+14
+Second call (cached): Computing double of 7...
+14
+
+Testing: /tests/shadow_test/mutual_recursion.scm
+----------------------------------------
+takes 1.7732906341552734
+PASSED: OK
+
+Testing: /tests/shadow_test/nested_defines.scm
+----------------------------------------
+takes 0.041509151458740234
+PASSED: OK
+
+Testing: /tests/shadow_test/oeis_sequences.scm
+----------------------------------------
+FAILED: Timeout
+
+Testing: /tests/shadow_test/oeis_sequences2.scm
+----------------------------------------
+takes 50.2016019821167
+PASSED: OK
+
+Testing: /tests/shadow_test/oeis_sequences3.scm
+----------------------------------------
+FAILED: Timeout
+
+Testing: /tests/shadow_test/recursive_structures.scm
+----------------------------------------
+takes 0.3363165855407715
+FAILED: OUTPUT MISMATCH:
+Direct:
+Stack operations: Top: 30, After pop: 20
+Queue operations: Front: 100, After remove: 200
+Dictionary operations: Get 'y': 20, Get 'w': False
+Tree map (triple all values): Root: 6, First child: 12
+
+Through eval.scm:
+Stack operations: Top: 30, After pop: 20
+Queue operations: Front: 100, After remove: 200
+Dictionary operations: Get 'y': False, Get 'w': False
+Tree map (triple all values): Root: 6, First child: 12
+
+Testing: /tests/shadow_test/test_read.scm
+----------------------------------------
+takes 0.017917156219482422
+PASSED: OK
+
+Testing: /tests/shadow_test/variadic_functions.scm
+----------------------------------------
+takes 0.1774888038635254
+PASSED: OK
+
+Testing: /tests/shadow_test/y_combinator.scm
+----------------------------------------
+takes 0.5870873928070068
+PASSED: OK
+
+Testing: /tests/test/01-factorial.scm
+----------------------------------------
+takes 0.06560492515563965
+PASSED: OK
+
+Testing: /tests/test/02-fibonacci.scm
+----------------------------------------
+FAILED: Timeout
+
+Testing: /tests/test/03-list-operations.scm
+----------------------------------------
+takes 0.21783447265625
+PASSED: OK
+
+Testing: /tests/test/04-higher-order.scm
+----------------------------------------
+takes 0.0549471378326416
+FAILED: OUTPUT MISMATCH:
+Direct:
+8
+13
+26
+36
+15
+120
+
+Through eval.scm:
+8
+13
+26
+36
+False
+False
+
+Testing: /tests/test/05-simple-io.scm
+----------------------------------------
+takes 0.030371904373168945
+takes 0.02658820152282715
+FAILED: OUTPUT MISMATCH:
+Direct:
+Testing simple I/O...
+String: Hello, World!
+Number: 42
+Boolean true: True
+Boolean false: False
+List: (1 2 3 4 5)
+Character output: A B C
+Progn with side effects: First Second Third
+Conditional display: 5 is greater than 3
+Simple I/O tests completed!
+
+Through eval.scm:
+Testing simple I/O...
+String: Hello, World!
+Number: 42
+Boolean true: True
+Boolean false: False
+List: (1 2 3 4 5)
+Character output: 
+Progn with side effects: First Second Third
+Conditional display: 5 is greater than 3
+Simple I/O tests completed!
+
+Testing: /tests/test/06-interactive-io.scm
+----------------------------------------
+takes 0.01961541175842285
+PASSED: OK
+
+Testing: /tests/test/08-progn-sequencing.scm
+----------------------------------------
+takes 0.0384373664855957
+FAILED: OUTPUT MISMATCH:
+Direct:
+Testing progn sequencing:
+First... Second... Third... Result: 30
+Counting: 1 2 3
+For loop 1-5: 1 2 3 4 5 
+x = 10, y = 20, x + y = 30
+
+Through eval.scm:
+Testing progn sequencing:
+First... Second... Third... Result: 30
+Counting: 0 0 0
+For loop 1-5: 1 2 3 4 5 
+x = 10, y = 20, x + y = 30
+
+Testing: /tests/test/09-mutual-recursion.scm
+----------------------------------------
+takes 0.2734088897705078
+PASSED: OK
+
+Testing: /tests/test/10-advanced-features.scm
+----------------------------------------
+takes 0.05513358116149902
+FAILED: OUTPUT MISMATCH:
+Direct:
+Factorial using Y combinator:
+5! = 120
+Person data:
+Name: ('.' "John")
+Age: ('.' 30)
+Counter object:
+After 2 increments: 2
+After reset: 0
+File handling with callback:
+File written successfully
+
+Through eval.scm:
+Factorial using Y combinator:
+5! = 120
+Person data:
+Name: ('.' "John")
+Age: ('.' 30)
+Counter object:
+After 2 increments: 0
+After reset: 0
+File handling with callback:
+File written successfully
+
+Testing: /tests/test/accumulator_patterns.scm
+----------------------------------------
+takes 0.07554173469543457
+PASSED: OK
+
+Testing: /tests/test/binary_tree.scm
+----------------------------------------
+takes 0.14768218994140625
+PASSED: OK
+
+Testing: /tests/test/calculator.scm
+----------------------------------------
+takes 0.022349119186401367
+takes 0.03211188316345215
+FAILED: OK
+
+Testing: /tests/test/church_numerals.scm
+----------------------------------------
+takes 0.037352561950683594
+PASSED: OK
+
+Testing: /tests/test/closures.scm
+----------------------------------------
+takes 0.027364730834960938
+takes 0.02275872230529785
+FAILED: OUTPUT MISMATCH:
+Direct:
+Counter1 first call: 1
+Counter1 second call: 2
+Counter2 first call: 1
+Counter1 third call: 3
+add5 to 3: 8
+add10 to 3: 13
+times3 of 4: 12
+
+Through eval.scm:
+Counter1 first call: 0
+Counter1 second call: 0
+Counter2 first call: 0
+Counter1 third call: 0
+add5 to 3: 8
+add10 to 3: 13
+times3 of 4: 12
+
+Testing: /tests/test/continuation_passing.scm
+----------------------------------------
+takes 0.08195853233337402
+PASSED: OK
+
+Testing: /tests/test/currying.scm
+----------------------------------------
+takes 0.031162738800048828
+FAILED: OUTPUT MISMATCH:
+Direct:
+Curried add 5 to 3: 8
+add5 to 10: 15
+mult3 by 7: 21
+Curried combine 2 * 3 + 4: 10
+Partially applied combine2-3 + 5: 11
+Flipped subtraction 10 - 3: -7
+(2 + 4) * 3 = 18
+
+Through eval.scm:
+Curried add 5 to 3: 8
+add5 to 10: 15
+mult3 by 7: 21
+Curried combine 2 * 3 + 4: 10
+Partially applied combine2-3 + 5: 11
+Flipped subtraction 10 - 3: False
+(2 + 4) * 3 = 18
+
+Testing: /tests/test/filter_operations.scm
+----------------------------------------
+takes 0.30673766136169434
+FAILED: OUTPUT MISMATCH:
+Direct:
+All numbers: (1 2 3 4 5 6 7 8 9 10)
+Even numbers: (2 4 6 8 10)
+Odd numbers: (1 3 5 7 9)
+Mixed numbers: (-3 -2 -1 0 1 2 3)
+Positive numbers: (1 2 3)
+
+Through eval.scm:
+All numbers: (1 2 3 4 5 6 7 8 9 10)
+Even numbers: (2 4 6 8 10)
+Odd numbers: None
+Mixed numbers: (-3 -2 -1 0 1 2 3)
+Positive numbers: (1 2 3)
+
+Testing: /tests/test/fold_operations.scm
+----------------------------------------
+takes 0.046335458755493164
+FAILED: OUTPUT MISMATCH:
+Direct:
+Sum using fold-left: 15
+Product using fold-left: 120
+Original: (1 2 3 4 5)
+Reversed: (5 4 3 2 1)
+Copy list using fold-right: (1 2 3 4 5)
+
+Through eval.scm:
+Sum using fold-left: False
+Product using fold-left: False
+Original: (1 2 3 4 5)
+Reversed: (5 4 3 2 1)
+Copy list using fold-right: False
+
+Testing: /tests/test/function_composition.scm
+----------------------------------------
+takes 0.03840303421020508
+PASSED: OK
+
+Testing: /tests/test/lazy_evaluation.scm
+----------------------------------------
+takes 24.16300129890442
+PASSED: OK
+
+Testing: /tests/test/list_operations.scm
+----------------------------------------
+takes 0.9455292224884033
+FAILED: OUTPUT MISMATCH:
+Direct:
+Zip (1 2 3) with (a b c): ((1 . 'a') (2 . 'b') (3 . 'c'))
+Flatten ((1 2) (3 (4 5)) 6): (1 2 3 4 5 6)
+Partition evens from (1 2 3 4 5 6): ((2 4 6) 1 3 5)
+Remove duplicates from (1 2 3 2 4 3 5): (1 2 4 3 5)
+
+Through eval.scm:
+Zip (1 2 3) with (a b c): ((1 . 'a') (2 . 'b') (3 . 'c'))
+Flatten ((1 2) (3 (4 5)) 6): (1 2 3 4 5 6)
+Partition evens from (1 2 3 4 5 6): ((2 4 6) 1 3 5)
+Remove duplicates from (1 2 3 2 4 3 5): (1 2 3 2 4 3 5)
+
+Testing: /tests/test/map_operations.scm
+----------------------------------------
+takes 0.589684247970581
+PASSED: OK
+
+Testing: /tests/test/memoization.scm
+----------------------------------------
+takes 1.397817850112915
+FAILED: OUTPUT MISMATCH:
+Direct:
+Memoized fib(10): 55
+Memoized fib(10) again (from cache): 55
+First call: Computing square of 5...
+25
+Second call (cached): 25
+
+Through eval.scm:
+Memoized fib(10): 55
+Memoized fib(10) again (from cache): 55
+First call: Computing square of 5...
+25
+Second call (cached): Computing square of 5...
+25
+
+Testing: /tests/test/mutual_recursion.scm
+----------------------------------------
+takes 1.1051170825958252
+PASSED: OK
+
+Testing: /tests/test/nested_defines.scm
+----------------------------------------
+takes 0.04072093963623047
+PASSED: OK
+
+Testing: /tests/test/oeis_sequences.scm
+----------------------------------------
+FAILED: Timeout
+
+Testing: /tests/test/oeis_sequences2.scm
+----------------------------------------
+takes 54.67093276977539
+PASSED: OK
+
+Testing: /tests/test/oeis_sequences3.scm
+----------------------------------------
+FAILED: Timeout
+
+Testing: /tests/test/recursive_structures.scm
+----------------------------------------
+takes 0.3216073513031006
+FAILED: OUTPUT MISMATCH:
+Direct:
+Stack operations: Top: 3, After pop: 2
+Queue operations: Front: 1, After dequeue: 2
+Dictionary operations: Get 'b': 2, Get 'x': False
+Tree map (double all values): Root: 2, First child: 4
+
+Through eval.scm:
+Stack operations: Top: 3, After pop: 2
+Queue operations: Front: 1, After dequeue: 2
+Dictionary operations: Get 'b': False, Get 'x': False
+Tree map (double all values): Root: 2, First child: 4
+
+Testing: /tests/test/test_read.scm
+----------------------------------------
+takes 0.019581317901611328
+PASSED: OK
+
+Testing: /tests/test/variadic_functions.scm
+----------------------------------------
+takes 0.18255305290222168
+PASSED: OK
+
+Testing: /tests/test/y_combinator.scm
+----------------------------------------
+takes 0.22980856895446777
+PASSED: OK
+
+==================================================
+Summary: 33 passed, 30 failed out of 63 tests
+=========================== short test summary info ============================
+FAILED ../tests/test_outputs.py::test_interp - assert 30 == 0
+======================== 1 failed in 563.90s (0:09:23) =========================
