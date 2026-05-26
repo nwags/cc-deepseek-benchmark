@@ -18,6 +18,15 @@ from scripts.lib.arms import (
 )
 
 
+SENSITIVE_KEY_FRAGMENTS = (
+    "KEY",
+    "TOKEN",
+    "SECRET",
+    "PASSWORD",
+    "CREDENTIAL",
+)
+
+
 def parse_env_file(path: str | Path) -> dict[str, str]:
     p = Path(path)
     if not p.exists():
@@ -53,9 +62,60 @@ def build_env(base: dict[str, str], arm: dict[str, Any]) -> dict[str, str]:
     return env
 
 
+def agent_env_keys_for_arm(arm: dict[str, Any]) -> list[str]:
+    explicit = arm.get("agent_env_keys")
+    if explicit is not None:
+        return [str(key) for key in explicit]
+
+    keys: list[str] = []
+
+    for dest in (arm.get("secret_env_map") or {}).keys():
+        keys.append(str(dest))
+
+    for key in (arm.get("env") or {}).keys():
+        keys.append(str(key))
+
+    return sorted(dict.fromkeys(keys))
+
+
+def is_sensitive_env_key(key: str) -> bool:
+    upper = key.upper()
+    return any(fragment in upper for fragment in SENSITIVE_KEY_FRAGMENTS)
+
+
+def redact_agent_env_arg(arg: str) -> str:
+    if "=" not in arg:
+        return arg
+
+    key, value = arg.split("=", 1)
+    if is_sensitive_env_key(key):
+        return f"{key}=<redacted>"
+
+    return f"{key}={value}"
+
+
+def redact_command(cmd: list[str]) -> list[str]:
+    redacted: list[str] = []
+    i = 0
+
+    while i < len(cmd):
+        part = cmd[i]
+        redacted.append(part)
+
+        if part == "--agent-env" and i + 1 < len(cmd):
+            redacted.append(redact_agent_env_arg(cmd[i + 1]))
+            i += 2
+            continue
+
+        i += 1
+
+    return redacted
+
+
 def build_harbor_command(
     phase: dict[str, Any],
     arm: dict[str, Any],
+    env: dict[str, str],
     mode: str,
     n_attempts: int | None,
     n_concurrent: int | None,
@@ -87,6 +147,11 @@ def build_harbor_command(
     model = arm.get("model")
     if model:
         cmd.extend(["--model", str(model)])
+
+    for key in agent_env_keys_for_arm(arm):
+        if key not in env:
+            raise ConfigError(f"Configured agent env key is missing after env build: {key}")
+        cmd.extend(["--agent-env", f"{key}={env[key]}"])
 
     for task in tasks:
         cmd.extend(["--include-task-name", task])
@@ -128,6 +193,7 @@ def main(argv: list[str] | None = None) -> int:
         cmd, jobs_dir = build_harbor_command(
             phase=phase,
             arm=arm,
+            env=env,
             mode=args.mode,
             n_attempts=args.n_attempts,
             n_concurrent=args.n_concurrent,
@@ -141,7 +207,7 @@ def main(argv: list[str] | None = None) -> int:
     print("mode:", args.mode)
     print("jobs_dir:", jobs_dir)
     print("command:")
-    print(" ".join(shlex.quote(x) for x in cmd))
+    print(" ".join(shlex.quote(x) for x in redact_command(cmd)))
 
     if args.dry_run:
         return 0
