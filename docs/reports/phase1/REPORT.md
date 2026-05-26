@@ -208,7 +208,7 @@ Anthropic costs use `provider_reported_cost_usd`, which matched the Anthropic-si
 
 ### 6.1 Overall quality, cost, and speed
 
-![Trial success rate with Wilson intervals](figures/success_rate.png)
+![Trial success rate with Wilson intervals](../../../figures/phase1/success_rate.png)
 
 **Quality summary**
 
@@ -243,7 +243,7 @@ Interpretation:
 
 ### 6.2 Per-task success
 
-![Per-task success heatmap](figures/success_heatmap.png)
+![Per-task success heatmap](../../../figures/phase1/success_heatmap.png)
 
 | Task                             |   Anthropic Sonnet |   DeepSeek V4-Pro |   DeepSeek V4-Flash |
 |:---------------------------------|-------------------:|------------------:|--------------------:|
@@ -282,7 +282,7 @@ Tasks with at least a two-attempt gap between arms are the best qualitative-revi
 
 ### 6.4 Speed
 
-![Median wall-clock time](figures/median_wall_clock.png)
+![Median wall-clock time](../../../figures/phase1/median_wall_clock.png)
 
 Median wall-clock:
 
@@ -313,9 +313,9 @@ Failed runs are slower in all arms, which is expected: failures often reach veri
 
 ### 6.5 Cost
 
-![Cost per successful trial](figures/cost_success.png)
+![Cost per successful trial](../../../figures/phase1/cost_success.png)
 
-![Cost per resolved task](figures/cost_resolved.png)
+![Cost per resolved task](../../../figures/phase1/cost_resolved.png)
 
 DeepSeek's cost advantage is the strongest result:
 
@@ -326,7 +326,7 @@ DeepSeek's cost advantage is the strongest result:
 
 ### 6.6 Agent turns and tool calls
 
-![Median agent turns](figures/agent_turns.png)
+![Median agent turns](../../../figures/phase1/agent_turns.png)
 
 | Arm               |   Median agent turns |   Median tool calls |   Mean agent turns |   Mean tool calls |
 |:------------------|---------------------:|--------------------:|-------------------:|------------------:|
@@ -338,7 +338,7 @@ DeepSeek Pro used more turns and tool calls than Anthropic. Flash used even more
 
 ### 6.7 Failure modes
 
-![Failure-mode distribution](figures/failure_modes.png)
+![Failure-mode distribution](../../../figures/phase1/failure_modes.png)
 
 | Arm               |   Success |   Produced wrong output / failed verifier |   Timed out |   Looped |   Refused-to-try / setup failure |   Ran-out-of-budget / agent process error |
 |:------------------|----------:|------------------------------------------:|------------:|---------:|---------------------------------:|------------------------------------------:|

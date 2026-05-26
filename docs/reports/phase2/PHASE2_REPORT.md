@@ -415,7 +415,7 @@ The labels are rule-assisted and useful diagnostically, but they should not be t
 
 ### 7.1 Overall quality
 
-![Phase 2 trial success rate with 95% Wilson confidence intervals](figures/phase2_success_rate.png)
+![Phase 2 trial success rate with 95% Wilson confidence intervals](../../../figures/phase2/phase2_success_rate.png)
 
 | Arm               |   Successes |   Trials |   Success % |   95% Wilson CI low % |   95% Wilson CI high % |
 |:------------------|------------:|---------:|------------:|----------------------:|-----------------------:|
@@ -429,9 +429,9 @@ The Wilson intervals overlap across several arms, so small differences should no
 
 ### 7.2 Cost
 
-![Phase 2 cost per successful trial](figures/phase2_cost_success.png)
+![Phase 2 cost per successful trial](../../../figures/phase2/phase2_cost_success.png)
 
-![Phase 2 cost per resolved task](figures/phase2_cost_resolved.png)
+![Phase 2 cost per resolved task](../../../figures/phase2/phase2_cost_resolved.png)
 
 | Arm               |   Total cost $ |   Cost / successful trial $ |   Tasks solved >=1 |   Cost / resolved task $ |
 |:------------------|---------------:|----------------------------:|-------------------:|-------------------------:|
@@ -445,7 +445,7 @@ The DeepSeek cost advantage remains the largest economic result. DeepSeek V4-Pro
 
 ### 7.3 Speed
 
-![Phase 2 median wall-clock time per trial](figures/phase2_median_wall_clock.png)
+![Phase 2 median wall-clock time per trial](../../../figures/phase2/phase2_median_wall_clock.png)
 
 | Arm               |   Median wall s |   Mean wall s |   Median agent exec s |   Mean agent exec s |
 |:------------------|----------------:|--------------:|----------------------:|--------------------:|
@@ -459,9 +459,9 @@ Haiku had the shortest median wall-clock time, but this came with the lowest suc
 
 ### 7.4 Agent turns and tool calls
 
-![Phase 2 median agent turns per trial](figures/phase2_agent_turns.png)
+![Phase 2 median agent turns per trial](../../../figures/phase2/phase2_agent_turns.png)
 
-![Phase 2 median tool calls per trial](figures/phase2_tool_calls.png)
+![Phase 2 median tool calls per trial](../../../figures/phase2/phase2_tool_calls.png)
 
 | Arm               |   Median agent turns |   Median tool calls |   Median Bash calls |   Mean turns |   Mean tool calls |
 |:------------------|---------------------:|--------------------:|--------------------:|-------------:|------------------:|
@@ -475,7 +475,7 @@ Tool-call counts are a property of the whole Claude Code agent loop, not just th
 
 ### 7.5 Failure modes
 
-![Phase 2 failure-mode distribution by arm](figures/phase2_failure_modes.png)
+![Phase 2 failure-mode distribution by arm](../../../figures/phase2/phase2_failure_modes.png)
 
 | Arm               |   Success |   Produced wrong output |   Timed out |   Looped |   Refused-to-try |   Ran out of budget |
 |:------------------|----------:|------------------------:|------------:|---------:|-----------------:|--------------------:|
@@ -530,7 +530,7 @@ This version drift should be disclosed. It is a threat to perfect reproducibilit
 
 ### 7.7 Per-task success rates
 
-![Phase 2 per-task success rate heatmap](figures/phase2_success_heatmap.png)
+![Phase 2 per-task success rate heatmap](../../../figures/phase2/phase2_success_heatmap.png)
 
 Values are percentages across three attempts per arm.
 

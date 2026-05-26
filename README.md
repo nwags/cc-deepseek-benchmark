@@ -1,22 +1,32 @@
-# Claude Code Backend Benchmark: Anthropic vs DeepSeek
+# Claude Code Backend Benchmark
 
-This repo benchmarks Claude Code on Terminal-Bench 2.0 via Harbor using three model backend configurations:
+Benchmarking Claude Code model/provider backends on Terminal-Bench 2.0 using Harbor.
 
-- Arm A: Anthropic Claude
-- Arm B: DeepSeek V4-Pro through DeepSeek's Anthropic-compatible endpoint
-- Arm C: DeepSeek V4-Flash through DeepSeek's Anthropic-compatible endpoint
+Current active branch:
 
-The goal is to test whether swapping Claude Code's model backend from Anthropic to DeepSeek preserves task quality while improving speed and cost per resolved task.
+```text
+phase3
+```
 
-## Reproduction
+This branch starts the Phase 3 repository refactor and router-mediated provider expansion. Phase 1 and Phase 2 are treated as frozen benchmark baselines.
 
-See scripts/ for benchmark commands.
+## Project question
 
-Raw Harbor outputs are committed under results/.
+Claude Code is an agent harness: it decides when to read files, run shell commands, edit code, use tools, and re-plan. The model backend is the language model called inside that loop.
 
-Final analysis is in analysis.ipynb or analysis.md.
+This project asks:
 
-Final conclusions are in FINDINGS.md.
+```text
+What happens when the Claude Code agent harness is held fixed but the model/provider backend changes?
+```
+
+The benchmark uses:
+
+* Claude Code as the fixed terminal-agent harness
+* Harbor as the benchmark runner
+* Terminal-Bench 2.0 as the task substrate
+* phase-specific model/backend arms
+* trial-level raw outputs and aggregate CSVs for analysis
 
 ## Harbor CLI version note
 
@@ -38,3 +48,445 @@ harbor run --dataset terminal-bench@2.0
 - Python via uv/Conda: 3.13.12
 - Harbor: 0.6.6
 - Dataset: terminal-bench@2.0
+
+## Current branch: Phase 3
+
+The current `phase3` branch is for:
+
+* repo housekeeping and collaboration-oriented refactoring
+* config-driven phase/arm execution
+* router-mediated Claude Code provider expansion
+* future Gemini, OpenAI, and xAI/Grok experiments through a router/gateway
+* preserving Phase 1 and Phase 2 results while making future phases easier to delegate
+
+Phase 3 results should be written under:
+
+```text
+results/phase3/
+```
+
+Phase 3 reports should be written under:
+
+```text
+docs/reports/phase3/
+```
+
+Phase 3 plans should be written under:
+
+```text
+docs/plans/phase3/
+```
+
+## Phase 1: frozen baseline
+
+Phase 1 compared three Claude Code backend configurations:
+
+| Arm               | Backend                                | Model/routing                             |
+| ----------------- | -------------------------------------- | ----------------------------------------- |
+| Anthropic Sonnet  | Anthropic native                       | `claude-sonnet-4-6`                       |
+| DeepSeek V4-Pro   | DeepSeek Anthropic-compatible endpoint | `deepseek-v4-pro` / `deepseek-v4-pro[1m]` |
+| DeepSeek V4-Flash | DeepSeek Anthropic-compatible endpoint | `deepseek-v4-flash`                       |
+
+Design:
+
+```text
+20 Terminal-Bench 2.0 tasks x 3 attempts x 3 arms = 180 trials
+```
+
+Source-of-truth aggregate:
+
+```text
+results/phase1/combined.csv
+```
+
+Phase 1 raw outputs:
+
+```text
+results/phase1/raw/
+```
+
+Phase 1 reports:
+
+```text
+docs/reports/phase1/
+```
+
+Phase 1 figures:
+
+```text
+figures/phase1/
+```
+
+Headline result:
+
+* Anthropic Sonnet: 39/60 = 65.0%
+* DeepSeek V4-Pro: 42/60 = 70.0%
+* DeepSeek V4-Flash: 37/60 = 61.7%
+
+DeepSeek V4-Pro matched Anthropic quality at dramatically lower cost, but was much slower. DeepSeek V4-Flash was cheapest and near Anthropic speed but slightly lower quality.
+
+## Phase 2: frozen expanded Claude Code backend matrix
+
+Phase 2 expanded the model/backend matrix while keeping Claude Code and the selected 20 Terminal-Bench tasks fixed.
+
+Scored Phase 2 arms:
+
+| Arm               | Backend                                | Model/routing               |
+| ----------------- | -------------------------------------- | --------------------------- |
+| Anthropic Haiku   | Anthropic native                       | `claude-haiku-4-5-20251001` |
+| Anthropic Sonnet  | Anthropic native                       | `claude-sonnet-4-6`         |
+| Anthropic Opus    | Anthropic native                       | `claude-opus-4-7`           |
+| DeepSeek V4-Pro   | DeepSeek Anthropic-compatible endpoint | `deepseek-v4-pro[1m]`       |
+| DeepSeek V4-Flash | DeepSeek Anthropic-compatible endpoint | `deepseek-v4-flash`         |
+
+Design:
+
+```text
+20 Terminal-Bench 2.0 tasks x 3 attempts x 5 arms = 300 scored trials
+```
+
+Source-of-truth aggregate:
+
+```text
+results/phase2/combined.csv
+```
+
+Phase 2 raw outputs:
+
+```text
+results/phase2/raw/
+```
+
+Phase 2 smoke and canary outputs:
+
+```text
+results/phase2/smoke/
+results/phase2/canary/
+```
+
+Phase 2 reports:
+
+```text
+docs/reports/phase2/
+```
+
+Phase 2 figures:
+
+```text
+figures/phase2/
+```
+
+Headline result:
+
+* Anthropic Opus: 45/60 = 75.0%
+* Anthropic Sonnet: 40/60 = 66.7%
+* DeepSeek V4-Pro: 39/60 = 65.0%
+* DeepSeek V4-Flash: 35/60 = 58.3%
+* Anthropic Haiku: 26/60 = 43.3%
+
+Opus achieved the highest Phase 2 success rate. DeepSeek Pro remained close to Sonnet quality at much lower cost but with slower runtime. Flash was extremely cheap and moderately competitive. Haiku was fast but substantially weaker on this task mix.
+
+## Reports
+
+Phase-specific reports live under:
+
+```text
+docs/reports/
+```
+
+Important report locations:
+
+```text
+docs/reports/phase1/REPORT.md
+docs/reports/phase1/analysis.md
+docs/reports/phase1/FINDINGS.md
+docs/reports/phase1/QUALITATIVE_TRANSCRIPT_REVIEW.md
+
+docs/reports/phase2/PHASE2_REPORT.md
+docs/reports/phase2/analysis.md
+```
+
+Plans live under:
+
+```text
+docs/plans/
+```
+
+Reference docs live under:
+
+```text
+docs/reference/
+```
+
+Runbooks live under:
+
+```text
+docs/runbooks/
+```
+
+## Results
+
+Results are phase-specific.
+
+```text
+results/
+  phase1/
+    raw/
+    supplemental/
+    combined.csv
+
+  phase2/
+    raw/
+    smoke/
+    canary/
+    supplemental/
+    combined.csv
+    smoke-combined.csv
+
+  phase3/
+    raw/
+    smoke/
+    canary/
+    supplemental/
+```
+
+Source-of-truth aggregates:
+
+```text
+results/phase1/combined.csv
+results/phase2/combined.csv
+results/phase3/combined.csv
+```
+
+Do not use smoke/canary outputs as if they were scored full-sweep results.
+
+## Figures
+
+Figures are phase-specific.
+
+```text
+figures/
+  phase1/
+  phase2/
+  phase3/
+  phase4/
+  phase5/
+```
+
+Reports should use relative paths that match their final locations.
+
+For example, a report under `docs/reports/phase2/` should reference a Phase 2 figure with a path such as:
+
+```md
+../../../figures/phase2/phase2_success_rate.png
+```
+
+## Configuration
+
+Phase 3 is migrating the repo toward config-driven runs.
+
+Configuration directories:
+
+```text
+configs/
+  arms/     # model/provider/route configs
+  phases/   # phase-level benchmark settings
+  tasks/    # task lists
+```
+
+Task lists:
+
+```text
+configs/tasks/tasks.txt
+configs/tasks/tasks.full.txt
+configs/tasks/terminal-bench-20.txt
+configs/tasks/phase2-smoke.txt
+configs/tasks/phase2-canary.txt
+configs/tasks/terminal_bench_2_all_tasks.txt
+```
+
+During migration, confirm that task-list files under `configs/tasks/` are populated before using them as canonical inputs.
+
+## Secrets
+
+Do not commit secrets.
+
+Expected local-only secret files:
+
+```text
+.secrets/anthropic.env
+.secrets/deepseek.env
+.secrets/gemini.env
+.secrets/openai.env
+.secrets/xai.env
+```
+
+Example `.secrets/anthropic.env`:
+
+```bash
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+Example `.secrets/deepseek.env`:
+
+```bash
+DEEPSEEK_API_KEY=sk-...
+```
+
+`.secrets/` and `.env` must remain ignored.
+
+## Reproduce aggregation without rerunning paid benchmarks
+
+The raw results and aggregate CSVs are committed so analysis can be reproduced without rerunning paid model sweeps.
+
+### Phase 1 aggregation
+
+```bash
+uv run python scripts/aggregate_phase.py phase1
+```
+
+Expected output:
+
+```text
+results/phase1/combined.csv
+```
+
+### Phase 2 aggregation
+
+```bash
+uv run python scripts/aggregate_phase.py phase2
+```
+
+Expected output:
+
+```text
+results/phase2/combined.csv
+```
+
+If the new config-driven aggregation is still being migrated, use the compatibility command documented in `docs/runbooks/RUNBOOK.md` or inspect:
+
+```bash
+python scripts/aggregate_phase.py --help
+```
+
+Do not rerun a full benchmark sweep just to regenerate tables.
+
+## Run a benchmark arm
+
+The intended Phase 3 command shape is:
+
+```bash
+./scripts/run_arm.sh <phase> <arm>
+```
+
+Examples:
+
+```bash
+./scripts/run_arm.sh phase1 anthropic-sonnet
+./scripts/run_arm.sh phase2 deepseek-pro
+./scripts/run_arm.sh phase3-router router-gemini-flash
+```
+
+For smoke/canary work, use the relevant phase config or environment variables documented in the runbook.
+
+Full sweeps incur real API cost. Always run canary/smoke checks before a full paid sweep.
+
+## Checks before committing
+
+Run:
+
+```bash
+make check
+make secret-scan
+git status --short
+```
+
+Equivalent direct commands:
+
+```bash
+bash scripts/check.sh
+bash scripts/secret_scan.sh
+git status --short
+```
+
+Also inspect staged files:
+
+```bash
+git diff --cached --stat
+git diff --cached --name-only
+```
+
+## Repository map
+
+```text
+cc-deepseek-bench/
+  AGENTS.md
+  README.md
+  Makefile
+  pyproject.toml
+  uv.lock
+
+  configs/
+    arms/
+    phases/
+    tasks/
+
+  docs/
+    plans/
+    reference/
+    reports/
+    runbooks/
+
+  scripts/
+    lib/
+    old-scripts/
+    aggregate_phase.py
+    check.sh
+    generate_figures.py
+    run_arm.sh
+    secret_scan.sh
+    summarize_trials.py
+
+  results/
+    phase1/
+    phase2/
+    phase3/
+    phase4/
+    phase5/
+
+  figures/
+    phase1/
+    phase2/
+    phase3/
+    phase4/
+    phase5/
+
+  artifacts/
+    phase1/
+    phase2/
+    phase3/
+    phase4/
+    phase5/
+```
+
+## Collaboration docs
+
+Start here:
+
+```text
+AGENTS.md
+docs/runbooks/RUNBOOK.md
+docs/runbooks/COLLABORATION.md
+docs/runbooks/ARTIFACT_POLICY.md
+docs/runbooks/REPO_MAP.md
+```
+
+## Notes for contributors
+
+* Phase 1 and Phase 2 are frozen.
+* Phase 3 is active.
+* Keep outputs phase-specific.
+* Keep secrets out of Git.
+* Do not conflate smoke/canary runs with scored sweeps.
+* Prefer config-driven additions over one-off scripts.
+* Update runbooks when commands or paths change.
