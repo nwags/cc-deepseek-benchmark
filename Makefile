@@ -19,3 +19,13 @@ aggregate-phase3:
 
 status:
 	git status --short
+
+AUDIT_ROOTS ?= results/phase3
+
+.PHONY: contamination-audit
+contamination-audit:
+	uv run python scripts/audit_tool_usage.py results/phase1 results/phase2 results/phase3
+
+.PHONY: contamination-audit-strict
+contamination-audit-strict:
+	uv run python scripts/audit_tool_usage.py --strict $(AUDIT_ROOTS)
