@@ -21,6 +21,7 @@ status:
 	git status --short
 
 AUDIT_ROOTS ?= results/phase3
+HARDENED_AUDIT_ROOTS ?= results/phase3/raw results/phase3/smoke
 
 .PHONY: contamination-audit
 contamination-audit:
@@ -29,3 +30,7 @@ contamination-audit:
 .PHONY: contamination-audit-strict
 contamination-audit-strict:
 	uv run python scripts/audit_tool_usage.py --strict $(AUDIT_ROOTS)
+
+.PHONY: contamination-audit-phase3-hardened
+contamination-audit-phase3-hardened:
+	uv run python scripts/audit_tool_usage.py --strict --fail-on-available $(HARDENED_AUDIT_ROOTS)

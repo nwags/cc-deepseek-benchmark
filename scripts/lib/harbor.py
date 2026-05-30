@@ -148,6 +148,9 @@ def build_harbor_command(
     if model:
         cmd.extend(["--model", str(model)])
 
+
+    for key, value in (arm.get("agent_kwargs") or {}).items():
+        cmd.extend(["--agent-kwarg", f"{key}={value}"])
     for key in agent_env_keys_for_arm(arm):
         if key not in env:
             raise ConfigError(f"Configured agent env key is missing after env build: {key}")

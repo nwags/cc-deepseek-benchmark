@@ -105,3 +105,21 @@ def test_non_web_tool_use_is_ignored(tmp_path: Path) -> None:
 
     assert report.actual_events == []
     assert report.init_availability_events == []
+
+
+def test_init_availability_can_be_failed_by_policy(tmp_path: Path) -> None:
+    transcript = tmp_path / "claude-code.txt"
+    write_line(
+        transcript,
+        {
+            "type": "system",
+            "subtype": "init",
+            "tools": ["Bash", "Read", "WebFetch"],
+        },
+    )
+
+    report = audit_roots([tmp_path])
+
+    assert len(report.actual_events) == 0
+    assert len(report.init_availability_events) == 1
+    assert report.init_availability_events[0].tool == "WebFetch"

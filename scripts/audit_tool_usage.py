@@ -237,12 +237,19 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Exit nonzero if actual WebSearch/WebFetch usage is found.",
     )
+    parser.add_argument(
+        "--fail-on-available",
+        action="store_true",
+        help="Exit nonzero if WebSearch/WebFetch are present in Claude Code init tool lists.",
+    )
     args = parser.parse_args(argv)
 
     report = audit_roots(args.roots)
     print_report(report)
 
     if args.strict and report.actual_events:
+        return 1
+    if args.fail_on_available and report.init_availability_events:
         return 1
     return 0
 
