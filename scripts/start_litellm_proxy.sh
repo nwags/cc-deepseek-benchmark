@@ -25,6 +25,19 @@ fi
 
 set -a
 source "$ENV_FILE"
+
+# Provider API keys remain in provider-specific secret files.
+# LiteLLM config entries use os.environ/<KEY>, so these files are sourced
+# into the LiteLLM process environment without duplicating keys into
+# .secrets/litellm.env.
+PROVIDER_ENV_FILES="${LITELLM_PROVIDER_ENV_FILES:-.secrets/anthropic.env .secrets/deepseek.env .secrets/openai.env .secrets/gemini.env .secrets/xai.env .secrets/kimi.env .secrets/dashscope.env .secrets/zai.env}"
+
+for provider_env in $PROVIDER_ENV_FILES; do
+  if [[ -f "$provider_env" ]]; then
+    source "$provider_env"
+  fi
+done
+
 set +a
 
 : "${LITELLM_MASTER_KEY:?LITELLM_MASTER_KEY is required in $ENV_FILE}"
