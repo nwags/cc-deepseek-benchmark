@@ -102,3 +102,19 @@ to fail if actual WebSearch/WebFetch usage is found under `AUDIT_ROOTS`, which d
 To audit a specific future result directory strictly:
 
     make contamination-audit-strict AUDIT_ROOTS=results/phase3/raw
+
+## Patch B network-egress probe finding
+
+A Phase 3 diagnostic probe tested Harbor's Docker `allow_internet=false` environment kwarg with router-mediated Claude Code and LiteLLM. Harbor recorded `allow_internet=false` in the run artifacts, but the retained Docker task container still used a normal compose network rather than `network_mode: none`.
+
+A direct connectivity check from the retained task container showed:
+
+- Public egress to `https://example.com` succeeded.
+- The LiteLLM endpoint at `http://172.17.0.1:4000/v1/models` was reachable and returned `401 Unauthorized` without the required bearer token.
+- Therefore the task container had both public internet egress and host-gateway LiteLLM reachability.
+
+Conclusion: do not rely on Harbor `allow_internet=false` as the Phase 3 network-egress control until a stronger Docker/network rule is implemented and verified. For current Phase 3 runs, the verified contamination controls are:
+
+1. Deny Claude Code WebSearch/WebFetch with `--agent-kwarg disallowed_tools=WebSearch,WebFetch`.
+2. Audit artifacts with `scripts/audit_tool_usage.py --strict --fail-on-available`.
+3. Treat public Terminal-Bench results as public-benchmark results, not contamination-proof private evaluations.
