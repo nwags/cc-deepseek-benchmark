@@ -59,6 +59,7 @@ phase3-dry-run:
 
 .PHONY: phase3-run
 phase3-run: litellm-up
+	@case "$(ARM)" in *sanitized*) $(MAKE) sanitizer-up ;; esac
 	./scripts/run_arm.sh phase3-router $(ARM) --mode $(MODE)
 
 .PHONY: phase3-canary
@@ -68,3 +69,18 @@ phase3-canary:
 .PHONY: phase3-smoke
 phase3-smoke:
 	$(MAKE) phase3-run ARM=$(ARM) MODE=smoke
+
+
+.PHONY: sanitizer-up
+sanitizer-up: litellm-up
+	./scripts/ensure_anthropic_sanitizer_proxy.sh
+
+.PHONY: sanitizer-down
+sanitizer-down:
+	./scripts/stop_anthropic_sanitizer_proxy.sh
+
+.PHONY: sanitizer-status
+sanitizer-status:
+	@set -e; \
+	key="$$(grep '^LITELLM_MASTER_KEY=' .secrets/litellm.env | cut -d= -f2-)"; \
+	curl -fsS -H "Authorization: Bearer $$key" http://127.0.0.1:4010/v1/models | python -m json.tool | sed -n '1,80p'
