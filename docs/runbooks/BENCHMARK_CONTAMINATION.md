@@ -119,9 +119,6 @@ Conclusion: do not rely on Harbor `allow_internet=false` as the Phase 3 network-
 2. Audit artifacts with `scripts/audit_tool_usage.py --strict --fail-on-available`.
 3. Treat public Terminal-Bench results as public-benchmark results, not contamination-proof private evaluations.
 
-ropic-haiku/2026-05-31__23-56-47 \
-  results/phase3/canary/manual-no-thinking-router-anthropic-haiku
-
 ## Router Haiku compatibility finding
 
 The Phase 3 router Haiku canary and smoke attempts failed before meaningful task execution. The failures were `NonZeroAgentExitCodeError` from Claude Code after the LiteLLM/Anthropic request returned HTTP 400.
