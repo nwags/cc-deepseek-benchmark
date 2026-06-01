@@ -131,3 +131,13 @@ Observed provider-side error:
 A follow-up manual canary with `--agent-kwarg max_thinking_tokens=0` still failed, which suggests the current Claude Code + LiteLLM Anthropic-router path is still sending an unsupported `effort`/adaptive-thinking parameter to the Haiku backend.
 
 Conclusion: `router-anthropic-haiku` is currently incompatible with the Phase 3 Claude Code + LiteLLM router harness. Do not treat these Haiku router failures as model-quality benchmark failures. Keep direct Phase 2 Haiku results as the meaningful Haiku evidence unless/until the router can strip the unsupported parameter or Claude Code exposes a true no-effort/no-thinking mode for this path.
+
+## Sanitized Haiku router canary finding
+
+A diagnostic sanitized Haiku router arm was added as `router-anthropic-haiku-sanitized`. In this path, Claude Code sends Anthropic-compatible requests to a local sanitizer proxy on port 4010, the sanitizer strips Haiku-unsupported top-level request fields (`output_config`, `thinking`, `reasoning_effort`, `effort`), then forwards the request to LiteLLM on port 4000.
+
+The first config-driven sanitized Haiku canary passed on `modernize-scientific-stack` with reward 1.0 and no benchmark exception. The artifact audit reported zero actual WebSearch/WebFetch events and zero init records exposing WebSearch/WebFetch.
+
+The sanitizer log confirmed real Claude Code `/v1/messages?beta=true` requests from the task container and showed `output_config` and `thinking` being stripped. One early upstream 400 response still appeared for `role 'system' is not supported on this model`, followed by successful 200 responses and a passing run; this should be treated as a remaining harness-compatibility wrinkle, not as a model-quality failure.
+
+Conclusion: sanitized Haiku is viable enough for a smoke test, but it should remain a separately named diagnostic/shim arm rather than silently replacing the unsanitized Haiku arm.
