@@ -118,3 +118,19 @@ Conclusion: do not rely on Harbor `allow_internet=false` as the Phase 3 network-
 1. Deny Claude Code WebSearch/WebFetch with `--agent-kwarg disallowed_tools=WebSearch,WebFetch`.
 2. Audit artifacts with `scripts/audit_tool_usage.py --strict --fail-on-available`.
 3. Treat public Terminal-Bench results as public-benchmark results, not contamination-proof private evaluations.
+
+ropic-haiku/2026-05-31__23-56-47 \
+  results/phase3/canary/manual-no-thinking-router-anthropic-haiku
+
+## Router Haiku compatibility finding
+
+The Phase 3 router Haiku canary and smoke attempts failed before meaningful task execution. The failures were `NonZeroAgentExitCodeError` from Claude Code after the LiteLLM/Anthropic request returned HTTP 400.
+
+Observed provider-side error:
+
+- `adaptive thinking is not supported on this model`
+- `This model does not support the effort parameter`
+
+A follow-up manual canary with `--agent-kwarg max_thinking_tokens=0` still failed, which suggests the current Claude Code + LiteLLM Anthropic-router path is still sending an unsupported `effort`/adaptive-thinking parameter to the Haiku backend.
+
+Conclusion: `router-anthropic-haiku` is currently incompatible with the Phase 3 Claude Code + LiteLLM router harness. Do not treat these Haiku router failures as model-quality benchmark failures. Keep direct Phase 2 Haiku results as the meaningful Haiku evidence unless/until the router can strip the unsupported parameter or Claude Code exposes a true no-effort/no-thinking mode for this path.
