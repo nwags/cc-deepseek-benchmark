@@ -6,6 +6,7 @@ python -m py_compile scripts/aggregate_phase.py
 python -m py_compile scripts/generate_figures.py
 python -m py_compile scripts/summarize_trials.py
 python -m py_compile scripts/audit_tool_usage.py
+python -m py_compile scripts/anthropic_sanitizer_proxy.py
 
 bash -n scripts/run_arm.sh
 bash -n scripts/check.sh
