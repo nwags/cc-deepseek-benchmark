@@ -43,6 +43,7 @@ Main message:
 Phase 3 is operational enough to proceed to funded smoke testing, but not yet mature enough to skip directly to the full sweep.
 
 Evidence links:
+- `docs/reports/phase3/PHASE3_EXECUTIVE_DASHBOARD_SPEC.md`
 - `docs/reports/phase3/PHASE3_CANARY_EVIDENCE.md`
 - `results/phase3/supplemental/canary_ledger.csv`
 - `results/phase3/supplemental/phase3_cost_forecast_summary.json`

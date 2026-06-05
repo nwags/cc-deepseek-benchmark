@@ -18,6 +18,7 @@ This is the working support document for the Phase 3 router/canary briefing. It 
 
 ### Evidence and ledgers
 
+- Executive dashboard spec: [`docs/reports/phase3/PHASE3_EXECUTIVE_DASHBOARD_SPEC.md`](../../../docs/reports/phase3/PHASE3_EXECUTIVE_DASHBOARD_SPEC.md)
 - Canary evidence report: [`docs/reports/phase3/PHASE3_CANARY_EVIDENCE.md`](../../../docs/reports/phase3/PHASE3_CANARY_EVIDENCE.md)
 - Canary ledger CSV: [`results/phase3/supplemental/canary_ledger.csv`](../../../results/phase3/supplemental/canary_ledger.csv)
 - Canary ledger JSON: [`results/phase3/supplemental/canary_ledger.json`](../../../results/phase3/supplemental/canary_ledger.json)
