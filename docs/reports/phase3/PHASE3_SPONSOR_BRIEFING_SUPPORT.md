@@ -6,13 +6,13 @@ This is the working support document for the Phase 3 router/canary briefing. It 
 
 **Headline:** Phase 3 has moved from a three-arm Claude Code benchmark into a multi-provider router benchmark harness with canary-verified routing, contamination controls, and cost forecasting.
 
-- **Impact:** 13 current router arms are canary-green and ready for funded smoke testing.
-- **Breadth:** Passing arms now span 8 provider families: anthropic, dashscope-qwen, deepseek, google-gemini, moonshot-kimi, openai, xai, zai-glm.
-- **Risk reduction:** Early failures were mostly provider access, model-route, quota, or tool-mode issues, not benchmark-quality failures.
-- **Contamination mitigation:** Router arms deny `WebSearch`, `WebFetch`, `EnterPlanMode`, `ExitPlanMode`, and `AskUserQuestion` where applicable.
-- **Cost discipline:** The next stage should be a funded smoke layer before approving full sweeps. Canary-scaled estimate for 5-task smoke is **$44.72**, with a conservative 2x reserve of **$89.44**.
-- **Full-sweep planning:** Canary-scaled estimate for 20 tasks × 3 attempts is **$536.64**, with a 1.5x reserve of **$804.97**.
-- **Expanded evaluation:** Canary-scaled estimate for 25 tasks × 3 attempts is **$670.80**, with a 1.5x reserve of **$1,006.21**.
+- **Impact:** [13 current router arms are canary-green](#current-canary-green-arms) and ready for funded smoke testing.
+- **Breadth:** [Passing arms now span 8 provider families](#current-canary-green-arms): anthropic, dashscope-qwen, deepseek, google-gemini, moonshot-kimi, openai, xai, zai-glm.
+- **Risk reduction:** [Early failures were mostly provider access, model-route, quota, or tool-mode issues](#historical-failedsuperseded-canaries), not benchmark-quality failures.
+- **Contamination mitigation:** [Router arms deny](#contamination-mitigation-reference) `WebSearch`, `WebFetch`, `EnterPlanMode`, `ExitPlanMode`, and `AskUserQuestion` where applicable.
+- **Cost discipline:** The next stage should be a [funded smoke layer](#funding-recommendation) before approving full sweeps. Canary-scaled estimate for 5-task smoke is **$44.72**, with a conservative 2x reserve of **$89.44**.
+- **Full-sweep planning:** [Canary-scaled estimate](#cost-methodology) for 20 tasks × 3 attempts is **$536.64**, with a 1.5x reserve of **$804.97**.
+- **Expanded evaluation:** [Canary-scaled estimate](#cost-methodology) for 25 tasks × 3 attempts is **$670.80**, with a 1.5x reserve of **$1,006.21**.
 
 ## Fast navigation
 
@@ -39,6 +39,21 @@ This is the working support document for the Phase 3 router/canary briefing. It 
 - Runbook: [`RUNBOOK.md`](../../../RUNBOOK.md)
 - Artifact policy: [`ARTIFACT_POLICY.md`](../../../ARTIFACT_POLICY.md)
 
+## In-document navigation
+
+- [Executive summary / so what?](#slide-1-candidate-executive-summary--so-what)
+- [Canary task and benchmark scope](#canary-task-and-benchmark-scope)
+- [Cost methodology](#cost-methodology)
+- [Architecture summary](#architecture-summary)
+- [What was done in Phase 3 so far](#what-was-done-in-phase-3-so-far)
+- [Current canary-green arms](#current-canary-green-arms)
+- [Historical failed/superseded canaries](#historical-failedsuperseded-canaries)
+- [Contamination mitigation reference](#contamination-mitigation-reference)
+- [Funding recommendation](#funding-recommendation)
+- [Sponsor discussion prompts](#sponsor-discussion-prompts)
+- [Slide deck outline](#slide-deck-outline-not-yet-created)
+- [Open items before slide creation](#open-items-before-slide-creation)
+
 ## Canary task and benchmark scope
 
 The current canary gate uses the Terminal-Bench 2.0 task `modernize-scientific-stack`.
@@ -54,6 +69,12 @@ Important limitation:
 
 - A canary pass means routing/config/tool controls are good enough for smoke testing.
 - It does not mean the model has been quality-ranked against the full Terminal-Bench task distribution.
+
+Reference artifacts for the canary task:
+
+- Example passing canary result: [`modernize-scientific-stack` result JSON](../../../results/phase3/canary/arm-router-glm-5.1/2026-06-04__12-40-42/modernize-scientific-stack__jVyumUA/result.json)
+- Example passing canary trajectory: [`modernize-scientific-stack` trajectory JSON](../../../results/phase3/canary/arm-router-glm-5.1/2026-06-04__12-40-42/modernize-scientific-stack__jVyumUA/agent/trajectory.json)
+- Full canary evidence ledger: [`PHASE3_CANARY_EVIDENCE.md`](../../../docs/reports/phase3/PHASE3_CANARY_EVIDENCE.md)
 
 ## Cost methodology
 
@@ -132,6 +153,15 @@ These are useful engineering evidence, but they should not be presented as curre
 | `router-qwen-3.5` | `FAIL-AUTH/QUOTA` | superseded by router-qwen-3.7-plus after DashScope Singapore endpoint and model-access fixes |
 
 
+## Contamination mitigation reference
+
+Phase 3 treats benchmark contamination as a first-class control, not an afterthought.
+
+- Router arms deny `WebSearch`, `WebFetch`, `EnterPlanMode`, `ExitPlanMode`, and `AskUserQuestion` where applicable.
+- Canary audits show no actual `WebSearch`/`WebFetch` tool-use events and no initialization records with those tools available for the passing canaries.
+- The audit path is reproducible through [`scripts/audit_tool_usage.py`](../../../scripts/audit_tool_usage.py) and summarized in the [canary evidence report](../../../docs/reports/phase3/PHASE3_CANARY_EVIDENCE.md).
+- Broader contamination context is documented in [`BENCHMARK_CONTAMINATION.md`](../../../BENCHMARK_CONTAMINATION.md).
+
 ## Funding recommendation
 
 The canary results are strong enough to justify smoke testing, but not strong enough to skip directly to the full sweep.
@@ -154,6 +184,15 @@ The current estimate is intentionally preliminary:
 - Smoke results should become the new source of truth before full-sweep approval.
 
 ## Sponsor discussion prompts
+
+Common sponsor questions can jump directly to the relevant evidence:
+
+- “What is the so-what?” → [Executive summary](#slide-1-candidate-executive-summary--so-what)
+- “Which models are ready?” → [Current canary-green arms](#current-canary-green-arms)
+- “What failed, and why?” → [Historical failed/superseded canaries](#historical-failedsuperseded-canaries)
+- “How are we controlling contamination?” → [Contamination mitigation reference](#contamination-mitigation-reference)
+- “What will the next stage cost?” → [Funding recommendation](#funding-recommendation)
+- “How were the estimates calculated?” → [Cost methodology](#cost-methodology)
 
 Likely first-slide questions and where to jump:
 
