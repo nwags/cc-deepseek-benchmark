@@ -52,7 +52,7 @@ Visual:
 Simple before/after architecture comparison.
 
 Evidence links:
-- docs/PHASE3_ROUTER_FINDINGS.md
+- docs/reports/phase3/PHASE3_ROUTER_FINDINGS.md
 - configs/router/litellm.config.yaml.example
 - configs/arms/
 
@@ -142,7 +142,7 @@ Visual:
 Issue → diagnosis → fix → current status table.
 
 Evidence links:
-- docs/PHASE3_ROUTER_FINDINGS.md
+- docs/reports/phase3/PHASE3_ROUTER_FINDINGS.md
 - configs/router/litellm.config.yaml.example
 - configs/arms/
 

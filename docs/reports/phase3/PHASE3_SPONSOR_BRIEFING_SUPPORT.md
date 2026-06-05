@@ -35,7 +35,7 @@ This is the working support document for the Phase 3 router/canary briefing. It 
 - LiteLLM router example config: [`configs/router/litellm.config.yaml.example`](../../../configs/router/litellm.config.yaml.example)
 - Router arm configs: [`configs/arms/`](../../../configs/arms/)
 - Canary evidence extraction script: [`scripts/extract_phase3_canary_evidence.py`](../../../scripts/extract_phase3_canary_evidence.py)
-- Findings log: [`docs/PHASE3_ROUTER_FINDINGS.md`](../../../docs/PHASE3_ROUTER_FINDINGS.md)
+- Findings log: [`docs/reports/phase3/PHASE3_ROUTER_FINDINGS.md`](../../../docs/reports/phase3/PHASE3_ROUTER_FINDINGS.md)
 - Contamination notes: [`BENCHMARK_CONTAMINATION.md`](../../../BENCHMARK_CONTAMINATION.md)
 - Runbook: [`RUNBOOK.md`](../../../RUNBOOK.md)
 - Artifact policy: [`ARTIFACT_POLICY.md`](../../../ARTIFACT_POLICY.md)

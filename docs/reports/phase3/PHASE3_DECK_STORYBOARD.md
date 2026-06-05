@@ -89,7 +89,7 @@ Phase 3 is not just “more models”; it is a more scalable benchmark harness.
 
 Evidence links:
 - `docs/reports/phase3/PHASE3_SPONSOR_BRIEFING_SUPPORT.md`
-- `docs/PHASE3_ROUTER_FINDINGS.md`
+- `docs/reports/phase3/PHASE3_ROUTER_FINDINGS.md`
 
 ## Slide 3 — Architecture and control flow
 
@@ -196,7 +196,7 @@ Main message:
 Most early failures were access, quota, route, or tool-mode issues rather than benchmark-quality failures.
 
 Evidence links:
-- `docs/PHASE3_ROUTER_FINDINGS.md`
+- `docs/reports/phase3/PHASE3_ROUTER_FINDINGS.md`
 - `PHASE3_CANARY_EVIDENCE.md`
 
 ## Slide 7 — Contamination controls
