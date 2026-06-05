@@ -10,6 +10,18 @@ This document expands `PHASE3_SLIDE_PLAN.md` into a slide-by-slide production st
 - Main slides should focus on impact; appendices should carry dense evidence.
 - Canary pass should be framed as infrastructure readiness, not final model ranking.
 
+## Visual asset index
+
+| Slide | Asset | Purpose |
+|---|---|---|
+| Slide 1 | PPT-native executive dashboard | Clickable KPI cards and sponsor decision path |
+| Slide 3 | `figures/phase3/deck_assets/phase_3_router_benchmark_architecture_diagram.png` | Router benchmark architecture and request/response flow |
+| Slide 7 | `figures/phase3/deck_assets/benchmark_contamination_risks_and_mitigations.png` | Contamination sources, mitigations, and residual risks |
+| Slide 8/9 | `figures/phase3/deck_assets/phase_3_canary_cost_breakdown.png` | Canary cost by arm/provider and funding implications |
+| Appendix | `figures/phase3/deck_assets/phase_3_metrics_plan_overview.png` | Metrics collected/planned for smoke and full sweep |
+
+Note: PNG assets are static. Add clickable links at the slide layer, or redraw selected elements as PPT-native shapes when object-level hover/click behavior is important.
+
 ## Slide 1 — Executive dashboard / so what?
 
 Purpose:
@@ -99,7 +111,11 @@ Evidence links:
 - `scripts/extract_phase3_canary_evidence.py`
 
 Visual asset:
-Use or redraw the Mermaid architecture from `PHASE3_SPONSOR_BRIEFING_SUPPORT.md`.
+- `figures/phase3/deck_assets/phase_3_router_benchmark_architecture_diagram.png`
+
+Notes:
+- Use this as the primary Slide 3 architecture visual.
+- In PowerPoint/Google Slides, add slide-level hyperlinks over the Harbor, Claude Code, LiteLLM, provider, results, and audit/evidence regions.
 
 ## Slide 4 — Canary gate and task scope
 
@@ -187,6 +203,9 @@ Evidence links:
 Purpose:
 Show that benchmark contamination risk is being actively controlled.
 
+Visual asset:
+- `figures/phase3/deck_assets/benchmark_contamination_risks_and_mitigations.png`
+
 Layout:
 Three-layer control stack.
 
@@ -226,6 +245,9 @@ Make the funding request concrete.
 Layout:
 Bar chart plus staged gate diagram.
 
+Visual asset:
+- `figures/phase3/deck_assets/phase_3_canary_cost_breakdown.png`
+
 Numbers:
 - 5-task smoke: $44.72; reserve $89.44
 - 20-task × 3: $536.64; reserve $804.97
@@ -244,7 +266,13 @@ Purpose:
 Explain why smoke is needed before full sweep.
 
 Layout:
-Use `figures/phase3/canary_cost_by_arm.png`.
+Use the detailed cost visual.
+
+Visual asset:
+- `figures/phase3/deck_assets/phase_3_canary_cost_breakdown.png`
+
+Backup/legacy asset:
+- `figures/phase3/canary_cost_by_arm.png`
 
 Main message:
 Gemini Flash and GPT-5.5 were canary cost outliers. Smoke should determine whether they are persistently expensive or one-task artifacts.
@@ -273,6 +301,11 @@ Main message:
 The next funded action is smoke, not full sweep.
 
 ## Appendix A — Evidence hub
+
+Visual asset:
+- `figures/phase3/deck_assets/phase_3_metrics_plan_overview.png`
+
+Use this appendix section to show which metrics are collected now and which are planned for smoke/full-sweep reporting.
 
 Include direct links to:
 - sponsor support doc
