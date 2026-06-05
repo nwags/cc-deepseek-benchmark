@@ -39,6 +39,35 @@ This is the working support document for the Phase 3 router/canary briefing. It 
 - Runbook: [`RUNBOOK.md`](../../../RUNBOOK.md)
 - Artifact policy: [`ARTIFACT_POLICY.md`](../../../ARTIFACT_POLICY.md)
 
+## Canary task and benchmark scope
+
+The current canary gate uses the Terminal-Bench 2.0 task `modernize-scientific-stack`.
+
+Why this task is useful as a canary:
+
+- It requires the model to read existing files, create new files, and run/verify code.
+- It is small enough to run cheaply compared with a smoke or full sweep.
+- It exercises the Claude Code + Harbor + LiteLLM + provider routing path end-to-end.
+- It gives a clear pass/fail signal without treating one task as a quality benchmark.
+
+Important limitation:
+
+- A canary pass means routing/config/tool controls are good enough for smoke testing.
+- It does not mean the model has been quality-ranked against the full Terminal-Bench task distribution.
+
+## Cost methodology
+
+The headline estimates are canary-scaled rough-order estimates using the 13 active passing router arms only.
+
+- Active passing canary cost sum: about `$8.944`.
+- 5-task smoke estimate: `5 × active canary cost sum = $44.72`.
+- 20-task × 3-attempt full sweep estimate: `60 × active canary cost sum = $536.64`.
+- 25-task × 3-attempt expanded sweep estimate: `75 × active canary cost sum = $670.80`.
+
+These estimates exclude superseded failed routes such as `router-grok-3`, `router-kimi-k2.5`, `router-qwen-3.5`, and `router-glm-5`.
+
+The largest cost outliers in the canary data are `router-gpt-5.5` and `router-gemini-flash`; the smoke layer should confirm whether those were one-task artifacts or persistent budget drivers.
+
 ## Architecture summary
 
 ~~~mermaid
@@ -123,6 +152,17 @@ The current estimate is intentionally preliminary:
 - Some providers show large token/cache differences.
 - Gemini Flash and GPT-5.5 were high-cost outliers in canary.
 - Smoke results should become the new source of truth before full-sweep approval.
+
+## Sponsor discussion prompts
+
+Likely first-slide questions and where to jump:
+
+- “Which models are actually ready?” → Current canary-green arms.
+- “What failed, and why?” → Historical failed/superseded canaries.
+- “Are we leaking benchmark information through web tools?” → Contamination mitigation and audit notes.
+- “What will the next run cost?” → Funding recommendation and cost caveats.
+- “Why not run the full sweep now?” → Cost methodology and staged funding gate.
+- “What evidence supports this?” → Fast navigation links to result paths, ledgers, configs, and figures.
 
 ## Slide deck outline, not yet created
 
