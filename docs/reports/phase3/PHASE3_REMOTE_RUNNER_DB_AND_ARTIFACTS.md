@@ -124,11 +124,11 @@ Reference:
 
 Recommended R2 object key format:
 
-phase3/{mode}/{arm_id}/{run_timestamp}/{task_name}/{trial_id}/{artifact_name}
+phase3/{mode}/{arm_id}/{run_timestamp}/{relative_artifact_path}
 
 Examples:
 
-- phase3/canary/router-glm-5.1/2026-06-04__12-40-42/modernize-scientific-stack/jVyumUA/result.json
+- phase3/canary/router-glm-5.1/2026-06-04__12-40-42/modernize-scientific-stack__jVyumUA/result.json
 - phase3/smoke/router-deepseek-pro/2026-06-10__15-00-00/build-cython-ext/attempt-1/trajectory.json
 - phase3/reports/2026-06-10/PHASE3_SPONSOR_DECK.pdf
 

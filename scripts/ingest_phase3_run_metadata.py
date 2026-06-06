@@ -117,7 +117,13 @@ def build_r2_key(root: Path, path: Path, prefix: str, phase: str, mode: str, arm
     rel = path.relative_to(root).as_posix()
     safe_arm = arm_id or "unknown-arm"
     run_timestamp = root.name
-    return f"{prefix}/{phase}/{mode}/{safe_arm}/{run_timestamp}/{rel}"
+
+    # If R2_PREFIX is the same as the phase, avoid keys like
+    # phase3/phase3/canary/...
+    parts = [p.strip("/") for p in [prefix, phase, mode, safe_arm, run_timestamp, rel] if p]
+    if parts and len(parts) > 1 and parts[0] == parts[1]:
+        parts.pop(1)
+    return "/".join(parts)
 
 
 def collect_artifacts(run_dir: Path, r2_prefix: str, phase: str, mode: str, arm_id: str | None) -> list[Artifact]:
