@@ -212,12 +212,198 @@ def build_manifest(run_dir: Path, r2_prefix: str) -> dict[str, Any]:
     return manifest
 
 
+def require_env(name: str, value: str | None) -> str:
+    if not value:
+        raise SystemExit(f"Missing required environment variable or argument: {name}")
+    return value
+
+
+def upload_artifacts_to_r2(manifest: dict[str, Any], *, bucket: str, endpoint_url: str, access_key_id: str, secret_access_key: str) -> None:
+    try:
+        import boto3
+    except ImportError as exc:
+        raise SystemExit("boto3 is required for --upload-r2. Run with: uv run --with boto3 ...") from exc
+
+    client = boto3.client(
+        "s3",
+        endpoint_url=endpoint_url,
+        aws_access_key_id=access_key_id,
+        aws_secret_access_key=secret_access_key,
+    )
+
+    uploaded = 0
+    for artifact in manifest.get("artifacts", []):
+        local_path = artifact.get("local_path")
+        r2_key = artifact.get("r2_key")
+        if not local_path or not r2_key:
+            continue
+        client.upload_file(local_path, bucket, r2_key)
+        artifact["r2_uri"] = f"r2://{bucket}/{r2_key}"
+        uploaded += 1
+
+    print(f"uploaded {uploaded} artifacts to R2 bucket {bucket}")
+
+
+def insert_manifest_into_postgres(manifest: dict[str, Any], *, db_url: str) -> None:
+    try:
+        import psycopg
+        from psycopg.types.json import Jsonb
+    except ImportError as exc:
+        raise SystemExit("psycopg[binary] is required for --insert-db. Run with: uv run --with 'psycopg[binary]' ...") from exc
+
+    run = manifest["run"]
+    arm_id = run.get("arm_id") or "unknown-arm"
+    config = manifest.get("config_summary", {})
+
+    with psycopg.connect(db_url) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                insert into benchmark.benchmark_arms (
+                    arm_id, display_name, provider_family, backend_model,
+                    router_model, agent_harness, config_path, active, raw_config
+                )
+                values (%s, %s, %s, %s, %s, %s, %s, true, %s)
+                on conflict (arm_id) do update set
+                    display_name = excluded.display_name,
+                    router_model = excluded.router_model,
+                    agent_harness = excluded.agent_harness,
+                    raw_config = excluded.raw_config,
+                    updated_at = now()
+                """,
+                (
+                    arm_id,
+                    arm_id,
+                    None,
+                    None,
+                    config.get("model_name"),
+                    config.get("agent"),
+                    None,
+                    Jsonb(config),
+                ),
+            )
+
+            cur.execute(
+                """
+                insert into benchmark.benchmark_runs (
+                    phase, mode, run_label, git_commit, branch, runner_name,
+                    runner_provider, runner_region, started_at, finished_at,
+                    status, notes, raw_metadata
+                )
+                values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                returning id
+                """,
+                (
+                    run.get("phase"),
+                    run.get("mode"),
+                    f"{arm_id}/{run.get('run_timestamp')}",
+                    run.get("git_commit"),
+                    run.get("branch"),
+                    None,
+                    None,
+                    None,
+                    run.get("started_at"),
+                    run.get("finished_at"),
+                    run.get("status") or "unknown",
+                    f"Imported from {run.get('run_dir')}",
+                    Jsonb(run),
+                ),
+            )
+            run_id = cur.fetchone()[0]
+
+            trial_id_by_dir: dict[str, Any] = {}
+            for idx, trial in enumerate(manifest.get("trials", []), start=1):
+                task_name = trial.get("task_name") or "unknown-task"
+                task_id = f"terminal-bench-2.0:{task_name}"
+
+                cur.execute(
+                    """
+                    insert into benchmark.benchmark_tasks (
+                        task_id, benchmark, benchmark_version, task_name, active, raw_metadata
+                    )
+                    values (%s, 'terminal-bench', '2.0', %s, true, %s)
+                    on conflict (task_id) do update set
+                        task_name = excluded.task_name,
+                        raw_metadata = excluded.raw_metadata
+                    """,
+                    (task_id, task_name, Jsonb({"source": "ingest_phase3_run_metadata.py"})),
+                )
+
+                cur.execute(
+                    """
+                    insert into benchmark.benchmark_trials (
+                        run_id, arm_id, task_id, attempt_index, reward,
+                        exception_type, runtime_seconds, cost_usd,
+                        result_local_path, notes, raw_result
+                    )
+                    values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    returning id
+                    """,
+                    (
+                        run_id,
+                        arm_id,
+                        task_id,
+                        idx,
+                        trial.get("reward"),
+                        trial.get("exception_type"),
+                        trial.get("runtime_seconds"),
+                        None,
+                        trial.get("raw_result_path"),
+                        trial.get("status"),
+                        Jsonb(trial),
+                    ),
+                )
+                trial_db_id = cur.fetchone()[0]
+                if trial.get("trial_dir"):
+                    trial_id_by_dir[trial["trial_dir"]] = trial_db_id
+
+            for artifact in manifest.get("artifacts", []):
+                local_path = artifact.get("local_path") or ""
+                trial_db_id = None
+                for trial_dir, candidate_id in trial_id_by_dir.items():
+                    if local_path.startswith(trial_dir + "/"):
+                        trial_db_id = candidate_id
+                        break
+
+                cur.execute(
+                    """
+                    insert into benchmark.benchmark_artifacts (
+                        run_id, trial_id, artifact_type, local_path, r2_uri,
+                        github_uri, sha256, size_bytes, retention_class, notes
+                    )
+                    values (%s, %s, %s, %s, %s, %s, %s, %s, 'pilot', %s)
+                    """,
+                    (
+                        run_id,
+                        trial_db_id,
+                        artifact.get("artifact_type"),
+                        local_path,
+                        artifact.get("r2_uri"),
+                        None,
+                        artifact.get("sha256"),
+                        artifact.get("size_bytes"),
+                        artifact.get("r2_key"),
+                    ),
+                )
+
+        conn.commit()
+
+    print(f"inserted manifest into Postgres run_id={run_id}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-dir", required=True, help="Path to one timestamped Harbor result directory.")
     parser.add_argument("--manifest-out", default=None, help="Output manifest JSON path.")
     parser.add_argument("--r2-prefix", default=os.getenv("R2_PREFIX", "phase3"))
-    parser.add_argument("--dry-run", action="store_true", help="Reserved for future network-enabled ingestion.")
+    parser.add_argument("--dry-run", action="store_true", help="Build manifest only; do not upload or insert.")
+    parser.add_argument("--upload-r2", action="store_true", help="Upload selected artifacts to Cloudflare R2.")
+    parser.add_argument("--insert-db", action="store_true", help="Insert manifest metadata into Supabase/Postgres.")
+    parser.add_argument("--db-url", default=os.getenv("SUPABASE_DB_URL"), help="Postgres connection URL. Defaults to SUPABASE_DB_URL.")
+    parser.add_argument("--r2-bucket", default=os.getenv("R2_BUCKET"))
+    parser.add_argument("--r2-endpoint-url", default=os.getenv("R2_ENDPOINT_URL"))
+    parser.add_argument("--r2-access-key-id", default=os.getenv("R2_ACCESS_KEY_ID"))
+    parser.add_argument("--r2-secret-access-key", default=os.getenv("R2_SECRET_ACCESS_KEY"))
     args = parser.parse_args()
 
     run_dir = Path(args.run_dir)
@@ -227,6 +413,24 @@ def main() -> int:
         raise SystemExit(f"run directory is missing result.json: {run_dir}")
 
     manifest = build_manifest(run_dir, args.r2_prefix)
+
+    if args.dry_run and (args.upload_r2 or args.insert_db):
+        raise SystemExit("--dry-run cannot be combined with --upload-r2 or --insert-db")
+
+    if args.upload_r2:
+        upload_artifacts_to_r2(
+            manifest,
+            bucket=require_env("R2_BUCKET", args.r2_bucket),
+            endpoint_url=require_env("R2_ENDPOINT_URL", args.r2_endpoint_url),
+            access_key_id=require_env("R2_ACCESS_KEY_ID", args.r2_access_key_id),
+            secret_access_key=require_env("R2_SECRET_ACCESS_KEY", args.r2_secret_access_key),
+        )
+
+    if args.insert_db:
+        insert_manifest_into_postgres(
+            manifest,
+            db_url=require_env("SUPABASE_DB_URL", args.db_url),
+        )
 
     out = Path(args.manifest_out) if args.manifest_out else run_dir / "ingest_manifest.json"
     out.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
