@@ -7,6 +7,7 @@
 | AgentTimeoutError | Harbor exception when the agent exceeds the task or agent timeout. It is counted as a failed trial unless there is evidence of infrastructure failure. |
 | Agent turn | One model/harness step in the trajectory. This report counts `source == agent` steps in `agent/trajectory.json`. |
 | Anthropic-compatible API | An API that accepts the Anthropic Messages API format. DeepSeek exposes one at `https://api.deepseek.com/anthropic`. |
+| Arm | An **arm** is one controlled experimental condition in the benchmark matrix. In this project, an arm usually corresponds to a specific combination of agent harness, router configuration, provider backend, model version, environment variables, tool policy, and run mode. For example, `router-qwen-3.7-plus`, `router-deepseek-pro`, and `router-gpt-5.5` are separate benchmark arms because each represents a distinct model/provider/configuration path being evaluated under the same benchmark harness. |
 | Cache-hit input token | Input token billed at a lower cached-prefix rate. |
 | Claude Code | Anthropic terminal coding agent used as the fixed harness in this experiment. |
 | Cost per resolved task | Total arm spend divided by unique tasks solved at least once. |
