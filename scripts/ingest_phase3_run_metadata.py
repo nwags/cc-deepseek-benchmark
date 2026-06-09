@@ -218,7 +218,7 @@ def require_env(name: str, value: str | None) -> str:
     return value
 
 
-def upload_artifacts_to_r2(manifest: dict[str, Any], *, bucket: str, endpoint_url: str, access_key_id: str, secret_access_key: str) -> None:
+def upload_artifacts_to_r2(manifest: dict[str, Any], *, bucket: str, endpoint_url: str, access_key_id: str, secret_access_key: str, region_name: str = "auto") -> None:
     try:
         import boto3
     except ImportError as exc:
@@ -229,6 +229,7 @@ def upload_artifacts_to_r2(manifest: dict[str, Any], *, bucket: str, endpoint_ur
         endpoint_url=endpoint_url,
         aws_access_key_id=access_key_id,
         aws_secret_access_key=secret_access_key,
+        region_name=region_name,
     )
 
     uploaded = 0
@@ -404,6 +405,7 @@ def main() -> int:
     parser.add_argument("--r2-endpoint-url", default=os.getenv("R2_ENDPOINT_URL"))
     parser.add_argument("--r2-access-key-id", default=os.getenv("R2_ACCESS_KEY_ID"))
     parser.add_argument("--r2-secret-access-key", default=os.getenv("R2_SECRET_ACCESS_KEY"))
+    parser.add_argument("--r2-region", default=os.getenv("R2_REGION", "auto"))
     args = parser.parse_args()
 
     run_dir = Path(args.run_dir)
@@ -424,6 +426,7 @@ def main() -> int:
             endpoint_url=require_env("R2_ENDPOINT_URL", args.r2_endpoint_url),
             access_key_id=require_env("R2_ACCESS_KEY_ID", args.r2_access_key_id),
             secret_access_key=require_env("R2_SECRET_ACCESS_KEY", args.r2_secret_access_key),
+            region_name=args.r2_region or "auto",
         )
 
     if args.insert_db:
