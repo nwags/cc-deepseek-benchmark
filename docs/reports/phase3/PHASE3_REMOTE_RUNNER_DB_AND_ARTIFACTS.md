@@ -124,13 +124,13 @@ Reference:
 
 Recommended R2 object key format:
 
-phase3/{mode}/{arm_id}/{run_timestamp}/{relative_artifact_path}
+terminal-bench/model-backends/{phase}/{mode}/{arm_id}/{run_timestamp}/{relative_artifact_path}
 
 Examples:
 
-- phase3/canary/router-glm-5.1/2026-06-04__12-40-42/modernize-scientific-stack__jVyumUA/result.json
-- phase3/smoke/router-deepseek-pro/2026-06-10__15-00-00/build-cython-ext/attempt-1/trajectory.json
-- phase3/reports/2026-06-10/PHASE3_SPONSOR_DECK.pdf
+- terminal-bench/model-backends/phase3/canary/router-glm-5.1/2026-06-04__12-40-42/modernize-scientific-stack__jVyumUA/result.json
+- terminal-bench/model-backends/phase3/smoke/router-deepseek-pro/2026-06-10__15-00-00/build-cython-ext__attempt-1/trajectory.json
+- terminal-bench/model-backends/reports/2026-06-10/PHASE3_SPONSOR_DECK.pdf
 
 ## Minimal schema, first cut
 
