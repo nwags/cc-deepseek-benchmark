@@ -255,6 +255,9 @@ def insert_manifest_into_postgres(manifest: dict[str, Any], *, db_url: str) -> N
     run = manifest["run"]
     arm_id = run.get("arm_id") or "unknown-arm"
     config = manifest.get("config_summary", {})
+    phase = run.get("phase") or "unknown"
+    mode = run.get("mode") or "unknown"
+    run_label = f"{arm_id}/{run.get('run_timestamp')}"
 
     with psycopg.connect(db_url) as conn:
         with conn.cursor() as cur:
@@ -267,8 +270,11 @@ def insert_manifest_into_postgres(manifest: dict[str, Any], *, db_url: str) -> N
                 values (%s, %s, %s, %s, %s, %s, %s, true, %s)
                 on conflict (arm_id) do update set
                     display_name = excluded.display_name,
+                    provider_family = coalesce(excluded.provider_family, benchmark.benchmark_arms.provider_family),
+                    backend_model = coalesce(excluded.backend_model, benchmark.benchmark_arms.backend_model),
                     router_model = excluded.router_model,
                     agent_harness = excluded.agent_harness,
+                    config_path = coalesce(excluded.config_path, benchmark.benchmark_arms.config_path),
                     raw_config = excluded.raw_config,
                     updated_at = now()
                 """,
@@ -292,12 +298,23 @@ def insert_manifest_into_postgres(manifest: dict[str, Any], *, db_url: str) -> N
                     status, notes, raw_metadata
                 )
                 values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                on conflict (phase, mode, run_label) do update set
+                    git_commit = excluded.git_commit,
+                    branch = excluded.branch,
+                    runner_name = coalesce(excluded.runner_name, benchmark.benchmark_runs.runner_name),
+                    runner_provider = coalesce(excluded.runner_provider, benchmark.benchmark_runs.runner_provider),
+                    runner_region = coalesce(excluded.runner_region, benchmark.benchmark_runs.runner_region),
+                    started_at = excluded.started_at,
+                    finished_at = excluded.finished_at,
+                    status = excluded.status,
+                    notes = excluded.notes,
+                    raw_metadata = excluded.raw_metadata
                 returning id
                 """,
                 (
-                    run.get("phase"),
-                    run.get("mode"),
-                    f"{arm_id}/{run.get('run_timestamp')}",
+                    phase,
+                    mode,
+                    run_label,
                     run.get("git_commit"),
                     run.get("branch"),
                     None,
@@ -311,6 +328,12 @@ def insert_manifest_into_postgres(manifest: dict[str, Any], *, db_url: str) -> N
                 ),
             )
             run_id = cur.fetchone()[0]
+
+            # Replace imported child rows for this run. This makes repeated
+            # ingestion deterministic instead of accumulating duplicate trials
+            # and artifacts.
+            cur.execute("delete from benchmark.benchmark_artifacts where run_id = %s", (run_id,))
+            cur.execute("delete from benchmark.benchmark_trials where run_id = %s", (run_id,))
 
             trial_id_by_dir: dict[str, Any] = {}
             for idx, trial in enumerate(manifest.get("trials", []), start=1):
@@ -389,8 +412,7 @@ def insert_manifest_into_postgres(manifest: dict[str, Any], *, db_url: str) -> N
 
         conn.commit()
 
-    print(f"inserted manifest into Postgres run_id={run_id}")
-
+    print(f"upserted manifest into Postgres run_id={run_id} run_label={run_label}")
 
 def main() -> int:
     parser = argparse.ArgumentParser()
