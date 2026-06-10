@@ -21,3 +21,25 @@ export function formatSeconds(value: number | string | null | undefined): string
   if (value === null || value === undefined) return "—";
   return `${Number(value).toFixed(1)}s`;
 }
+
+
+export function formatBytes(value: number | null | undefined): string {
+  if (value === null || typeof value === "undefined") {
+    return "—";
+  }
+
+  if (value < 1024) {
+    return `${value} B`;
+  }
+
+  const units = ["KB", "MB", "GB", "TB"];
+  let size = value / 1024;
+  let unitIndex = 0;
+
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+
+  return `${size.toFixed(size >= 10 ? 1 : 2)} ${units[unitIndex]}`;
+}

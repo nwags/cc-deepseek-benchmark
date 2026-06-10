@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AppShell } from "../../components/AppShell";
 import { getRecentRuns } from "../../lib/dashboard-data";
 import { formatCurrency, formatNumber, formatPercent } from "../../lib/format";
@@ -33,7 +34,11 @@ export default async function RunsPage() {
             <tbody>
               {runs.map((row) => (
                 <tr key={row.run_label}>
-                  <td className="mono">{row.run_label}</td>
+                  <td className="mono">
+                    <Link href={`/runs/${encodeURIComponent(row.run_label)}`}>
+                      {row.run_label}
+                    </Link>
+                  </td>
                   <td>{row.mode}</td>
                   <td><span className={`status status-${row.status}`}>{row.status}</span></td>
                   <td>{formatNumber(row.trial_count)}</td>
