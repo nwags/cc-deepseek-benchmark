@@ -1,3 +1,4 @@
+import { AppShell } from "../components/AppShell";
 import { MetricCard } from "../components/MetricCard";
 import {
   getArmRows,
@@ -20,14 +21,10 @@ export default async function DashboardPage() {
   ]);
 
   return (
-    <main className="page-shell">
-      <header className="hero">
-        <p className="eyebrow">Claude Code Backend Benchmark</p>
-        <h1>Phase 3 Router Dashboard</h1>
-        <p className="hero-copy">
-          Live metadata view over Supabase benchmark summaries and Cloudflare R2 artifact records.
-        </p>
-      </header>
+    <AppShell
+      title="Phase 3 Router Dashboard"
+      description="Live metadata view over Supabase benchmark summaries and Cloudflare R2 artifact records."
+    >
 
       <section className="metric-grid">
         <MetricCard label="Runs" value={formatNumber(overview.run_count)} detail="Phase 3 run roots" />
@@ -161,6 +158,6 @@ export default async function DashboardPage() {
           ))}
         </div>
       </section>
-    </main>
+    </AppShell>
   );
 }
