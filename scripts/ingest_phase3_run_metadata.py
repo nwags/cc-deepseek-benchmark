@@ -19,6 +19,7 @@ import json
 import os
 import re
 import subprocess
+from datetime import datetime
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Any
@@ -146,24 +147,124 @@ def collect_artifacts(run_dir: Path, r2_prefix: str, phase: str, mode: str, arm_
     return artifacts
 
 
+
+def first_present(*values: Any) -> Any:
+    for value in values:
+        if value is not None:
+            return value
+    return None
+
+
+def is_zeroish(value: Any) -> bool:
+    if value is None:
+        return False
+    try:
+        return float(value) == 0.0
+    except (TypeError, ValueError):
+        return False
+
+
+def parse_iso_datetime(value: Any) -> datetime | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def elapsed_seconds(started_at: Any, finished_at: Any) -> float | None:
+    start = parse_iso_datetime(started_at)
+    finish = parse_iso_datetime(finished_at)
+    if start is None or finish is None:
+        return None
+    return max((finish - start).total_seconds(), 0.0)
+
+
+def extract_reward(data: dict[str, Any]) -> Any:
+    verifier = data.get("verifier_result") or {}
+    rewards = verifier.get("rewards") or {}
+    return first_present(
+        rewards.get("reward"),
+        data.get("reward"),
+    )
+
+
+def extract_exception_type(data: dict[str, Any], result: dict[str, Any]) -> str | None:
+    value = first_present(
+        data.get("exception_type"),
+        result.get("exception_type"),
+        data.get("exception_info"),
+    )
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        return str(first_present(value.get("type"), value.get("class"), value.get("name"), value.get("message"), "exception_info"))
+    return str(value)
+
+
+def extract_trial_runtime_seconds(data: dict[str, Any]) -> Any:
+    return first_present(
+        data.get("runtime_seconds"),
+        data.get("duration_seconds"),
+        elapsed_seconds(data.get("started_at"), data.get("finished_at")),
+    )
+
+
 def extract_trials(run_dir: Path) -> list[dict[str, Any]]:
     trials: list[dict[str, Any]] = []
     for path in sorted(run_dir.glob("*/result.json")):
         data = read_json(path)
         trial_name = path.parent.name
         task_name = trial_name.split("__", 1)[0]
-        result = data.get("result", {})
-        agent = data.get("agent", {})
+
+        result = data.get("result") or {}
+        agent = data.get("agent") or {}
+        agent_result = data.get("agent_result") or {}
+        agent_info = data.get("agent_info") or {}
+        model_info = agent_info.get("model_info") or {}
+
+        exception_type = extract_exception_type(data, result)
+        cost_usd = first_present(agent_result.get("cost_usd"), data.get("cost_usd"))
+        input_tokens = first_present(agent_result.get("n_input_tokens"), data.get("n_input_tokens"))
+        cache_tokens = first_present(agent_result.get("n_cache_tokens"), data.get("n_cache_tokens"))
+        output_tokens = first_present(agent_result.get("n_output_tokens"), data.get("n_output_tokens"))
+
+        if (
+            is_zeroish(cost_usd)
+            and is_zeroish(input_tokens)
+            and is_zeroish(cache_tokens)
+            and is_zeroish(output_tokens)
+        ):
+            cost_usd = None
+            input_tokens = None
+            cache_tokens = None
+            output_tokens = None
+
         trials.append(
             {
                 "trial_dir": path.parent.as_posix(),
                 "trial_name": trial_name,
                 "task_name": task_name,
-                "reward": data.get("reward"),
-                "status": data.get("status") or result.get("status"),
-                "exception_type": data.get("exception_type") or result.get("exception_type"),
-                "runtime_seconds": data.get("runtime_seconds") or data.get("duration_seconds"),
-                "model_name": agent.get("model_name") or data.get("model_name"),
+                "reward": extract_reward(data),
+                "status": first_present(
+                    data.get("status"),
+                    result.get("status"),
+                    "errors" if exception_type else "completed",
+                ),
+                "exception_type": exception_type,
+                "runtime_seconds": extract_trial_runtime_seconds(data),
+                "cost_usd": cost_usd,
+                "input_tokens": input_tokens,
+                "cache_tokens": cache_tokens,
+                "output_tokens": output_tokens,
+                "model_name": first_present(
+                    agent.get("model_name"),
+                    model_info.get("name"),
+                    data.get("model_name"),
+                ),
                 "raw_result_path": path.as_posix(),
             }
         )
@@ -372,9 +473,10 @@ def insert_manifest_into_postgres(manifest: dict[str, Any], *, db_url: str) -> N
                     insert into benchmark.benchmark_trials (
                         run_id, arm_id, task_id, attempt_index, reward,
                         exception_type, runtime_seconds, cost_usd,
+                        input_tokens, cache_tokens, output_tokens,
                         result_local_path, notes, raw_result
                     )
-                    values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     returning id
                     """,
                     (
@@ -385,7 +487,10 @@ def insert_manifest_into_postgres(manifest: dict[str, Any], *, db_url: str) -> N
                         trial.get("reward"),
                         trial.get("exception_type"),
                         trial.get("runtime_seconds"),
-                        None,
+                        trial.get("cost_usd"),
+                        trial.get("input_tokens"),
+                        trial.get("cache_tokens"),
+                        trial.get("output_tokens"),
                         trial.get("raw_result_path"),
                         trial.get("status"),
                         Jsonb(trial),
