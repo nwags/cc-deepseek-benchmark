@@ -17,6 +17,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import subprocess
 from dataclasses import dataclass, asdict
 from pathlib import Path
@@ -211,6 +212,19 @@ def build_manifest(run_dir: Path, r2_prefix: str) -> dict[str, Any]:
     }
     return manifest
 
+
+
+def is_timestamped_run_dir(path: Path) -> bool:
+    return re.fullmatch(r"\d{4}-\d{2}-\d{2}__\d{2}-\d{2}-\d{2}", path.name) is not None
+
+
+def ensure_timestamped_run_dir(run_dir: Path) -> None:
+    if not is_timestamped_run_dir(run_dir):
+        raise SystemExit(
+            "run directory must be a timestamped Harbor result directory like "
+            "results/phase3/canary/arm-router-x/2026-06-04__12-40-42; "
+            f"got: {run_dir}"
+        )
 
 def require_env(name: str, value: str | None) -> str:
     if not value:
@@ -435,6 +449,7 @@ def main() -> int:
         raise SystemExit(f"run directory does not exist: {run_dir}")
     if not (run_dir / "result.json").exists():
         raise SystemExit(f"run directory is missing result.json: {run_dir}")
+    ensure_timestamped_run_dir(run_dir)
 
     manifest = build_manifest(run_dir, args.r2_prefix)
 
