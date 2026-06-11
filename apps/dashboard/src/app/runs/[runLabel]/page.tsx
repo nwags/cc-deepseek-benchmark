@@ -9,7 +9,7 @@ import {
 } from "../../../lib/dashboard-data";
 import {
   formatBytes,
-  formatCurrency,
+  formatRecordedCost, formatCurrency,
   formatNumber,
   formatPercent,
   formatSeconds
@@ -63,7 +63,7 @@ export default async function RunDetailPage({
         <div className="metric-grid">
           <MetricCard label="Trials" value={formatNumber(run.trial_count)} />
           <MetricCard label="Pass rate" value={formatPercent(run.pass_rate)} />
-          <MetricCard label="Cost" value={formatCurrency(run.trial_cost_usd)} />
+          <MetricCard label="Cost" value={formatRecordedCost(run.trial_cost_usd, run.cost_row_count, run.missing_cost_count)} />
           <MetricCard label="Median runtime" value={formatSeconds(run.median_runtime_seconds)} />
           <MetricCard label="Artifacts in R2" value={`${formatNumber(run.r2_artifact_count)} / ${formatNumber(run.artifact_count)}`} />
           <MetricCard label="Audit events" value={formatNumber(run.audit_count)} />

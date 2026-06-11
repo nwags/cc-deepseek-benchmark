@@ -7,7 +7,7 @@ import {
   getRecentRuns,
   getTaskRows
 } from "../lib/dashboard-data";
-import { formatCurrency, formatNumber, formatPercent, formatSeconds } from "../lib/format";
+import { formatRecordedCost, formatCurrency, formatNumber, formatPercent, formatSeconds } from "../lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +30,7 @@ export default async function DashboardPage() {
         <MetricCard label="Runs" value={formatNumber(overview.run_count)} detail="Phase 3 run roots" />
         <MetricCard label="Trials" value={formatNumber(overview.trial_count)} detail="Canary + smoke trials" />
         <MetricCard label="Artifacts" value={formatNumber(overview.artifact_count)} detail="Tracked metadata rows" />
-        <MetricCard label="Cost" value={formatCurrency(overview.cost_usd)} detail="Recorded trial cost" />
+        <MetricCard label="Cost" value={formatRecordedCost(overview.cost_usd, overview.cost_row_count, overview.missing_cost_count)} detail="Recorded trial cost" />
         <MetricCard label="Completed runs" value={formatNumber(overview.completed_runs)} />
         <MetricCard label="Errored runs" value={formatNumber(overview.noncompleted_runs)} />
       </section>
@@ -60,7 +60,7 @@ export default async function DashboardPage() {
                   <td>{formatNumber(row.run_count)}</td>
                   <td>{formatNumber(row.trial_count)}</td>
                   <td>{formatNumber(row.artifact_count)}</td>
-                  <td>{formatCurrency(row.cost_usd)}</td>
+                  <td>{formatRecordedCost(row.cost_usd, row.cost_row_count, row.missing_cost_count)}</td>
                 </tr>
               ))}
             </tbody>
@@ -95,7 +95,7 @@ export default async function DashboardPage() {
                   <td>{formatNumber(row.success_count)}</td>
                   <td>{formatPercent(row.pass_rate)}</td>
                   <td>{formatSeconds(row.median_runtime_seconds)}</td>
-                  <td>{formatCurrency(row.trial_cost_usd)}</td>
+                  <td>{formatRecordedCost(row.trial_cost_usd, row.cost_row_count, row.missing_cost_count)}</td>
                 </tr>
               ))}
             </tbody>
@@ -128,7 +128,7 @@ export default async function DashboardPage() {
                   <td>{formatNumber(row.success_count)}</td>
                   <td>{formatPercent(row.pass_rate)}</td>
                   <td>{formatSeconds(row.median_runtime_seconds)}</td>
-                  <td>{formatCurrency(row.trial_cost_usd)}</td>
+                  <td>{formatRecordedCost(row.trial_cost_usd, row.cost_row_count, row.missing_cost_count)}</td>
                 </tr>
               ))}
             </tbody>
@@ -151,7 +151,7 @@ export default async function DashboardPage() {
               <dl>
                 <div><dt>Trials</dt><dd>{formatNumber(row.trial_count)}</dd></div>
                 <div><dt>Pass rate</dt><dd>{formatPercent(row.pass_rate)}</dd></div>
-                <div><dt>Cost</dt><dd>{formatCurrency(row.trial_cost_usd)}</dd></div>
+                <div><dt>Cost</dt><dd>{formatRecordedCost(row.trial_cost_usd, row.cost_row_count, row.missing_cost_count)}</dd></div>
                 <div><dt>R2 artifacts</dt><dd>{formatNumber(row.r2_artifact_count)} / {formatNumber(row.artifact_count)}</dd></div>
               </dl>
             </article>

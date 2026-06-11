@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AppShell } from "../../components/AppShell";
 import { getRecentRuns } from "../../lib/dashboard-data";
-import { formatCurrency, formatNumber, formatPercent } from "../../lib/format";
+import { formatRecordedCost, formatCurrency, formatNumber, formatPercent } from "../../lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +43,7 @@ export default async function RunsPage() {
                   <td><span className={`status status-${row.status}`}>{row.status}</span></td>
                   <td>{formatNumber(row.trial_count)}</td>
                   <td>{formatPercent(row.pass_rate)}</td>
-                  <td>{formatCurrency(row.trial_cost_usd)}</td>
+                  <td>{formatRecordedCost(row.trial_cost_usd, row.cost_row_count, row.missing_cost_count)}</td>
                   <td>{formatNumber(row.r2_artifact_count)} / {formatNumber(row.artifact_count)}</td>
                 </tr>
               ))}

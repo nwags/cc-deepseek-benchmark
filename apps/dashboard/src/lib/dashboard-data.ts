@@ -5,6 +5,8 @@ export type OverviewRow = {
   trial_count: number;
   artifact_count: number;
   cost_usd: number;
+  cost_row_count: number;
+  missing_cost_count: number;
   completed_runs: number;
   noncompleted_runs: number;
 };
@@ -17,6 +19,8 @@ export type ModeStatusRow = {
   trial_count: number;
   artifact_count: number;
   cost_usd: number;
+  cost_row_count: number;
+  missing_cost_count: number;
 };
 
 export type ArmRow = {
@@ -29,6 +33,8 @@ export type ArmRow = {
   success_count: number;
   pass_rate: number | null;
   trial_cost_usd: number | null;
+  cost_row_count: number;
+  missing_cost_count: number;
   median_runtime_seconds: number | null;
 };
 
@@ -40,6 +46,8 @@ export type TaskRow = {
   pass_rate: number | null;
   median_runtime_seconds: number | null;
   trial_cost_usd: number | null;
+  cost_row_count: number;
+  missing_cost_count: number;
 };
 
 export type RecentRunRow = {
@@ -50,6 +58,8 @@ export type RecentRunRow = {
   success_count: number;
   pass_rate: number | null;
   trial_cost_usd: number;
+  cost_row_count: number;
+  missing_cost_count: number;
   artifact_count: number;
   r2_artifact_count: number;
 };
@@ -61,6 +71,8 @@ export async function getOverview(): Promise<OverviewRow> {
       coalesce(sum(trial_count), 0)::int as trial_count,
       coalesce(sum(artifact_count), 0)::int as artifact_count,
       coalesce(sum(trial_cost_usd), 0)::float8 as cost_usd,
+      coalesce(sum(cost_row_count), 0)::int as cost_row_count,
+      coalesce(sum(missing_cost_count), 0)::int as missing_cost_count,
       count(*) filter (where status = 'completed')::int as completed_runs,
       count(*) filter (where status <> 'completed')::int as noncompleted_runs
     from benchmark.v_dashboard_runs
@@ -79,7 +91,9 @@ export async function getModeStatusRows(): Promise<ModeStatusRow[]> {
       count(*)::int as run_count,
       coalesce(sum(trial_count), 0)::int as trial_count,
       coalesce(sum(artifact_count), 0)::int as artifact_count,
-      coalesce(sum(trial_cost_usd), 0)::float8 as cost_usd
+      coalesce(sum(trial_cost_usd), 0)::float8 as cost_usd,
+      coalesce(sum(cost_row_count), 0)::int as cost_row_count,
+      coalesce(sum(missing_cost_count), 0)::int as missing_cost_count
     from benchmark.v_dashboard_runs
     where phase = 'phase3'
     group by phase, mode, status
@@ -99,6 +113,8 @@ export async function getArmRows(): Promise<ArmRow[]> {
       success_count::int,
       pass_rate::float8,
       trial_cost_usd::float8,
+      cost_row_count::int,
+      missing_cost_count::int,
       median_runtime_seconds::float8
     from benchmark.v_dashboard_arms
     where run_count > 0
@@ -115,7 +131,9 @@ export async function getTaskRows(): Promise<TaskRow[]> {
       success_count::int,
       pass_rate::float8,
       median_runtime_seconds::float8,
-      trial_cost_usd::float8
+      trial_cost_usd::float8,
+      cost_row_count::int,
+      missing_cost_count::int
     from benchmark.v_dashboard_tasks
     where trial_count > 0
     order by task_name
@@ -132,6 +150,8 @@ export async function getRecentRuns(): Promise<RecentRunRow[]> {
       success_count::int,
       pass_rate::float8,
       trial_cost_usd::float8,
+      cost_row_count::int,
+      missing_cost_count::int,
       artifact_count::int,
       r2_artifact_count::int
     from benchmark.v_dashboard_runs
@@ -161,6 +181,8 @@ export type RunDetailRow = {
   avg_runtime_seconds: number | null;
   median_runtime_seconds: number | null;
   trial_cost_usd: number;
+  cost_row_count: number;
+  missing_cost_count: number;
   input_tokens: number;
   cache_tokens: number;
   output_tokens: number;
@@ -216,6 +238,8 @@ export async function getRunDetail(runLabel: string): Promise<RunDetailRow | nul
         avg_runtime_seconds::float8,
         median_runtime_seconds::float8,
         trial_cost_usd::float8,
+        cost_row_count::int,
+        missing_cost_count::int,
         input_tokens::int,
         cache_tokens::int,
         output_tokens::int,

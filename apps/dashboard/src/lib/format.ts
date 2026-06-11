@@ -43,3 +43,25 @@ export function formatBytes(value: number | null | undefined): string {
 
   return `${size.toFixed(size >= 10 ? 1 : 2)} ${units[unitIndex]}`;
 }
+
+
+export function formatRecordedCost(
+  value: number | null | undefined,
+  costRowCount: number | null | undefined,
+  missingCostCount: number | null | undefined
+): string {
+  const recordedRows = costRowCount ?? 0;
+  const missingRows = missingCostCount ?? 0;
+
+  if (recordedRows === 0) {
+    return "not recorded";
+  }
+
+  const recordedCost = formatCurrency(value ?? 0);
+
+  if (missingRows > 0) {
+    return `${recordedCost} recorded; ${missingRows} missing`;
+  }
+
+  return recordedCost;
+}

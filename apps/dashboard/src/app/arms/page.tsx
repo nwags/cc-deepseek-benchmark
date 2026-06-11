@@ -1,6 +1,6 @@
 import { AppShell } from "../../components/AppShell";
 import { getArmRows } from "../../lib/dashboard-data";
-import { formatCurrency, formatNumber, formatPercent, formatSeconds } from "../../lib/format";
+import { formatRecordedCost, formatCurrency, formatNumber, formatPercent, formatSeconds } from "../../lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +36,7 @@ export default async function ArmsPage() {
                   <td>{formatNumber(row.success_count)}</td>
                   <td>{formatPercent(row.pass_rate)}</td>
                   <td>{formatSeconds(row.median_runtime_seconds)}</td>
-                  <td>{formatCurrency(row.trial_cost_usd)}</td>
+                  <td>{formatRecordedCost(row.trial_cost_usd, row.cost_row_count, row.missing_cost_count)}</td>
                 </tr>
               ))}
             </tbody>
