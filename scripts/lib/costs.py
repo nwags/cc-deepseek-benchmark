@@ -14,6 +14,7 @@ RATES: dict[str, TokenRate] = {
     "claude-sonnet-4-6": TokenRate(3.00, 15.00, 0.30),
     "claude-haiku-4-5-20251001": TokenRate(1.00, 5.00, 0.10),
     "claude-opus-4-7": TokenRate(15.00, 75.00, 1.50),
+    "claude-fable-5": TokenRate(10.00, 50.00, 1.00),
 
     # Validated DeepSeek cache-aware rates from Phase 1 / Phase 2 aggregation.
     "deepseek-v4-pro": TokenRate(0.435, 0.87, 0.003625),
