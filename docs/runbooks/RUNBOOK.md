@@ -637,3 +637,24 @@ Before freezing a phase:
 * [ ] secret scan passes
 * [ ] no snapshot files are committed
 * [ ] branch is committed and pushed
+
+## Phase 3 runner firewall requirement
+
+Phase 3 router arms run Claude Code inside Harbor/Docker containers and send Anthropic-compatible API traffic to the host LiteLLM proxy on TCP port 4000.
+
+On VPS runners with UFW enabled, Docker bridge traffic to the host may be blocked even when the host itself can reach LiteLLM. This causes Claude Code inside Harbor to retry API calls until Harbor raises `AgentTimeoutError` with zero model tokens.
+
+Required persistent UFW rules on the VPS runner:
+
+    -A ufw-before-input -i docker0 -s 172.17.0.0/16 -p tcp --dport 4000 -j ACCEPT
+    -A ufw-before-input -i br+ -s 172.16.0.0/12 -p tcp --dport 4000 -j ACCEPT
+
+These rules belong in `/etc/ufw/before.rules` before the first `COMMIT`, followed by:
+
+    sudo ufw reload
+
+Validation:
+
+    ./scripts/check_phase3_docker_host_firewall.sh
+
+The runner doctor workflow includes this check so Phase 3 paid benchmark dispatches do not silently fail because containers cannot reach the host LiteLLM proxy.
