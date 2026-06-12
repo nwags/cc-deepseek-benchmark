@@ -43,3 +43,13 @@ A direct VPS host Claude Code route probe using router-anthropic-fable-5 succeed
 - Cost: $0.160955
 
 Interpretation: the Fable route works from the VPS host. The failed canary is therefore more likely specific to the Harbor/Docker benchmark execution path, the benchmark container environment, or the Claude Code version/path used inside Harbor.
+
+## Follow-up firewall diagnosis
+
+Container reachability testing isolated the canary failure to Docker bridge traffic being blocked by UFW on the VPS runner:
+
+- Host-network container to 127.0.0.1:4000 succeeded.
+- Before firewall fix, Docker bridge containers timed out when reaching host LiteLLM on port 4000.
+- Adding temporary INPUT rules for docker0/br+ to port 4000 made default bridge, host.docker.internal, and user-defined bridge probes succeed.
+- Interpretation: the original canary's zero-token AgentTimeoutError was caused by container-to-host LiteLLM reachability, not Fable model quality.
+
