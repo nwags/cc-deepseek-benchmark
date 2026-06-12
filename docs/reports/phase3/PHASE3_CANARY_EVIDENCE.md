@@ -59,3 +59,14 @@ The blocked rows are retained as engineering history, not as current blockers.
 - [`results/phase3/supplemental/phase3_cost_forecast_summary.json`](../../../results/phase3/supplemental/phase3_cost_forecast_summary.json)
 - [`figures/phase3/canary_cost_by_arm.png`](../../../figures/phase3/canary_cost_by_arm.png)
 - [`figures/phase3/canary_status_counts.png`](../../../figures/phase3/canary_status_counts.png)
+
+## Anthropic Mythos 5 access probe
+
+- Date: 2026-06-12
+- Probe type: direct Anthropic API `/v1/messages` access probe
+- Model requested: `claude-mythos-5`
+- Result: unavailable for this account
+- HTTP status: 404
+- Error type: `not_found_error`
+- Error message: `model: claude-mythos-5`
+- Interpretation: do not add a Mythos canary arm for this account. Treat Mythos as gated/unavailable and use the successful Fable 5 canary as the broadly available Mythos-class Anthropic result.
