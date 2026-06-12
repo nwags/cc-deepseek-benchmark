@@ -213,6 +213,27 @@ jobs:
 
           "${cmd[@]}"
 
+      - name: List generated Phase 3 run files
+        if: ${{ always() && inputs.dry_run == false }}
+        env:
+          ARM_ID: ${{ inputs.arm_id }}
+          MODE: ${{ inputs.mode }}
+        run: |
+          set +e
+          find "results/phase3/${MODE}/arm-${ARM_ID}" -maxdepth 4 -type f | sort | sed -n '1,200p'
+          test -f .run/litellm/litellm.log && tail -80 .run/litellm/litellm.log
+
+      - name: Upload Phase 3 run artifacts
+        if: ${{ always() && inputs.dry_run == false }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase3-${{ inputs.arm_id }}-${{ inputs.mode }}-${{ github.run_id }}
+          path: |
+            results/phase3/${{ inputs.mode }}/arm-${{ inputs.arm_id }}/
+            .run/litellm/litellm.log
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Show LiteLLM log on failure
         if: ${{ failure() }}
         run: |
