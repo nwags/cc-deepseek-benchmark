@@ -53,3 +53,13 @@ Container reachability testing isolated the canary failure to Docker bridge traf
 - Adding temporary INPUT rules for docker0/br+ to port 4000 made default bridge, host.docker.internal, and user-defined bridge probes succeed.
 - Interpretation: the original canary's zero-token AgentTimeoutError was caused by container-to-host LiteLLM reachability, not Fable model quality.
 
+## Follow-up persistent firewall fix
+
+The VPS runner firewall was updated persistently through UFW before.rules:
+
+- Added ufw-before-input allow rule for docker0 source 172.17.0.0/16 to host TCP port 4000.
+- Added ufw-before-input allow rule for br+ source 172.16.0.0/12 to host TCP port 4000.
+- Removed the temporary direct INPUT rules after reloading UFW.
+- Re-tested default Docker bridge and user-defined bridge container access to http://172.17.0.1:4000/v1/models successfully.
+
+Interpretation: rerunning router-anthropic-fable-5 canary is now justified because the original infrastructure blocker has been fixed.
