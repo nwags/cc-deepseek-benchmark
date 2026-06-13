@@ -684,3 +684,24 @@ Before dispatching paid runs, check:
 
 Hosted NVIDIA NIM is allowed as a future provider route after probes. Self-hosted NIM and local open-weight model serving are tabled.
 <!-- phase3-2026-06-12-alignment:end -->
+
+## Phase 3 ad-hoc diagnostics
+
+Script-level ad-hoc task overrides are supported for diagnostics only:
+
+```bash
+./scripts/run_arm.sh phase3-router <arm-id> \
+  --mode canary \
+  --task-id modernize-scientific-stack \
+  --ad-hoc-label <short-label> \
+  --dry-run
+```
+
+Rules:
+
+- `--task-id` runs one explicit Terminal-Bench task.
+- `--task-file` runs an explicit task list.
+- `--task-id` and `--task-file` are mutually exclusive.
+- Any use of `--task-id`, `--task-file`, or `--ad-hoc-label` marks the run as ad-hoc and non-scored.
+- Ad-hoc outputs are written under `results/phase3/ad-hoc/<label>/...`.
+- Ad-hoc runs must not be included in scored canary, smoke, or full-sweep summaries unless explicitly promoted in a later reviewed commit.

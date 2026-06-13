@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -10,6 +12,7 @@ from typing import Any
 
 from scripts.lib.arms import (
     ConfigError,
+    job_dir_name,
     load_arm,
     load_phase,
     read_task_list,
@@ -112,6 +115,65 @@ def redact_command(cmd: list[str]) -> list[str]:
     return redacted
 
 
+def slugify_label(value: str | None) -> str:
+    raw = (value or "").strip().lower()
+    raw = re.sub(r"[^a-z0-9._-]+", "-", raw)
+    raw = re.sub(r"-+", "-", raw).strip("-._")
+    return raw or "manual"
+
+
+def resolve_task_selection(
+    phase: dict[str, Any],
+    mode: str,
+    task_id: str | None,
+    task_file_override: str | None,
+) -> tuple[list[str], str]:
+    if task_id and task_file_override:
+        raise ConfigError("--task-id and --task-file are mutually exclusive")
+
+    if task_id:
+        task = task_id.strip()
+        if not task:
+            raise ConfigError("--task-id must not be blank")
+        return [task], f"task-id:{task}"
+
+    task_file = Path(task_file_override) if task_file_override else task_file_for_mode(phase, mode)
+    tasks = read_task_list(task_file)
+    return tasks, str(task_file)
+
+
+def is_ad_hoc_run(
+    task_id: str | None,
+    task_file_override: str | None,
+    ad_hoc_label: str | None,
+) -> bool:
+    return bool(task_id or task_file_override or ad_hoc_label)
+
+
+def default_ad_hoc_label(
+    mode: str,
+    task_id: str | None,
+    task_file_override: str | None,
+    ad_hoc_label: str | None,
+) -> str:
+    if ad_hoc_label:
+        return ad_hoc_label
+    if task_id:
+        return f"task-{task_id}"
+    if task_file_override:
+        return f"task-file-{Path(task_file_override).stem}"
+    return f"{mode}-manual"
+
+
+def ad_hoc_results_dir(
+    phase: dict[str, Any],
+    arm: dict[str, Any],
+    label: str,
+) -> Path:
+    root = Path(str(phase.get("results_root", f"results/{phase.get('phase_id', 'phase')}")))
+    return root / "ad-hoc" / slugify_label(label) / job_dir_name(phase, arm)
+
+
 def build_harbor_command(
     phase: dict[str, Any],
     arm: dict[str, Any],
@@ -119,19 +181,38 @@ def build_harbor_command(
     mode: str,
     n_attempts: int | None,
     n_concurrent: int | None,
-) -> tuple[list[str], Path]:
-    task_file = task_file_for_mode(phase, mode)
-    tasks = read_task_list(task_file)
+    task_id: str | None = None,
+    task_file_override: str | None = None,
+    ad_hoc_label: str | None = None,
+) -> tuple[list[str], Path, dict[str, Any]]:
+    tasks, task_source = resolve_task_selection(
+        phase=phase,
+        mode=mode,
+        task_id=task_id,
+        task_file_override=task_file_override,
+    )
 
-    jobs_dir = results_dir_for_mode(phase, arm, mode)
+    ad_hoc = is_ad_hoc_run(
+        task_id=task_id,
+        task_file_override=task_file_override,
+        ad_hoc_label=ad_hoc_label,
+    )
+    label = default_ad_hoc_label(
+        mode=mode,
+        task_id=task_id,
+        task_file_override=task_file_override,
+        ad_hoc_label=ad_hoc_label,
+    )
+
+    jobs_dir = ad_hoc_results_dir(phase, arm, label) if ad_hoc else results_dir_for_mode(phase, arm, mode)
 
     attempts = n_attempts
     if attempts is None:
-        attempts = 1 if mode in {"canary", "smoke"} else int(phase.get("n_attempts", 3))
+        attempts = 1 if mode in {"canary", "smoke"} or ad_hoc else int(phase.get("n_attempts", 3))
 
     concurrent = n_concurrent
     if concurrent is None:
-        concurrent = 1 if mode in {"canary", "smoke"} else int(phase.get("n_concurrent", 4))
+        concurrent = 1 if mode in {"canary", "smoke"} or ad_hoc else int(phase.get("n_concurrent", 4))
 
     cmd = [
         "uv",
@@ -147,7 +228,6 @@ def build_harbor_command(
     model = arm.get("model")
     if model:
         cmd.extend(["--model", str(model)])
-
 
     for key, value in (arm.get("agent_kwargs") or {}).items():
         cmd.extend(["--agent-kwarg", f"{key}={value}"])
@@ -171,7 +251,29 @@ def build_harbor_command(
         ]
     )
 
-    return cmd, jobs_dir
+    metadata = {
+        "ad_hoc": ad_hoc,
+        "ad_hoc_label": slugify_label(label) if ad_hoc else None,
+        "scored": not ad_hoc,
+        "phase_id": phase.get("phase_id"),
+        "arm_id": arm.get("arm_id"),
+        "mode": mode,
+        "task_source": task_source,
+        "task_count": len(tasks),
+        "tasks": tasks,
+        "n_attempts": attempts,
+        "n_concurrent": concurrent,
+        "jobs_dir": str(jobs_dir),
+    }
+
+    return cmd, jobs_dir, metadata
+
+
+def write_ad_hoc_metadata(jobs_dir: Path, metadata: dict[str, Any]) -> Path:
+    jobs_dir.mkdir(parents=True, exist_ok=True)
+    metadata_path = jobs_dir / "ad_hoc_metadata.json"
+    metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return metadata_path
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -186,6 +288,22 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--n-attempts", type=int, default=None)
     parser.add_argument("--n-concurrent", type=int, default=None)
+    parser.add_argument(
+        "--task-id",
+        default=None,
+        help="Run one explicit Terminal-Bench task as an ad-hoc diagnostic.",
+    )
+    parser.add_argument(
+        "--task-file",
+        dest="task_file_override",
+        default=None,
+        help="Run tasks from an explicit task file as an ad-hoc diagnostic.",
+    )
+    parser.add_argument(
+        "--ad-hoc-label",
+        default=None,
+        help="Label an ad-hoc diagnostic run. Ad-hoc runs are marked non-scored.",
+    )
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
 
@@ -193,13 +311,16 @@ def main(argv: list[str] | None = None) -> int:
         phase = load_phase(args.phase)
         arm = load_arm(args.arm)
         env = build_env(os.environ, arm)
-        cmd, jobs_dir = build_harbor_command(
+        cmd, jobs_dir, metadata = build_harbor_command(
             phase=phase,
             arm=arm,
             env=env,
             mode=args.mode,
             n_attempts=args.n_attempts,
             n_concurrent=args.n_concurrent,
+            task_id=args.task_id,
+            task_file_override=args.task_file_override,
+            ad_hoc_label=args.ad_hoc_label,
         )
     except ConfigError as exc:
         print(f"configuration error: {exc}", file=sys.stderr)
@@ -209,13 +330,24 @@ def main(argv: list[str] | None = None) -> int:
     print("arm:", args.arm)
     print("mode:", args.mode)
     print("jobs_dir:", jobs_dir)
+    print("task_source:", metadata["task_source"])
+    print("task_count:", metadata["task_count"])
+    print("ad_hoc:", "true" if metadata["ad_hoc"] else "false")
+    print("scored:", "true" if metadata["scored"] else "false")
+    if metadata["ad_hoc"]:
+        print("ad_hoc_label:", metadata["ad_hoc_label"])
+        print("ad_hoc_metadata:", jobs_dir / "ad_hoc_metadata.json")
     print("command:")
     print(" ".join(shlex.quote(x) for x in redact_command(cmd)))
 
     if args.dry_run:
         return 0
 
-    jobs_dir.parent.mkdir(parents=True, exist_ok=True)
+    if metadata["ad_hoc"]:
+        write_ad_hoc_metadata(jobs_dir, metadata)
+    else:
+        jobs_dir.parent.mkdir(parents=True, exist_ok=True)
+
     return subprocess.run(cmd, env=env, check=False).returncode
 
 
