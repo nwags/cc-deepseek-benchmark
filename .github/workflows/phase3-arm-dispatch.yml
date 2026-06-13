@@ -34,6 +34,18 @@ on:
         description: "Optional override; blank uses safe mode defaults"
         required: false
         default: ""
+      task_id:
+        description: "Optional ad-hoc Terminal-Bench task id; mutually exclusive with task_file"
+        required: false
+        default: ""
+      task_file:
+        description: "Optional ad-hoc task file path; mutually exclusive with task_id"
+        required: false
+        default: ""
+      ad_hoc_label:
+        description: "Optional label for ad-hoc diagnostics"
+        required: false
+        default: ""
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
@@ -52,15 +64,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: phase3
-
-      - name: Show checked-out Phase 3 revision
-        run: |
-          set -euxo pipefail
-          git branch --show-current || true
-          git log --oneline -3
-
 
       - name: Validate dispatch inputs
         env:
@@ -68,6 +71,9 @@ jobs:
           MODE: ${{ inputs.mode }}
           DRY_RUN: ${{ inputs.dry_run }}
           CONFIRM_PAID_RUN: ${{ inputs.confirm_paid_run }}
+          TASK_ID: ${{ inputs.task_id }}
+          TASK_FILE: ${{ inputs.task_file }}
+          AD_HOC_LABEL: ${{ inputs.ad_hoc_label }}
         run: |
           set -euo pipefail
 
@@ -75,6 +81,18 @@ jobs:
           echo "mode=${MODE}"
           echo "dry_run=${DRY_RUN}"
           echo "confirm_paid_run=${CONFIRM_PAID_RUN}"
+          echo "task_id=${TASK_ID}"
+          echo "task_file=${TASK_FILE}"
+          echo "ad_hoc_label=${AD_HOC_LABEL}"
+
+          if [[ -n "$TASK_ID" && -n "$TASK_FILE" ]]; then
+            echo "Refusing ambiguous ad-hoc request: task_id and task_file are mutually exclusive."
+            exit 2
+          fi
+
+          if [[ -n "$TASK_FILE" ]]; then
+            test -f "$TASK_FILE"
+          fi
 
           if [[ "$DRY_RUN" != "true" && "$CONFIRM_PAID_RUN" != "true" ]]; then
             echo "Refusing paid benchmark run: confirm_paid_run must be true when dry_run is false."
@@ -197,6 +215,9 @@ jobs:
           DRY_RUN: ${{ inputs.dry_run }}
           N_ATTEMPTS: ${{ inputs.n_attempts }}
           N_CONCURRENT: ${{ inputs.n_concurrent }}
+          TASK_ID: ${{ inputs.task_id }}
+          TASK_FILE: ${{ inputs.task_file }}
+          AD_HOC_LABEL: ${{ inputs.ad_hoc_label }}
         run: |
           set -euxo pipefail
 
@@ -208,6 +229,18 @@ jobs:
 
           if [[ -n "${N_CONCURRENT}" ]]; then
             cmd+=(--n-concurrent "$N_CONCURRENT")
+          fi
+
+          if [[ -n "${TASK_ID}" ]]; then
+            cmd+=(--task-id "$TASK_ID")
+          fi
+
+          if [[ -n "${TASK_FILE}" ]]; then
+            cmd+=(--task-file "$TASK_FILE")
+          fi
+
+          if [[ -n "${AD_HOC_LABEL}" ]]; then
+            cmd+=(--ad-hoc-label "$AD_HOC_LABEL")
           fi
 
           if [[ "$DRY_RUN" == "true" ]]; then
@@ -223,7 +256,14 @@ jobs:
           MODE: ${{ inputs.mode }}
         run: |
           set +e
-          find "results/phase3/${MODE}/arm-${ARM_ID}" -maxdepth 4 -type f | sort | sed -n '1,200p'
+          for dir in \
+            "results/phase3/${MODE}/arm-${ARM_ID}" \
+            "results/phase3/raw/arm-${ARM_ID}" \
+            "results/phase3/ad-hoc"; do
+            if [[ -d "$dir" ]]; then
+              find "$dir" -maxdepth 6 -type f | sort | sed -n '1,200p'
+            fi
+          done
           test -f .run/litellm/litellm.log && tail -80 .run/litellm/litellm.log
 
       - name: Upload Phase 3 run artifacts
@@ -233,6 +273,8 @@ jobs:
           name: phase3-${{ inputs.arm_id }}-${{ inputs.mode }}-${{ github.run_id }}
           path: |
             results/phase3/${{ inputs.mode }}/arm-${{ inputs.arm_id }}/
+            results/phase3/raw/arm-${{ inputs.arm_id }}/
+            results/phase3/ad-hoc/**/arm-${{ inputs.arm_id }}/
             .run/litellm/litellm.log
           if-no-files-found: warn
           retention-days: 14
