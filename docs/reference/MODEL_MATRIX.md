@@ -9,3 +9,27 @@
 | anthropic-opusplan | Anthropic | `opusplan`; canary observed `claude-sonnet-4-6` only and no visible Plan Mode | Experimental canary only unless plan mode can be activated |
 | deepseek-pro | DeepSeek | `deepseek-v4-pro[1m]` via Anthropic-compatible env override | Phase 1 DeepSeek quality/cost arm |
 | deepseek-flash | DeepSeek | `deepseek-v4-flash` via Anthropic-compatible env override | Phase 1 DeepSeek cheap/fast arm |
+
+<!-- phase3-2026-06-12-alignment:start -->
+## 2026-06-12 Phase 3 coverage status convention
+
+Use these statuses for Phase 3 model/provider coverage:
+
+| Status | Meaning |
+|---|---|
+| `active` | Current route/model slug intended for canary/smoke/full-sweep consideration. |
+| `canary-passed` | Harbor canary passed and the arm is eligible for smoke planning. |
+| `superseded` | Earlier slug/config kept for provenance but replaced by a newer working route. |
+| `gated` | Provider/model exists but account access is unavailable or denied. |
+| `infra-failed` | Failure traced to runner/router infrastructure, not model quality. |
+| `planned-probe` | Candidate provider/model requires direct API and LiteLLM route probes before an arm is added. |
+| `tabled` | Out of current Phase 3 scope. |
+
+Current special cases:
+
+- Anthropic Fable 5: canary-passed after Docker/UFW firewall fix.
+- Anthropic Mythos 5: gated/unavailable after direct API 404.
+- OpusPlan: Phase 2 discovery finding only; not a normal Phase 3 arm.
+- Hosted NVIDIA NIM: planned-probe.
+- Self-hosted NIM and locally hosted open-weight models: tabled.
+<!-- phase3-2026-06-12-alignment:end -->

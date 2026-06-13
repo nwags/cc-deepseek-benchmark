@@ -658,3 +658,29 @@ Validation:
     ./scripts/check_phase3_docker_host_firewall.sh
 
 The runner doctor workflow includes this check so Phase 3 paid benchmark dispatches do not silently fail because containers cannot reach the host LiteLLM proxy.
+
+<!-- phase3-2026-06-12-alignment:start -->
+## 2026-06-12 Phase 3 dashboard and planner operating guidance
+
+The dashboard is a read-only operating console unless a planner-generated dispatch is explicitly reviewed and launched through GitHub Actions.
+
+Planner run types:
+
+- `canary`: one known canary task; route/infrastructure gate.
+- `smoke`: small multi-task gate; next benchmark milestone.
+- `full-sweep`: large benchmark battery; final scored Phase 3 comparison when approved.
+- `ad-hoc`: one-off diagnostic run; not scored unless explicitly promoted.
+
+Implementation note: GitHub Actions currently uses `mode=full`; dashboard language may call this `full-sweep`, but dispatch payloads should use `mode=full` unless the workflow is changed.
+
+Before dispatching paid runs, check:
+
+1. runner doctor passed,
+2. Docker-to-host LiteLLM firewall path passed,
+3. required provider secrets exist,
+4. LiteLLM route probe passed for any new provider,
+5. direct provider probe passed for gated/unknown models,
+6. cost and runtime estimates were reviewed.
+
+Hosted NVIDIA NIM is allowed as a future provider route after probes. Self-hosted NIM and local open-weight model serving are tabled.
+<!-- phase3-2026-06-12-alignment:end -->

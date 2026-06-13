@@ -141,3 +141,22 @@ Expected flow:
 8. Add the runner fleet status page.
 9. Add the sweep planner.
 10. Add OVH bootstrap/provisioning automation.
+
+<!-- phase3-2026-06-12-alignment:start -->
+## 2026-06-12 alignment: dashboard, planner, and hosted NIM
+
+The dashboard is now treated as the Phase 3 operating console. It should expose run status, arm status, task status, artifact coverage, cost coverage, runner readiness, and provider/route readiness.
+
+The planner should support four run types:
+
+| Run type | Purpose |
+|---|---|
+| `canary` | One known canary task; infrastructure/model-route gate. |
+| `smoke` | Small multi-task gate; next benchmark milestone. |
+| `full-sweep` | Large benchmark battery; final scored Phase 3 comparison when approved. |
+| `ad-hoc` | One-off diagnostic run; not scored unless explicitly promoted. |
+
+Dashboard usage guidance lives in `docs/reports/phase3/PHASE3_DASHBOARD_USAGE.md`.
+
+Hosted NVIDIA NIM belongs in provider/route readiness, not self-hosted runner infrastructure. Self-hosted NIM and locally hosted open-weight model serving remain tabled.
+<!-- phase3-2026-06-12-alignment:end -->

@@ -332,3 +332,18 @@ Preferred deliverables:
 - compact trial summarizer
 - router compatibility matrix
 - recommendation on which providers are worth full sweeps
+
+<!-- phase3-2026-06-12-alignment:start -->
+## 2026-06-12 alignment: current Phase 3 scope
+
+The active Phase 3 scope is router-mediated model/provider evaluation with Claude Code fixed as the agent harness. The immediate work is no longer arbitrary model addition; it is:
+
+1. runner fleet / sweep / ad-hoc planner,
+2. dashboard improvement and usage guidance,
+3. hosted NVIDIA NIM route-readiness,
+4. documentation alignment.
+
+Planner run types are `canary`, `smoke`, `full-sweep`, and `ad-hoc`. The current workflow input still uses `mode=full`; planner UI may label this as `full-sweep` but should dispatch `mode=full` until the workflow is renamed.
+
+Do not add self-hosted NIM, local open-weight serving, or new local model infrastructure in this phase. Existing hosted arms remain in the matrix.
+<!-- phase3-2026-06-12-alignment:end -->
