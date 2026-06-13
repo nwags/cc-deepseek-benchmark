@@ -1,69 +1,106 @@
+import fs from "node:fs";
+import path from "node:path";
 import { AppShell } from "../../components/AppShell";
+import {
+  PlannerCommandBuilder,
+  type ArmOption,
+  type TaskSetOption
+} from "../../components/PlannerCommandBuilder";
 
-const runTypes = [
-  {
-    name: "canary",
-    purpose: "One known canary task; infrastructure/model-route gate.",
-    dispatchMode: "canary",
-    scored: "Readiness evidence only"
-  },
-  {
-    name: "smoke",
-    purpose: "Small multi-task gate; next benchmark milestone.",
-    dispatchMode: "smoke",
-    scored: "Preliminary benchmark evidence"
-  },
-  {
-    name: "full-sweep",
-    purpose: "Large multi-task benchmark battery.",
-    dispatchMode: "full",
-    scored: "Phase 3 scored source of truth after approval"
-  },
-  {
-    name: "ad-hoc",
-    purpose: "One-off diagnostic run for a model, route, task, or runner issue.",
-    dispatchMode: "canary/smoke/full with explicit notes",
-    scored: "Not scored unless explicitly promoted"
+export const dynamic = "force-dynamic";
+
+function repoRoot(): string {
+  return path.resolve(process.cwd(), "../..");
+}
+
+function readYamlScalar(text: string, key: string): string | null {
+  const pattern = new RegExp(`^${key}:\\s*["']?([^"'#\\n]+)["']?\\s*(?:#.*)?$`, "m");
+  const match = text.match(pattern);
+  return match?.[1]?.trim() ?? null;
+}
+
+function readArms(): ArmOption[] {
+  const armsDir = path.join(repoRoot(), "configs", "arms");
+
+  if (!fs.existsSync(armsDir)) {
+    return [];
   }
-];
 
-const plannerChecks = [
-  "Confirm the target arm exists in configs/arms.",
-  "Confirm the provider secret exists locally or in GitHub Actions.",
-  "Confirm runner doctor and Docker-to-host LiteLLM firewall checks passed.",
-  "Confirm direct provider and LiteLLM route probes for new providers.",
-  "Review expected runtime, cost, task count, attempts, and concurrency.",
-  "Use dry_run=true unless this is an explicitly approved paid run."
-];
+  return fs
+    .readdirSync(armsDir)
+    .filter((fileName) => fileName.endsWith(".yaml"))
+    .map((fileName) => {
+      const text = fs.readFileSync(path.join(armsDir, fileName), "utf8");
+      return {
+        arm_id: readYamlScalar(text, "arm_id") ?? fileName.replace(/\.yaml$/, ""),
+        file_name: fileName,
+        provider: readYamlScalar(text, "provider"),
+        model: readYamlScalar(text, "model"),
+        backend_model: readYamlScalar(text, "backend_model"),
+        job_dir_name: readYamlScalar(text, "job_dir_name")
+      };
+    })
+    .sort((left, right) => left.arm_id.localeCompare(right.arm_id));
+}
+
+function readTaskSets(): TaskSetOption[] {
+  const tasksDir = path.join(repoRoot(), "configs", "tasks");
+
+  if (!fs.existsSync(tasksDir)) {
+    return [];
+  }
+
+  return fs
+    .readdirSync(tasksDir)
+    .filter((fileName) => fileName.endsWith(".txt"))
+    .map((fileName) => {
+      const tasks = fs
+        .readFileSync(path.join(tasksDir, fileName), "utf8")
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line && !line.startsWith("#"));
+
+      return {
+        id: fileName,
+        file_name: fileName,
+        task_count: tasks.length,
+        sample_tasks: tasks.slice(0, 5)
+      };
+    })
+    .sort((left, right) => left.file_name.localeCompare(right.file_name));
+}
 
 export default function PlannerPage() {
+  const arms = readArms();
+  const taskSets = readTaskSets();
+
   return (
     <AppShell
       title="Planner"
-      description="Review-only planner for canary, smoke, full-sweep, and ad-hoc Phase 3 dispatches."
+      description="Read-only planner that generates reviewable Phase 3 GitHub Actions dispatch commands."
     >
+      <PlannerCommandBuilder arms={arms} taskSets={taskSets} />
+
       <section className="panel">
         <div className="panel-heading">
-          <h2>Run types</h2>
-          <p>Planner vocabulary and current GitHub Actions dispatch mapping.</p>
+          <h2>Available task sets</h2>
+          <p>Parsed from configs/tasks for planning visibility.</p>
         </div>
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Run type</th>
-                <th>Purpose</th>
-                <th>Workflow mode</th>
-                <th>Scored status</th>
+                <th>Task file</th>
+                <th>Tasks</th>
+                <th>Sample</th>
               </tr>
             </thead>
             <tbody>
-              {runTypes.map((runType) => (
-                <tr key={runType.name}>
-                  <td className="mono">{runType.name}</td>
-                  <td>{runType.purpose}</td>
-                  <td className="mono">{runType.dispatchMode}</td>
-                  <td>{runType.scored}</td>
+              {taskSets.map((taskSet) => (
+                <tr key={taskSet.id}>
+                  <td className="mono">{taskSet.file_name}</td>
+                  <td>{taskSet.task_count}</td>
+                  <td className="mono">{taskSet.sample_tasks.join(", ") || "—"}</td>
                 </tr>
               ))}
             </tbody>
@@ -73,36 +110,30 @@ export default function PlannerPage() {
 
       <section className="panel">
         <div className="panel-heading">
-          <h2>Dispatch payload template</h2>
-          <p>Copy, review, and run from the GitHub Actions page or local gh CLI.</p>
+          <h2>Available arms</h2>
+          <p>Parsed from configs/arms. Generated commands use these arm IDs.</p>
         </div>
-        <div className="placeholder-body">
-          <pre className="mono">{`gh workflow run phase3-arm-dispatch.yml \\
-  --ref main \\
-  -f arm_id=<router-arm-id> \\
-  -f mode=<canary|smoke|full> \\
-  -f dry_run=true \\
-  -f confirm_paid_run=false \\
-  -f n_attempts= \\
-  -f n_concurrent=`}</pre>
-          <p>
-            Use <span className="mono">full</span> for the current workflow when the dashboard label is{" "}
-            <span className="mono">full-sweep</span>. Keep paid runs gated by explicit review.
-          </p>
-        </div>
-      </section>
-
-      <section className="panel">
-        <div className="panel-heading">
-          <h2>Pre-dispatch checklist</h2>
-          <p>Run these checks before launching paid benchmark work.</p>
-        </div>
-        <div className="placeholder-body">
-          <ol>
-            {plannerChecks.map((check) => (
-              <li key={check}>{check}</li>
-            ))}
-          </ol>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Arm</th>
+                <th>Provider</th>
+                <th>Model</th>
+                <th>Backend model</th>
+              </tr>
+            </thead>
+            <tbody>
+              {arms.map((arm) => (
+                <tr key={arm.arm_id}>
+                  <td className="mono">{arm.arm_id}</td>
+                  <td>{arm.provider ?? "—"}</td>
+                  <td className="mono">{arm.model ?? "—"}</td>
+                  <td className="mono">{arm.backend_model ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
     </AppShell>
