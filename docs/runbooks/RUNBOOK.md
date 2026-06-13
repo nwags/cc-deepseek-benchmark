@@ -705,3 +705,4 @@ Rules:
 - Any use of `--task-id`, `--task-file`, or `--ad-hoc-label` marks the run as ad-hoc and non-scored.
 - Ad-hoc outputs are written under `results/phase3/ad-hoc/<label>/...`.
 - Ad-hoc runs must not be included in scored canary, smoke, or full-sweep summaries unless explicitly promoted in a later reviewed commit.
+- The Phase 3 dispatch workflow accepts `task_id`, `task_file`, and `ad_hoc_label` inputs on the `phase3` branch; the default-branch wrapper must be mirrored separately for manual dispatch.
