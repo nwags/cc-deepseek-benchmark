@@ -25,31 +25,26 @@ const runTypes: Array<{
   value: RunType;
   label: string;
   purpose: string;
-  defaultWorkflowMode: WorkflowMode;
 }> = [
   {
     value: "canary",
     label: "canary",
-    purpose: "One known canary task; infrastructure/model-route gate.",
-    defaultWorkflowMode: "canary"
+    purpose: "One known canary task; infrastructure/model-route gate."
   },
   {
     value: "smoke",
     label: "smoke",
-    purpose: "Small multi-task gate; next benchmark milestone.",
-    defaultWorkflowMode: "smoke"
+    purpose: "Small multi-task gate; next benchmark milestone."
   },
   {
     value: "full-sweep",
     label: "full-sweep",
-    purpose: "Large multi-task benchmark battery; final Phase 3 comparison after approval.",
-    defaultWorkflowMode: "full"
+    purpose: "Large multi-task benchmark battery; final Phase 3 comparison after approval."
   },
   {
     value: "ad-hoc",
     label: "ad-hoc",
-    purpose: "One-off diagnostic run; not scored unless explicitly promoted.",
-    defaultWorkflowMode: "canary"
+    purpose: "One-off diagnostic run; marked non-scored unless explicitly promoted."
   }
 ];
 
@@ -63,6 +58,10 @@ function shellQuote(value: string): string {
   }
 
   return `'${value.replaceAll("'", "'\"'\"'")}'`;
+}
+
+function workflowField(key: string, value: string): string {
+  return shellQuote(`${key}=${value}`);
 }
 
 function workflowModeFor(runType: RunType, adHocWorkflowMode: WorkflowMode): WorkflowMode {
@@ -110,13 +109,22 @@ export function PlannerCommandBuilder({
   const [confirmPaidRun, setConfirmPaidRun] = useState(false);
   const [nAttempts, setNAttempts] = useState("");
   const [nConcurrent, setNConcurrent] = useState("");
+  const [taskId, setTaskId] = useState("");
+  const [taskFile, setTaskFile] = useState("");
+  const [adHocLabel, setAdHocLabel] = useState("manual-diagnostic");
 
   const selectedArm = arms.find((arm) => arm.arm_id === armId) ?? arms[0] ?? null;
   const selectedRunType = runTypes.find((item) => item.value === runType) ?? runTypes[0];
   const selectedTaskSet = taskSets.find((taskSet) => taskSet.id === taskSetId) ?? taskSets[0] ?? null;
   const workflowMode = workflowModeFor(runType, adHocWorkflowMode);
+  const isAdHoc = runType === "ad-hoc";
+  const hasAmbiguousAdHocTaskSource = taskId.trim() !== "" && taskFile.trim() !== "";
 
   const command = useMemo(() => {
+    const emittedTaskId = isAdHoc ? taskId.trim() : "";
+    const emittedTaskFile = isAdHoc ? taskFile.trim() : "";
+    const emittedAdHocLabel = isAdHoc ? adHocLabel.trim() : "";
+
     const lines = [
       "# Review this command before running. It does not launch from the dashboard.",
       `# Planner run type: ${runType}`,
@@ -124,31 +132,38 @@ export function PlannerCommandBuilder({
       selectedTaskSet
         ? `# Selected task set for review: ${selectedTaskSet.file_name} (${selectedTaskSet.task_count} tasks)`
         : "# Selected task set for review: none",
-      ...(runType === "ad-hoc"
+      ...(isAdHoc
         ? [
-            "# Ad-hoc note: current workflow has no task override input yet.",
-            "# Use this as a reviewed diagnostic dispatch and keep results out of scored summaries unless promoted."
+            "# Ad-hoc note: task_id/task_file/ad_hoc_label are now supported by the Phase 3 dispatch workflow.",
+            "# Ad-hoc results are non-scored unless explicitly promoted in a reviewed follow-up."
           ]
         : []),
       "gh workflow run phase3-arm-dispatch.yml \\",
       "  --ref main \\",
-      `  -f arm_id=${shellQuote(selectedArm?.arm_id ?? "")} \\`,
-      `  -f mode=${workflowMode} \\`,
-      `  -f dry_run=${dryRun ? "true" : "false"} \\`,
-      `  -f confirm_paid_run=${!dryRun && confirmPaidRun ? "true" : "false"} \\`,
-      `  -f n_attempts=${nAttempts.trim()} \\`,
-      `  -f n_concurrent=${nConcurrent.trim()}`
+      `  -f ${workflowField("arm_id", selectedArm?.arm_id ?? "")} \\`,
+      `  -f ${workflowField("mode", workflowMode)} \\`,
+      `  -f ${workflowField("dry_run", dryRun ? "true" : "false")} \\`,
+      `  -f ${workflowField("confirm_paid_run", !dryRun && confirmPaidRun ? "true" : "false")} \\`,
+      `  -f ${workflowField("n_attempts", nAttempts.trim())} \\`,
+      `  -f ${workflowField("n_concurrent", nConcurrent.trim())} \\`,
+      `  -f ${workflowField("task_id", emittedTaskId)} \\`,
+      `  -f ${workflowField("task_file", emittedTaskFile)} \\`,
+      `  -f ${workflowField("ad_hoc_label", emittedAdHocLabel)}`
     ];
 
     return lines.join("\n");
   }, [
+    adHocLabel,
     confirmPaidRun,
     dryRun,
+    isAdHoc,
     nAttempts,
     nConcurrent,
     runType,
     selectedArm?.arm_id,
     selectedTaskSet,
+    taskFile,
+    taskId,
     workflowMode
   ]);
 
@@ -191,7 +206,7 @@ export function PlannerCommandBuilder({
             </select>
           </label>
 
-          {runType === "ad-hoc" ? (
+          {isAdHoc ? (
             <label className="form-field">
               <span>Ad-hoc workflow mode</span>
               <select
@@ -234,6 +249,37 @@ export function PlannerCommandBuilder({
             />
           </label>
 
+          {isAdHoc ? (
+            <>
+              <label className="form-field">
+                <span>task_id</span>
+                <input
+                  value={taskId}
+                  onChange={(event) => setTaskId(event.target.value)}
+                  placeholder="modernize-scientific-stack"
+                />
+              </label>
+
+              <label className="form-field">
+                <span>task_file</span>
+                <input
+                  value={taskFile}
+                  onChange={(event) => setTaskFile(event.target.value)}
+                  placeholder="configs/tasks/phase2-canary.txt"
+                />
+              </label>
+
+              <label className="form-field">
+                <span>ad_hoc_label</span>
+                <input
+                  value={adHocLabel}
+                  onChange={(event) => setAdHocLabel(event.target.value)}
+                  placeholder="short diagnostic label"
+                />
+              </label>
+            </>
+          ) : null}
+
           <label className="check-field">
             <input
               type="checkbox"
@@ -271,6 +317,11 @@ export function PlannerCommandBuilder({
           {!dryRun && !confirmPaidRun ? (
             <p className="warning-text">
               Paid run guard: confirm_paid_run is currently false, so the workflow should refuse a paid run.
+            </p>
+          ) : null}
+          {hasAmbiguousAdHocTaskSource ? (
+            <p className="warning-text">
+              Ad-hoc task source guard: task_id and task_file are mutually exclusive. Clear one before running.
             </p>
           ) : null}
         </div>

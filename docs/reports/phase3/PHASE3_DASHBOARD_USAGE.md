@@ -58,4 +58,4 @@ Use provider readiness to track direct API probes, LiteLLM route probes, Claude 
 
 The dashboard planner may describe ad-hoc diagnostics, but the dashboard remains read-only and does not launch runs.
 
-Script-level ad-hoc support exists through `scripts/run_arm.sh` using `--task-id`, `--task-file`, and `--ad-hoc-label`. GitHub Actions workflow inputs for task overrides now exist on the Phase 3 branch. The dashboard should still treat ad-hoc commands as review-only and non-scored unless explicitly promoted.
+Script-level ad-hoc support exists through `scripts/run_arm.sh` using `--task-id`, `--task-file`, and `--ad-hoc-label`. GitHub Actions workflow inputs for task overrides now exist on the Phase 3 branch. The dashboard now emits those inputs in generated commands, but still treats ad-hoc commands as review-only and non-scored unless explicitly promoted.
