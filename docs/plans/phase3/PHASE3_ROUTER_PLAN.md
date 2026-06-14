@@ -351,3 +351,9 @@ Do not add self-hosted NIM, local open-weight serving, or new local model infras
 ## NVIDIA NIM removed from active plan
 
 Hosted NVIDIA NIM is no longer planned for Phase 3 route-readiness or canary work. The active plan should focus on the already canary-green router arms, dashboard/planner maturity, ad-hoc diagnostics, and smoke planning. NIM should only be reconsidered through official paid/quota-approved access.
+
+## Phase 3 smoke plan
+
+The active smoke plan lives in `docs/plans/phase3/PHASE3_SMOKE_PLAN.md`.
+
+Initial smoke runs are serial and conservative: one arm per dispatch, `n_attempts=1`, `n_concurrent=1`, and dry-run commands before paid dispatch. Full sweep remains blocked until runner-slot parallelism is implemented and validated.

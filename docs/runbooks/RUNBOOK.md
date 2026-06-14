@@ -689,6 +689,21 @@ Hosted NVIDIA NIM has been retired from the active Phase 3 plan. Self-hosted NIM
 
 Phase 3 work lives on `phase3`. `main` is still the frozen Phase 1 baseline except for the narrow default-branch GitHub Actions dispatch wrapper that checks out `phase3`. See `docs/reference/BRANCH_LIFECYCLE.md`.
 
+## Phase 3 smoke run guardrails
+
+Use `docs/plans/phase3/PHASE3_SMOKE_PLAN.md` as the source of truth for smoke sequencing.
+
+Initial smoke dispatches should be serial:
+
+- one active benchmark workflow at a time,
+- `mode=smoke`,
+- `n_attempts=1`,
+- `n_concurrent=1`,
+- dry-run first,
+- paid dispatch only with `confirm_paid_run=true` after review.
+
+Do not start full-sweep work until the smoke plan review criteria and parallel runner blockers are satisfied.
+
 ## Phase 3 parallel runner guardrails
 
 Current safe runner mode is serial: one active benchmark dispatch, `n_attempts=1`, and `n_concurrent=1` for initial smoke work.
