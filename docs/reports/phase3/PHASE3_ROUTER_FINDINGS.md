@@ -401,7 +401,7 @@ Current Phase 3 route findings to preserve:
 - `router-anthropic-fable-5`: first canary attempt was an infrastructure timeout caused by Docker-to-host LiteLLM reachability. After persistent UFW rules were added and the runner doctor was updated, the rerun canary passed.
 - `claude-mythos-5`: direct Anthropic probe returned HTTP 404 / `not_found_error`; treat as gated/unavailable for this account.
 - `opusplan`: already covered in Phase 2 as canary/discovery evidence. It accepted the alias but did not show a visible true plan/execute cycle. Do not add it as a normal Phase 3 model arm.
-- Hosted NVIDIA NIM: candidate hosted provider layer through LiteLLM. Add a benchmark arm only after direct API, LiteLLM route, Claude Code route, and Harbor canary probes pass.
+- Hosted NVIDIA NIM: retired from active Phase 3 planning; revisit only under official paid/quota-approved access.
 - Locally hosted open-weight models and self-hosted NIM: tabled.
 <!-- phase3-2026-06-12-alignment:end -->
 

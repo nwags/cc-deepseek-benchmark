@@ -143,7 +143,7 @@ Expected flow:
 10. Add OVH bootstrap/provisioning automation.
 
 <!-- phase3-2026-06-12-alignment:start -->
-## 2026-06-12 alignment: dashboard, planner, and hosted NIM
+## 2026-06-12 alignment: dashboard, planner, and provider readiness
 
 The dashboard is now treated as the Phase 3 operating console. It should expose run status, arm status, task status, artifact coverage, cost coverage, runner readiness, and provider/route readiness.
 
@@ -158,5 +158,5 @@ The planner should support four run types:
 
 Dashboard usage guidance lives in `docs/reports/phase3/PHASE3_DASHBOARD_USAGE.md`.
 
-Hosted NVIDIA NIM belongs in provider/route readiness, not self-hosted runner infrastructure. Self-hosted NIM and locally hosted open-weight model serving remain tabled.
+Hosted NVIDIA NIM has been retired from active Phase 3 planning. Self-hosted NIM and locally hosted open-weight model serving remain tabled.
 <!-- phase3-2026-06-12-alignment:end -->

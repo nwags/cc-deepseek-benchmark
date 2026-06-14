@@ -14,10 +14,10 @@ The active Phase 3 work now has four tracks:
 
 1. Runner fleet / sweep / one-off planner.
 2. Dashboard improvement and dashboard usage guidance.
-3. Hosted NVIDIA NIM route-readiness.
+3. Provider/route readiness and smoke planning.
 4. Phase 3 documentation review and alignment.
 
-Locally hosted open-weight models and self-hosted NVIDIA NIM are tabled until there is a separate GPU/local-serving infrastructure plan. Existing hosted/open-weight-adjacent arms already in the matrix remain in place.
+Hosted NVIDIA NIM is retired from the active Phase 3 plan. Locally hosted open-weight models and self-hosted NVIDIA NIM remain tabled until there is a separate GPU/local-serving infrastructure plan. Existing hosted/open-weight-adjacent arms already in the matrix remain in place.
 
 ## Planner run types
 
@@ -37,7 +37,7 @@ Implementation note: the current GitHub Actions workflow input uses `mode=full`.
 - Anthropic Fable 5: first canary attempt timed out because Harbor containers could not reach host LiteLLM through the Docker bridge. After the persistent UFW fix, the rerun canary passed.
 - Anthropic Mythos 5: direct Anthropic API probe returned HTTP 404 / `not_found_error` for `claude-mythos-5`; treat as gated/unavailable for this account.
 - Anthropic OpusPlan: already investigated in Phase 2 as canary/discovery evidence. The alias was accepted, but observed execution looked Sonnet-only and did not show a visible true Plan Mode cycle. Do not rerun it as a normal Phase 3 model arm.
-- Hosted NVIDIA NIM: candidate provider layer through LiteLLM. Add only after direct hosted-NIM probe and LiteLLM route probe pass.
+- Hosted NVIDIA NIM: retired from the active Phase 3 plan; revisit only under official paid/quota-approved access.
 - Self-hosted NIM and locally hosted open-weight coding models: tabled.
 
 ## Runner requirements
@@ -46,4 +46,4 @@ Phase 3 runner readiness includes the usual toolchain checks plus Docker-to-host
 
 ## Next benchmark gate
 
-The next benchmark gate is the Phase 3 smoke path, not arbitrary new model canaries. New provider layers such as hosted NIM should first pass direct API probe, LiteLLM route probe, Claude Code route probe, and then Harbor canary before entering smoke planning.
+The next benchmark gate is the Phase 3 smoke path, not arbitrary new model canaries. Any future provider layer should first receive explicit approval, then pass direct API probe, LiteLLM route probe, Claude Code route probe, and Harbor canary before entering smoke planning.

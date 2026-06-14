@@ -30,6 +30,6 @@ Current special cases:
 - Anthropic Fable 5: canary-passed after Docker/UFW firewall fix.
 - Anthropic Mythos 5: gated/unavailable after direct API 404.
 - OpusPlan: Phase 2 discovery finding only; not a normal Phase 3 arm.
-- Hosted NVIDIA NIM: planned-probe.
+- Hosted NVIDIA NIM: retired from active Phase 3 plan; revisit only under official paid/quota-approved access.
 - Self-hosted NIM and locally hosted open-weight models: tabled.
 <!-- phase3-2026-06-12-alignment:end -->

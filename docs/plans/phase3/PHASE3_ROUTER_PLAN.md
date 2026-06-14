@@ -340,7 +340,7 @@ The active Phase 3 scope is router-mediated model/provider evaluation with Claud
 
 1. runner fleet / sweep / ad-hoc planner,
 2. dashboard improvement and usage guidance,
-3. hosted NVIDIA NIM route-readiness,
+3. provider/route-readiness cleanup for already-selected active arms,
 4. documentation alignment.
 
 Planner run types are `canary`, `smoke`, `full-sweep`, and `ad-hoc`. The current workflow input still uses `mode=full`; planner UI may label this as `full-sweep` but should dispatch `mode=full` until the workflow is renamed.
