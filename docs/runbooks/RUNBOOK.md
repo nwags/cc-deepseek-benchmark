@@ -685,6 +685,10 @@ Before dispatching paid runs, check:
 Hosted NVIDIA NIM is allowed as a future provider route after probes. Self-hosted NIM and local open-weight model serving are tabled.
 <!-- phase3-2026-06-12-alignment:end -->
 
+## Branch lifecycle note
+
+Phase 3 work lives on `phase3`. `main` is still the frozen Phase 1 baseline except for the narrow default-branch GitHub Actions dispatch wrapper that checks out `phase3`. See `docs/reference/BRANCH_LIFECYCLE.md`.
+
 ## Phase 3 ad-hoc diagnostics
 
 Script-level ad-hoc task overrides are supported for diagnostics only:
