@@ -142,6 +142,26 @@ Expected flow:
 9. Add the sweep planner.
 10. Add OVH bootstrap/provisioning automation.
 
+## Control plane and elastic worker architecture
+
+The dashboard/VPS should be treated as a persistent control plane, not as the final execution farm. The intended full-sweep architecture is:
+
+    persistent control plane
+      -> dashboard / planner / status / ingestion / dispatch guardrails
+
+    elastic worker pool
+      -> isolated GitHub runner slots
+      -> Docker + Harbor + Claude Code
+      -> per-slot or per-worker LiteLLM
+      -> artifact/result upload
+      -> cleanup or worker destruction
+
+The current OVH VPS remains useful for the control plane and conservative serial smoke runs. Full-sweep execution should move toward isolated runner slots and eventually horizontally provisioned worker instances. Vertical resizing of one VPS can help temporarily, but horizontal workers are the preferred scaling primitive for the benchmark.
+
+Full sweep is blocked until runner-slot isolation and at least two concurrent dry-run plus cheap paid jobs have succeeded without workspace, Docker, artifact, or cost-ingestion collisions.
+
+Detailed architecture: `docs/reference/PHASE3_PARALLELISM_ARCHITECTURE.md`.
+
 <!-- phase3-2026-06-12-alignment:start -->
 ## 2026-06-12 alignment: dashboard, planner, and provider readiness
 

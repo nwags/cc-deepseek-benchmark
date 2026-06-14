@@ -689,6 +689,18 @@ Hosted NVIDIA NIM has been retired from the active Phase 3 plan. Self-hosted NIM
 
 Phase 3 work lives on `phase3`. `main` is still the frozen Phase 1 baseline except for the narrow default-branch GitHub Actions dispatch wrapper that checks out `phase3`. See `docs/reference/BRANCH_LIFECYCLE.md`.
 
+## Phase 3 parallel runner guardrails
+
+Current safe runner mode is serial: one active benchmark dispatch, `n_attempts=1`, and `n_concurrent=1` for initial smoke work.
+
+Parallelism is intentionally blocked until runner-slot isolation exists. The planning rule is:
+
+    effective_task_parallelism = active_runner_jobs * harbor_n_concurrent
+
+Do not increase both workflow-level runner jobs and Harbor `--n-concurrent` at the same time. Full sweep requires tested runner slots, Docker cleanup, artifact upload, provider-family concurrency caps, and cost guardrails.
+
+See `docs/reference/PHASE3_PARALLELISM_ARCHITECTURE.md`.
+
 ## Phase 3 ad-hoc diagnostics
 
 Script-level ad-hoc task overrides are supported for diagnostics only:
