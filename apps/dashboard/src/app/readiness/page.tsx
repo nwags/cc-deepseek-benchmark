@@ -27,9 +27,9 @@ const readinessRows = [
     evidence: "Docker-to-host LiteLLM firewall doctor"
   },
   {
-    area: "Hosted NVIDIA NIM",
-    requiredFor: "Future NIM arm",
-    evidence: "NVIDIA hosted API probe, then LiteLLM nvidia_nim route probe"
+    area: "NVIDIA NIM",
+    requiredFor: "Retired from active Phase 3 plan",
+    evidence: "Do not probe unless official paid/quota-approved access is later approved"
   }
 ];
 
@@ -51,8 +51,8 @@ const statusRows = [
   },
   {
     route: "hosted NVIDIA NIM",
-    status: "planned-probe",
-    note: "Hosted provider-layer candidate. Self-hosted NIM is tabled."
+    status: "retired",
+    note: "Removed from active Phase 3 planning; do not use free-tier/account-circumvention patterns."
   },
   {
     route: "local open-weight serving",

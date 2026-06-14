@@ -1,3 +1,13 @@
+# Hosted NVIDIA NIM Plan — Retired
+
+Status: Retired from the active Phase 3 plan.
+
+Reason: hosted NIM free/trial access is quota/rate-limit oriented and not appropriate for the current benchmark plan. We will not use multiple accounts or other quota-circumvention patterns. Phase 3 will proceed with the already-working provider/router arms and smoke planning.
+
+Historical note: this file is retained only to explain why NIM was considered and then removed from active planning.
+
+---
+
 # Hosted NVIDIA NIM Route-Readiness Plan
 
 Phase 3 treats NVIDIA NIM as a hosted provider/router layer, not as a local or self-hosted model-serving stack.

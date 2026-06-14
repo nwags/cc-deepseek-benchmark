@@ -52,7 +52,7 @@ Use the cost coverage view to distinguish:
 
 ### Provider / Route Readiness
 
-Use provider readiness to track direct API probes, LiteLLM route probes, Claude Code route probes, Harbor canaries, and blockers such as gated models or missing account access.
+Use provider readiness to track direct API probes, LiteLLM route probes, Claude Code route probes, Harbor canaries, and blockers such as gated models or missing account access. NVIDIA NIM is not an active Phase 3 route.
 
 ## Ad-hoc planner status
 

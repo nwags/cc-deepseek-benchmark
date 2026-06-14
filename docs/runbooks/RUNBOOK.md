@@ -682,7 +682,7 @@ Before dispatching paid runs, check:
 5. direct provider probe passed for gated/unknown models,
 6. cost and runtime estimates were reviewed.
 
-Hosted NVIDIA NIM is allowed as a future provider route after probes. Self-hosted NIM and local open-weight model serving are tabled.
+Hosted NVIDIA NIM has been retired from the active Phase 3 plan. Self-hosted NIM and local open-weight model serving remain tabled.
 <!-- phase3-2026-06-12-alignment:end -->
 
 ## Branch lifecycle note

@@ -404,3 +404,7 @@ Current Phase 3 route findings to preserve:
 - Hosted NVIDIA NIM: candidate hosted provider layer through LiteLLM. Add a benchmark arm only after direct API, LiteLLM route, Claude Code route, and Harbor canary probes pass.
 - Locally hosted open-weight models and self-hosted NIM: tabled.
 <!-- phase3-2026-06-12-alignment:end -->
+
+## NVIDIA NIM retired from active Phase 3 planning
+
+Hosted NVIDIA NIM was considered as a future provider route but is not part of the active Phase 3 plan. The practical reason is that hosted NIM access is trial/rate-limit oriented and not appropriate for the current benchmark budget/methodology. The project will not use multiple accounts or quota-circumvention patterns. NIM may be revisited only under an official paid or explicitly quota-approved access path.

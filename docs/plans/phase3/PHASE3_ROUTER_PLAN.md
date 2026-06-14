@@ -347,3 +347,7 @@ Planner run types are `canary`, `smoke`, `full-sweep`, and `ad-hoc`. The current
 
 Do not add self-hosted NIM, local open-weight serving, or new local model infrastructure in this phase. Existing hosted arms remain in the matrix.
 <!-- phase3-2026-06-12-alignment:end -->
+
+## NVIDIA NIM removed from active plan
+
+Hosted NVIDIA NIM is no longer planned for Phase 3 route-readiness or canary work. The active plan should focus on the already canary-green router arms, dashboard/planner maturity, ad-hoc diagnostics, and smoke planning. NIM should only be reconsidered through official paid/quota-approved access.
