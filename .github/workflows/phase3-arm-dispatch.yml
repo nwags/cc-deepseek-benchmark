@@ -249,58 +249,21 @@ jobs:
 
           "${cmd[@]}"
 
-      - name: Capture latest Phase 3 run artifact path
+      - name: List generated Phase 3 run files
         if: ${{ always() && inputs.dry_run == false }}
         env:
           ARM_ID: ${{ inputs.arm_id }}
           MODE: ${{ inputs.mode }}
         run: |
-          set -euo pipefail
-          python - <<'PY'
-          import os
-          from pathlib import Path
-
-          arm_id = os.environ['ARM_ID']
-          mode = os.environ['MODE']
-          candidates = []
-
-          bases = [
-              Path('results') / 'phase3' / mode / f'arm-{arm_id}',
-              Path('results') / 'phase3' / 'raw' / f'arm-{arm_id}',
-          ]
-
-          for base in bases:
-              if base.is_dir():
-                  for result in base.glob('*/result.json'):
-                      candidates.append((result.stat().st_mtime, result.parent))
-
-          ad_hoc = Path('results') / 'phase3' / 'ad-hoc'
-          if ad_hoc.is_dir():
-              for result in ad_hoc.glob(f'**/arm-{arm_id}/*/result.json'):
-                  candidates.append((result.stat().st_mtime, result.parent))
-
-          if candidates:
-              latest = max(candidates, key=lambda item: item[0])[1]
-              latest_s = latest.as_posix()
-              print(f'latest_phase3_run={latest_s}')
-          else:
-              latest_s = f'results/phase3/{mode}/arm-{arm_id}/__no_latest_run_found__'
-              print(f'No latest Phase 3 run directory found for {mode}/arm-{arm_id}')
-
-          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as env:
-              env.write(f'PHASE3_RUN_ARTIFACT_PATH={latest_s}
-')
-          PY
-
-      - name: List generated Phase 3 run files
-        if: ${{ always() && inputs.dry_run == false }}
-        run: |
           set +e
-          if [[ -n "${PHASE3_RUN_ARTIFACT_PATH:-}" && -d "${PHASE3_RUN_ARTIFACT_PATH}" ]]; then
-            find "${PHASE3_RUN_ARTIFACT_PATH}" -maxdepth 6 -type f | sort | sed -n '1,200p'
-          else
-            echo "No scoped Phase 3 run artifact directory found."
-          fi
+          for dir in \
+            "results/phase3/${MODE}/arm-${ARM_ID}" \
+            "results/phase3/raw/arm-${ARM_ID}" \
+            "results/phase3/ad-hoc"; do
+            if [[ -d "$dir" ]]; then
+              find "$dir" -maxdepth 6 -type f | sort | sed -n '1,200p'
+            fi
+          done
           test -f .run/litellm/litellm.log && tail -80 .run/litellm/litellm.log
 
       - name: Upload Phase 3 run artifacts
@@ -309,10 +272,13 @@ jobs:
         with:
           name: phase3-${{ inputs.arm_id }}-${{ inputs.mode }}-${{ github.run_id }}
           path: |
-            ${{ env.PHASE3_RUN_ARTIFACT_PATH }}
+            results/phase3/${{ inputs.mode }}/arm-${{ inputs.arm_id }}/
+            results/phase3/raw/arm-${{ inputs.arm_id }}/
+            results/phase3/ad-hoc/**/arm-${{ inputs.arm_id }}/
             .run/litellm/litellm.log
           if-no-files-found: warn
           retention-days: 14
+
       - name: Show LiteLLM log on failure
         if: ${{ failure() }}
         run: |
