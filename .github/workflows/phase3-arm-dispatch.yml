@@ -249,21 +249,49 @@ jobs:
 
           "${cmd[@]}"
 
-      - name: List generated Phase 3 run files
+      - name: Capture latest Phase 3 run artifact path
         if: ${{ always() && inputs.dry_run == false }}
         env:
           ARM_ID: ${{ inputs.arm_id }}
           MODE: ${{ inputs.mode }}
         run: |
+          set -euo pipefail
+
+          latest="$(
+            {
+              for base in \
+                "results/phase3/${MODE}/arm-${ARM_ID}" \
+                "results/phase3/raw/arm-${ARM_ID}"; do
+                if [[ -d "$base" ]]; then
+                  find "$/${MODE}/arm-${ARM_ID}" \
+                "results/phase3/raw/arm-${ARM_ID}"; do
+                if [[ -d "$base" -mindepth 2 -maxdepth 2 -type f -name result.json -printf '%T@ %h\n'
+                fi
+              done
+
+              if [[ -d "results/phase3/ad-hoc" ]]; then
+                find "results/phase3/ad-hoc" -path "*/arm-${ARM_ID}/*/result.json" -type f -printf '%T@ %h\n'
+              fi
+            } | sort -nr | head -n 1 | cut -d' ' -f2-
+          )"
+
+          if [[ -n "$latest" ]]; then
+            echo "PHASE3_RUN_ARTIFACT_PATH=$latest" >> "$GITHUB_ENV"
+            echo "latest_phase3_run=$latest"
+          else
+            echo "PHASE3_RUN_ARTIFACT_PATH=results/phase3/${MODE}/arm-${ARM_ID}/__no_latest_run_found__" >> "$GITHUB_ENV"
+            echo "No latest Phase 3 run directory found for ${MODE}/arm-${ARM_ID}"
+          fi
+
+      - name: List generated Phase 3 run files
+        if: ${{ always() && inputs.dry_run == false }}
+        run: |
           set +e
-          for dir in \
-            "results/phase3/${MODE}/arm-${ARM_ID}" \
-            "results/phase3/raw/arm-${ARM_ID}" \
-            "results/phase3/ad-hoc"; do
-            if [[ -d "$dir" ]]; then
-              find "$dir" -maxdepth 6 -type f | sort | sed -n '1,200p'
-            fi
-          done
+          if [[ -n "${PHASE3_RUN_ARTIFACT_PATH:-}" && -d "${PHASE3_RUN_ARTIFACT_PATH}" ]]; then
+            find "${PHASE3_RUN_ARTIFACT_PATH}" -maxdepth 6 -type f | sort | sed -n '1,200p'
+          else
+            echo "No scoped Phase 3 run artifact directory found."
+          fi
           test -f .run/litellm/litellm.log && tail -80 .run/litellm/litellm.log
 
       - name: Upload Phase 3 run artifacts
@@ -272,9 +300,7 @@ jobs:
         with:
           name: phase3-${{ inputs.arm_id }}-${{ inputs.mode }}-${{ github.run_id }}
           path: |
-            results/phase3/${{ inputs.mode }}/arm-${{ inputs.arm_id }}/
-            results/phase3/raw/arm-${{ inputs.arm_id }}/
-            results/phase3/ad-hoc/**/arm-${{ inputs.arm_id }}/
+            ${{ env.PHASE3_RUN_ARTIFACT_PATH }}
             .run/litellm/litellm.log
           if-no-files-found: warn
           retention-days: 14
