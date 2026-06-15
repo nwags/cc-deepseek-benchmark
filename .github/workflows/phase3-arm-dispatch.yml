@@ -256,32 +256,41 @@ jobs:
           MODE: ${{ inputs.mode }}
         run: |
           set -euo pipefail
+          python - <<'PY'
+          import os
+          from pathlib import Path
 
-          latest="$(
-            {
-              for base in \
-                "results/phase3/${MODE}/arm-${ARM_ID}" \
-                "results/phase3/raw/arm-${ARM_ID}"; do
-                if [[ -d "$base" ]]; then
-                  find "$/${MODE}/arm-${ARM_ID}" \
-                "results/phase3/raw/arm-${ARM_ID}"; do
-                if [[ -d "$base" -mindepth 2 -maxdepth 2 -type f -name result.json -printf '%T@ %h\n'
-                fi
-              done
+          arm_id = os.environ['ARM_ID']
+          mode = os.environ['MODE']
+          candidates = []
 
-              if [[ -d "results/phase3/ad-hoc" ]]; then
-                find "results/phase3/ad-hoc" -path "*/arm-${ARM_ID}/*/result.json" -type f -printf '%T@ %h\n'
-              fi
-            } | sort -nr | head -n 1 | cut -d' ' -f2-
-          )"
+          bases = [
+              Path('results') / 'phase3' / mode / f'arm-{arm_id}',
+              Path('results') / 'phase3' / 'raw' / f'arm-{arm_id}',
+          ]
 
-          if [[ -n "$latest" ]]; then
-            echo "PHASE3_RUN_ARTIFACT_PATH=$latest" >> "$GITHUB_ENV"
-            echo "latest_phase3_run=$latest"
-          else
-            echo "PHASE3_RUN_ARTIFACT_PATH=results/phase3/${MODE}/arm-${ARM_ID}/__no_latest_run_found__" >> "$GITHUB_ENV"
-            echo "No latest Phase 3 run directory found for ${MODE}/arm-${ARM_ID}"
-          fi
+          for base in bases:
+              if base.is_dir():
+                  for result in base.glob('*/result.json'):
+                      candidates.append((result.stat().st_mtime, result.parent))
+
+          ad_hoc = Path('results') / 'phase3' / 'ad-hoc'
+          if ad_hoc.is_dir():
+              for result in ad_hoc.glob(f'**/arm-{arm_id}/*/result.json'):
+                  candidates.append((result.stat().st_mtime, result.parent))
+
+          if candidates:
+              latest = max(candidates, key=lambda item: item[0])[1]
+              latest_s = latest.as_posix()
+              print(f'latest_phase3_run={latest_s}')
+          else:
+              latest_s = f'results/phase3/{mode}/arm-{arm_id}/__no_latest_run_found__'
+              print(f'No latest Phase 3 run directory found for {mode}/arm-{arm_id}')
+
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as env:
+              env.write(f'PHASE3_RUN_ARTIFACT_PATH={latest_s}
+')
+          PY
 
       - name: List generated Phase 3 run files
         if: ${{ always() && inputs.dry_run == false }}
@@ -304,7 +313,6 @@ jobs:
             .run/litellm/litellm.log
           if-no-files-found: warn
           retention-days: 14
-
       - name: Show LiteLLM log on failure
         if: ${{ failure() }}
         run: |
