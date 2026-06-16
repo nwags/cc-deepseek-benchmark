@@ -68,3 +68,17 @@ Qwen / Alibaba specific questions:
 Deliverable:
 
 A sponsor update that separates benchmark model spend from infrastructure spend, flags unreconciled provider dashboards, and identifies any provider-specific billing risks before the full sweep.
+
+## Alibaba / Qwen identity-verification note
+
+Alibaba Cloud / Model Studio may require individual identity verification before Model Studio or DashScope usage is fully enabled. This may include submitting a government photo ID.
+
+Before any Qwen full-sweep run:
+
+- Confirm Alibaba Cloud identity verification status is `Verification Successful`.
+- Confirm the DashScope/API key is attached to the intended account, workspace, project, and region.
+- Confirm whether usage is billed through direct token usage, free quota, prepaid quota, subscription, or cloud credits.
+- Confirm where Qwen API usage appears in Alibaba's official billing/usage dashboards.
+- Record any official-dashboard discrepancy between benchmark token usage and Alibaba-reported usage.
+
+If verification remains pending or usage does not appear in official dashboards, treat Qwen as billing-reconciliation-risk and avoid full-sweep execution until resolved.
