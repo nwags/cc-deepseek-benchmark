@@ -62,7 +62,37 @@ def build_env(base: dict[str, str], arm: dict[str, Any]) -> dict[str, str]:
     for key, value in (arm.get("env") or {}).items():
         env[str(key)] = str(value)
 
+    override_litellm_agent_base_url(env)
     return env
+
+
+def override_litellm_agent_base_url(env: dict[str, str]) -> None:
+    """Allow runner slots to use isolated LiteLLM host ports.
+
+    Router arm configs intentionally keep the default Docker-host endpoint
+    checked in as http://172.17.0.1:4000. A runner slot can override that at
+    runtime by setting PHASE3_LITELLM_PORT or LITELLM_PORT.
+    """
+
+    if env.get("ANTHROPIC_BASE_URL") != "http://172.17.0.1:4000":
+        return
+
+    port = env.get("PHASE3_LITELLM_PORT") or env.get("LITELLM_PORT")
+    if not port:
+        return
+
+    if not re.fullmatch(r"[0-9]{2,5}", port):
+        raise ConfigError(f"Invalid Phase 3 LiteLLM port: {port!r}")
+
+    port_int = int(port)
+    if port_int < 1 or port_int > 65535:
+        raise ConfigError(f"Invalid Phase 3 LiteLLM port: {port!r}")
+
+    host_ip = env.get("PHASE3_LITELLM_HOST_IP") or "172.17.0.1"
+    if not re.fullmatch(r"[A-Za-z0-9_.:-]+", host_ip):
+        raise ConfigError(f"Invalid Phase 3 LiteLLM host/IP: {host_ip!r}")
+
+    env["ANTHROPIC_BASE_URL"] = f"http://{host_ip}:{port_int}"
 
 
 def agent_env_keys_for_arm(arm: dict[str, Any]) -> list[str]:
