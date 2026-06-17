@@ -122,3 +122,18 @@ Initial hard rules:
 - Runner slots: show current 3-slot capacity separately from provider-family limits.
 
 This validator is a guardrail for later dashboard dry-run dispatch. It must not launch paid work.
+
+
+## Stage B planner workflow refinement
+
+The first validator pass exposed a workflow split: the run-plan validator handled multi-arm provider/running constraints, while the planner controls still generated a single-arm terminal command. That made the planner page hard to reason about.
+
+Stage B should use one integrated run-plan builder:
+
+- select existing arms from the dashboard arm registry instead of typing arm IDs;
+- use one term, `Run mode`, matching the workflow modes `canary`, `smoke`, and `full`;
+- validate runner-slot and provider-family constraints for the selected wave;
+- generate one reviewed GitHub Actions dispatch command per selected arm;
+- keep dashboard dispatch disabled until a later protected server-side dispatch stage.
+
+The arm scaffold page remains the place to generate reviewable YAML snippets for new arms.

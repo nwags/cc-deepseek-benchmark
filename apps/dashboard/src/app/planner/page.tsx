@@ -1,12 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { AppShell } from "../../components/AppShell";
-import {
-  PlannerCommandBuilder,
-  type ArmOption,
-  type TaskSetOption
-} from "../../components/PlannerCommandBuilder";
-import { RunPlanValidator } from "../../components/RunPlanValidator";
+import type { ArmOption, TaskSetOption } from "../../components/PlannerCommandBuilder";
+import { RunPlanBuilder } from "../../components/RunPlanBuilder";
 
 export const dynamic = "force-dynamic";
 
@@ -80,9 +76,7 @@ export default function PlannerPage() {
       title="Planner"
       description="Read-only planner that generates reviewable Phase 3 GitHub Actions dispatch commands."
     >
-      <RunPlanValidator arms={arms} />
-
-      <PlannerCommandBuilder arms={arms} taskSets={taskSets} />
+      <RunPlanBuilder arms={arms} taskSets={taskSets} />
 
       <section className="panel">
         <div className="panel-heading">
