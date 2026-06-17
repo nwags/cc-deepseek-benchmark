@@ -16,7 +16,7 @@ This report tracks, per provider:
 
 | Provider family | API account funding applied? | Dashboard usage located? | Usage reconciled? | Full-sweep readiness | Notes |
 |---|---|---|---|---|---|
-| Anthropic | TBD | TBD | TBD | TBD | Check Console/Admin usage and cost reporting; confirm spend and rate limits. |
+| Anthropic | external / no direct access | no | partial via internal records | conditional | No direct Anthropic provider-dashboard access. Need sponsor/provider confirmation of credits, spend limits, and rate limits; reconcile using internal benchmark records plus external confirmation. |
 | OpenAI | TBD | TBD | TBD | TBD | Check Usage Dashboard, project budget, model usage limits, and prepaid/credit state. |
 | DeepSeek | TBD | TBD | TBD | TBD | Confirm balance/top-up state and usage/cost ledger. Distinguish 402 insufficient balance from 429 rate limit. |
 | Gemini / Google | TBD | TBD | TBD | TBD | Confirm billing account, project, monthly cap, rate limits, and Gemini-family concurrency limit. |
@@ -66,14 +66,23 @@ For each provider, fill in:
 
 ### Anthropic
 
-Status: TBD.
+Status: limited-access reconciliation exception.
+
+Direct Anthropic provider-dashboard access is not available from this project account. Anthropic full-sweep readiness therefore depends on external confirmation from the sponsor/provider-side account owner.
 
 Checks:
 
-- Confirm Console usage/cost reporting.
-- Confirm workspace spend limit.
-- Confirm organization/workspace rate limits.
+- Ask sponsor/provider-side account owner to confirm API credits or billing capacity are available.
+- Ask sponsor/provider-side account owner to confirm organization/workspace spend limits.
+- Ask sponsor/provider-side account owner to confirm organization/workspace rate limits.
+- Reconcile our benchmark-recorded Anthropic token/cost totals against any sponsor-provided usage/cost export or screenshot.
+- Use internal benchmark sources as our primary local evidence: Harbor `result.json`, LiteLLM logs, GitHub Actions artifacts, and dashboard/Supabase imported rows.
 - Confirm Fable remains unavailable before any Fable planning.
+
+Full-sweep interpretation:
+
+- Anthropic is not blocked by missing local dashboard access if the sponsor confirms funding and limits.
+- Anthropic cost reconciliation should be marked `external-confirmation-required` until provider-side usage/cost evidence is supplied.
 
 ### OpenAI
 
