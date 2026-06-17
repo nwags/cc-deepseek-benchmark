@@ -135,3 +135,20 @@ A safer wave shape is:
 - one Gemini-family arm
 - one OpenAI arm
 - one Anthropic, DeepSeek, Grok, Kimi, or GLM arm
+
+## Checkout verification
+
+After this wave, a zero-cost dry-run dispatch was launched from the default-branch workflow wrapper to verify checkout behavior.
+
+Verification run:
+
+- Run ID: `27659767662`
+- Dispatch ref: `main`
+- Workflow checkout target: `phase3`
+- Runner: `vps-c691f5f6-slot3`
+- Final checked-out commit: `48582ff`
+- Final checked-out branch: `phase3`
+- Dry run: `true`
+- Paid benchmark execution: no
+
+Conclusion: the default-branch dispatch wrapper correctly checks out the current `phase3` branch. The earlier observed stale-checkout lines should not be treated as a VPS `git pull` issue.
