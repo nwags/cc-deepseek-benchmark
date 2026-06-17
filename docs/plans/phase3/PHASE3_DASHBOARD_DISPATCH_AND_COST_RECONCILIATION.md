@@ -102,3 +102,23 @@ Initial provider-family rules:
 - Other provider families: allow 1 per arm initially, then update after more evidence.
 
 The dashboard should surface this as a run-plan warning before paid dispatch.
+
+## Stage B validator-first implementation
+
+Stage B begins with a read-only dashboard run-plan validator before any dashboard dispatch button exists.
+
+The validator should show:
+
+- runner-slot demand separately from provider-family demand.
+- effective task parallelism as `selected_runner_jobs * harbor_n_concurrent`.
+- provider-family warnings and blockers.
+- arm configuration metadata used for classification.
+
+Initial hard rules:
+
+- Gemini: block or warn when more than one Gemini-family arm appears in the same wave.
+- Qwen: block full-sweep use until Alibaba identity verification and usage-metering reconciliation are complete.
+- Fable: block until provider availability/access is restored.
+- Runner slots: show current 3-slot capacity separately from provider-family limits.
+
+This validator is a guardrail for later dashboard dry-run dispatch. It must not launch paid work.

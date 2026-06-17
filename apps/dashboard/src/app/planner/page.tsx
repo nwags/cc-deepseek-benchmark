@@ -6,6 +6,7 @@ import {
   type ArmOption,
   type TaskSetOption
 } from "../../components/PlannerCommandBuilder";
+import { RunPlanValidator } from "../../components/RunPlanValidator";
 
 export const dynamic = "force-dynamic";
 
@@ -79,6 +80,8 @@ export default function PlannerPage() {
       title="Planner"
       description="Read-only planner that generates reviewable Phase 3 GitHub Actions dispatch commands."
     >
+      <RunPlanValidator arms={arms} />
+
       <PlannerCommandBuilder arms={arms} taskSets={taskSets} />
 
       <section className="panel">
