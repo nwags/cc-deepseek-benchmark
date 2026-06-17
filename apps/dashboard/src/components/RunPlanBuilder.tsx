@@ -2,48 +2,21 @@
 
 import { useMemo, useState } from "react";
 import type { ArmOption, TaskSetOption } from "./PlannerCommandBuilder";
+import {
+  DEFAULT_RUNNER_SLOTS,
+  classifyProviderFamily,
+  validateRunPlan,
+  type RunMode,
+  type Severity,
+} from "../lib/run-plan-validation";
 
-type RunMode = "canary" | "smoke" | "full";
-type Severity = "ok" | "warning" | "blocker";
-
-type Finding = {
-  severity: Severity;
-  title: string;
-  detail: string;
-};
-
-const RUNNER_SLOTS = 3;
+const RUNNER_SLOTS = DEFAULT_RUNNER_SLOTS;
 
 const DEFAULT_SELECTED_ARMS = [
   "router-gpt-5.5",
   "router-gemini-3.1-pro",
   "router-gemini-flash",
 ];
-
-function classifyProviderFamily(arm: ArmOption): string {
-  const haystack = [
-    arm.arm_id,
-    arm.provider,
-    arm.model,
-    arm.backend_model,
-    arm.job_dir_name,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-
-  if (haystack.includes("gemini") || haystack.includes("google")) return "gemini";
-  if (haystack.includes("qwen") || haystack.includes("dashscope") || haystack.includes("alibaba")) return "qwen";
-  if (haystack.includes("fable")) return "fable";
-  if (haystack.includes("anthropic") || haystack.includes("claude")) return "anthropic";
-  if (haystack.includes("deepseek")) return "deepseek";
-  if (haystack.includes("gpt") || haystack.includes("openai")) return "openai";
-  if (haystack.includes("grok") || haystack.includes("xai")) return "xai";
-  if (haystack.includes("kimi") || haystack.includes("moonshot")) return "moonshot";
-  if (haystack.includes("glm") || haystack.includes("zai")) return "zai";
-
-  return "unknown";
-}
 
 function severityLabel(severity: Severity): string {
   if (severity === "blocker") return "BLOCK";
@@ -123,108 +96,17 @@ export function RunPlanBuilder({
     );
   }, [arms, filter]);
 
-  const plan = useMemo(() => {
-    const parsedNConcurrent = Number.parseInt(nConcurrent, 10);
-    const harborConcurrency =
-      Number.isFinite(parsedNConcurrent) && parsedNConcurrent > 0 ? parsedNConcurrent : 1;
-
-    const findings: Finding[] = [];
-
-    if (selectedArms.length === 0) {
-      findings.push({
-        severity: "blocker",
-        title: "No arms selected",
-        detail: "Select at least one arm before copying dispatch commands.",
-      });
-    }
-
-    if (selectedArms.length > RUNNER_SLOTS) {
-      findings.push({
-        severity: "blocker",
-        title: "Runner-slot capacity exceeded",
-        detail: `${selectedArms.length} workflow jobs requested across ${RUNNER_SLOTS} current runner slots. Split the wave or add runners.`,
-      });
-    } else {
-      findings.push({
-        severity: "ok",
-        title: "Runner-slot capacity",
-        detail: `${selectedArms.length} workflow jobs requested across ${RUNNER_SLOTS} current runner slots.`,
-      });
-    }
-
-    if (harborConcurrency > 1) {
-      findings.push({
-        severity: "warning",
-        title: "Harbor concurrency above current safe setting",
-        detail: `n_concurrent=${harborConcurrency}; current Phase 3 safe setting is n_concurrent=1 per runner job.`,
-      });
-    }
-
-    if (!dryRun && !confirmPaidRun) {
-      findings.push({
-        severity: "blocker",
-        title: "Paid run is not confirmed",
-        detail: "Paid dispatch commands require confirm_paid_run=true.",
-      });
-    }
-
-    const providerCounts = selectedArms.reduce<Record<string, number>>((accumulator, arm) => {
-      const providerFamily = classifyProviderFamily(arm);
-      accumulator[providerFamily] = (accumulator[providerFamily] ?? 0) + 1;
-      return accumulator;
-    }, {});
-
-    if ((providerCounts.gemini ?? 0) > 1) {
-      findings.push({
-        severity: "blocker",
-        title: "Gemini provider-family concurrency exceeded",
-        detail:
-          "Gemini is capped at 1 concurrent arm until quota/rate-limit behavior is verified or raised.",
-      });
-    } else if ((providerCounts.gemini ?? 0) === 1) {
-      findings.push({
-        severity: "ok",
-        title: "Gemini provider-family concurrency",
-        detail: "One Gemini-family arm selected.",
-      });
-    }
-
-    const hasQwen = selectedArms.some((arm) => classifyProviderFamily(arm) === "qwen");
-    if (hasQwen && runMode === "full") {
-      findings.push({
-        severity: "blocker",
-        title: "Qwen full sweep blocked",
-        detail:
-          "Qwen full-sweep dispatch is blocked until Alibaba identity verification and usage-metering reconciliation are complete.",
-      });
-    } else if (hasQwen) {
-      findings.push({
-        severity: "warning",
-        title: "Qwen billing-verification risk",
-        detail:
-          "Qwen is allowed only for reviewed diagnostics/smoke while Alibaba verification and usage-metering reconciliation remain open.",
-      });
-    }
-
-    const hasFable = selectedArms.some((arm) => classifyProviderFamily(arm) === "fable");
-    if (hasFable) {
-      findings.push({
-        severity: "blocker",
-        title: "Fable availability blocked",
-        detail: "Fable remains blocked until provider availability/access is restored.",
-      });
-    }
-
-    const hasBlocker = findings.some((finding) => finding.severity === "blocker");
-    const hasWarning = findings.some((finding) => finding.severity === "warning");
-
-    return {
-      findings,
-      harborConcurrency,
-      effectiveTaskParallelism: selectedArms.length * harborConcurrency,
-      status: hasBlocker ? "blocked" : hasWarning ? "review" : "clear",
-    };
-  }, [confirmPaidRun, dryRun, nConcurrent, runMode, selectedArms]);
+  const plan = useMemo(
+    () =>
+      validateRunPlan({
+        selectedArms,
+        runMode,
+        dryRun,
+        confirmPaidRun,
+        nConcurrent,
+      }),
+    [confirmPaidRun, dryRun, nConcurrent, runMode, selectedArms],
+  );
 
   const dispatchCommands = selectedArms
     .map((arm) =>
@@ -291,7 +173,7 @@ export function RunPlanBuilder({
           </label>
 
           <label>
-            <strong>n_concurrent</strong>
+            <strong>Harbor n_concurrent per arm job</strong>
             <input value={nConcurrent} onChange={(event) => setNConcurrent(event.target.value)} />
           </label>
 
@@ -362,9 +244,9 @@ export function RunPlanBuilder({
           <div className="metric-detail">workflow jobs requested</div>
         </div>
         <div className="metric-card">
-          <div className="metric-label">Task parallelism</div>
+          <div className="metric-label">Max task concurrency</div>
           <div className="metric-value">{plan.effectiveTaskParallelism}</div>
-          <div className="metric-detail">jobs × n_concurrent</div>
+          <div className="metric-detail">selected arms × n_concurrent</div>
         </div>
       </div>
 

@@ -137,3 +137,19 @@ Stage B should use one integrated run-plan builder:
 - keep dashboard dispatch disabled until a later protected server-side dispatch stage.
 
 The arm scaffold page remains the place to generate reviewable YAML snippets for new arms.
+
+## Stage B validation extraction and tests
+
+The run-plan provider-family and runner-capacity rules are extracted into `apps/dashboard/src/lib/run-plan-validation.ts` so they can be tested independently from the React planner UI.
+
+Coverage includes:
+
+- three selected arms with `n_concurrent=1` yielding effective concurrency 3;
+- three selected arms with `n_concurrent=2` yielding effective concurrency 6 plus a warning;
+- two Gemini-family arms producing a blocker;
+- Qwen full-sweep plans producing a blocker;
+- Fable plans producing a blocker;
+- more selected arms than runner slots producing a runner-capacity blocker.
+
+The UI now labels this control as `Harbor n_concurrent per arm job` and labels the computed metric as max task concurrency to avoid confusing arm-wave concurrency with Harbor task concurrency.
+
