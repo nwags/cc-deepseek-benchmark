@@ -82,3 +82,23 @@ Before any Qwen full-sweep run:
 - Record any official-dashboard discrepancy between benchmark token usage and Alibaba-reported usage.
 
 If verification remains pending or usage does not appear in official dashboards, treat Qwen as billing-reconciliation-risk and avoid full-sweep execution until resolved.
+
+## Provider-family concurrency rule
+
+The 2026-06-16 three-slot smoke wave showed that runner-slot concurrency and provider-family concurrency must be modeled separately.
+
+The runner fleet successfully executed three simultaneous smoke jobs across three runner slots, but two simultaneous Gemini-family arms produced provider-side `429 Too Many Requests` errors.
+
+Dashboard dispatch should therefore validate both:
+
+- runner-slot demand, such as 3 jobs across 3 runner slots; and
+- provider-family demand, such as Gemini arms per wave.
+
+Initial provider-family rules:
+
+- Gemini: max 1 concurrent arm until quota/rate-limit behavior is verified or raised.
+- Qwen: blocked for full sweep until Alibaba identity verification and usage-metering reconciliation are complete.
+- Fable: blocked until Anthropic availability/access is restored.
+- Other provider families: allow 1 per arm initially, then update after more evidence.
+
+The dashboard should surface this as a run-plan warning before paid dispatch.
