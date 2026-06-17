@@ -152,4 +152,3 @@ Coverage includes:
 - more selected arms than runner slots producing a runner-capacity blocker.
 
 The UI now labels this control as `Harbor n_concurrent per arm job` and labels the computed metric as max task concurrency to avoid confusing arm-wave concurrency with Harbor task concurrency.
-
