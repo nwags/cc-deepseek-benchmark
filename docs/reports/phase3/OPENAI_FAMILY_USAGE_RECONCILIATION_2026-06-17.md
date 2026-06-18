@@ -17,8 +17,12 @@ Raw provider identifiers from CSV exports are intentionally omitted.
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
 | 2026-06-03 | `gpt-5.4` | 146,861 | 146,861 | 0 | 2,602 | 2,602 | 0 | $0.173479 | $0.799355 | $-0.625877 | tokens confirmed |
 | 2026-06-03 | `gpt-5.5` | 493,776 | 493,763 | 13 | 3,138 | 3,119 | 19 | $1.007820 | $2.546790 | $-1.538970 | token mismatch |
-| 2026-06-16 | `gpt-5.4` | 4,109,382 | 4,015,719 | 93,663 | 130,329 | 128,012 | 2,317 | $9.128358 | $22.081000 | $-12.952642 | token mismatch |
+| 2026-06-16 | `gpt-5.4` | 4,109,382 | 4,109,382 | 0 | 130,329 | 130,329 | 0 | $9.128358 | $22.081000 | $-12.952642 | session tokens confirmed |
 | 2026-06-16 | `gpt-5.5` | 1,580,546 | 1,580,546 | 0 | 63,912 | 63,912 | 0 | $6.534586 | $9.500530 | $-2.965944 | tokens confirmed |
+
+## Session-level billing note
+
+For OpenAI smoke reconciliation, provider-dashboard usage should be compared against Claude Code session JSONL assistant-message usage, not only Harbor aggregate `result.json` totals. The 2026-06-16 GPT-5.4 smoke run had one timeout-edge trial where the aggregate artifact undercounted billed messages, but session JSONL totals match the provider export exactly: 4,109,382 input tokens and 130,329 output tokens. GPT-5.5 session totals also match the provider export exactly: 1,580,546 input tokens and 63,912 output tokens.
 
 ## Benchmark aggregate artifacts included
 
