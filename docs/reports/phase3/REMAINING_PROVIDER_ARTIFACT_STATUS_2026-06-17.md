@@ -1,3 +1,6 @@
+<!-- consolidation-note -->
+> Consolidation note: this file remains useful for artifact-side evidence for Grok/Kimi/Qwen/GLM. Its original provider-export-pending statuses are superseded by `docs/reports/phase3/PHASE3_PROVIDER_USAGE_RECONCILIATION_2026-06-19.md`.
+
 # Remaining Provider Artifact Status
 
 This report summarizes Phase 3 artifact-side evidence for Grok, Kimi, Qwen, and GLM.

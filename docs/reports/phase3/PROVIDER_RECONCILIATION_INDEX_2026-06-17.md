@@ -1,3 +1,6 @@
+<!-- consolidation-note -->
+> Consolidation note: this 2026-06-17 index is retained for history. It is superseded for current overall status by `docs/reports/phase3/PHASE3_PROVIDER_USAGE_RECONCILIATION_2026-06-19.md`.
+
 # Phase 3 Provider Usage Reconciliation Index
 
 This index summarizes the current provider-billing / usage-reconciliation status for Phase 3 router benchmark work.

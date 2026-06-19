@@ -1,3 +1,6 @@
+<!-- consolidation-note -->
+> Consolidation note: this 2026-06-17 provider usage report is retained for historical context. Use `docs/reports/phase3/PHASE3_PROVIDER_USAGE_RECONCILIATION_2026-06-19.md` for current overall Phase 3 provider-usage status.
+
 # Phase 3 Provider Usage Reconciliation — 2026-06-17
 
 ## Purpose

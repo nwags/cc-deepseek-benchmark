@@ -6,15 +6,14 @@ This directory stores redacted, normalized provider-usage reconciliation artifac
 
 Raw provider billing exports, screenshots, request logs, ZIP files, account identifiers, invoice IDs, payment IDs, and API-key-adjacent records should not be committed.
 
-Commit only normalized summaries that are safe for the benchmark report.
+Commit only normalized summaries that are safe for benchmark reporting.
 
-## Layout
+## Canonical files
 
-    results/phase3/provider_usage/
-      README.md
-      normalized/
-        provider_usage_resolution_2026-06-19.csv
-        full_sweep_api_key_funding_prelim_2026-06-19.csv
+    docs/reports/phase3/PHASE3_PROVIDER_USAGE_RECONCILIATION_2026-06-19.md
+    results/phase3/provider_usage/normalized/provider_reconciliation_ledger_2026-06-19.csv
+    results/phase3/provider_usage/normalized/provider_reconciliation_completeness_audit_2026-06-19.csv
+    results/phase3/provider_usage/normalized/full_sweep_api_key_funding_prelim_2026-06-19.csv
 
 ## Accounting columns
 
@@ -26,7 +25,14 @@ Commit only normalized summaries that are safe for the benchmark report.
 
 ## Current interpretation
 
+- OpenAI and DeepSeek are provider-export reconciled.
+- Gemini is billing-level reconciled, with detailed model/token export unavailable.
+- Anthropic provider export is unavailable; internal records are accepted for canary/smoke planning because Phase 1/2 cost behavior appeared correct.
 - Qwen/Alibaba has both PAYG model inference and a separate Token Plan Team Edition subscription.
 - Z.AI/GLM is resolved from the uploaded `glm-5.1` billing table.
 - Moonshot/Kimi is estimated from a request log because the export contains tokens but not billed amount.
 - Grok/xAI remains pending provider export.
+
+## Usage
+
+Use the canonical ledger for dashboard ingestion and full-sweep funding planning. Older family reports are retained as component evidence and should not be deleted.

@@ -1,3 +1,6 @@
+<!-- consolidation-note -->
+> Consolidation note: this file is retained as component evidence for Moonshot/Kimi, Z.AI/GLM, and Alibaba/Qwen. For overall Phase 3 provider-usage status, use `docs/reports/phase3/PHASE3_PROVIDER_USAGE_RECONCILIATION_2026-06-19.md`.
+
 # Phase 3 Usage Resolution — 2026-06-19
 
 ## Purpose
