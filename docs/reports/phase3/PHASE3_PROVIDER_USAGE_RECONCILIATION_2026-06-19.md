@@ -52,8 +52,8 @@ Subscriptions, prepaid plans, account seats, verification/setup fees, and other 
 | DeepSeek | `DEEPSEEK_API_KEY` | provider-reconciled | provider-export-plus-artifacts | accepted-for-planning | None for retained June smoke. |
 | OpenAI | `OPENAI_API_KEY` | provider-reconciled | provider-export-plus-artifacts | accepted-for-planning | None for retained smoke. |
 | Gemini | `GEMINI_API_KEY` | billing-level-reconciled | billing-level-only | accepted-with-caveat | Detailed model/token export unavailable. |
-| xAI / Grok | `XAI_API_KEY` | provider-export-pending | artifact-side-only | accepted-with-cost-caveat | Need xAI provider usage/billing export or screenshot. |
-| Moonshot / Kimi | `MOONSHOT_API_KEY` | request-log-estimated | request-log-plus-artifacts | accepted-with-cost-caveat | Need billed-cost export or billing screenshot. |
+| xAI / Grok | `XAI_API_KEY` | provider-dashboard-total-only | provider-dashboard-total-plus-artifacts | accepted-with-granularity-caveat | Granular model/request export unavailable. |
+| Moonshot / Kimi | `MOONSHOT_API_KEY` | provider-dashboard-total-reconciled | request-log-plus-provider-dashboard-total | accepted-for-planning | Granular billed-cost export unavailable. |
 | Z.AI / GLM | `ZAI_API_KEY` | provider-reconciled | provider-billing-table | accepted-for-planning | None for `glm-5.1` billing table. |
 | Alibaba / Qwen | `DASHSCOPE_API_KEY` | payg-and-subscription-separated | provider-bill-detail | accepted-for-planning | None for PAYG/subscription split. |
 
@@ -85,15 +85,15 @@ Provider usage data is not currently available. Phase 1 and Phase 2 Anthropic co
 
 ### xAI / Grok
 
-Status: provider-export-pending.
+Status: provider-dashboard-total-only.
 
-Artifact-side evidence exists, but provider usage/billing export or screenshot is still needed. Full-sweep planning can proceed with conservative funding reserve and an explicit cost caveat.
+Artifact-side evidence exists, and the xAI dashboard provides provider-side total usage and cost: 5,927,385 tokens and `$6.36`. A more granular model/request export is not currently available, so xAI/Grok is accepted for planning with a granularity caveat rather than a cost-confirmation caveat.
 
 ### Moonshot / Kimi
 
-Status: request-log-estimated.
+Status: provider-dashboard-total-reconciled.
 
-The Moonshot request log is a true Kimi artifact and contains token rows, but no billed-cost column. Current estimated marginal cost is `$1.918399`. A billed usage export or billing screenshot is still needed to convert this to provider-billed-cost resolved.
+The Moonshot request logs are true Kimi artifacts and provide deduplicated token totals for `kimi-k2.6`: 103 requests, 2,608,591 input tokens, 1,063,441 cached tokens, 70,089 output tokens, and 3,742,121 total tokens. The Kimi dashboard account overview reports Total Consumption of `$1.91830`, matching the pricing-derived estimate within rounding. A granular billed-cost export is not currently available, but total cost is provider-dashboard confirmed.
 
 ### Z.AI / GLM
 
@@ -112,11 +112,10 @@ Alibaba bill detail separates ordinary PAYG model inference from a Token Plan Te
 | Area | Status | Meaning |
 |---|---|---|
 | API-key family coverage | Pass | All active Phase 3 API-key families are represented. |
-| Provider-billed cost coverage | Partial | OpenAI, DeepSeek, GLM, and Qwen have provider-side billing/export evidence. |
-| Billing-level coverage | Partial | Gemini is billing-level only. |
+| Provider-cost evidence coverage | Pass with caveats | OpenAI, DeepSeek, GLM, Qwen, Kimi/Moonshot, and xAI/Grok have provider-side cost evidence at export, bill-detail, billing-table, billing-level, or dashboard-total level. |
+| Granularity coverage | Partial | Gemini is billing-level only; xAI/Grok is dashboard-total only; Kimi/Moonshot lacks granular billed-cost export. |
 | Internal accepted coverage | Partial | Anthropic is accepted using internal records because provider export is unavailable. |
-| Estimated coverage | Partial | Kimi/Moonshot uses request-log tokens plus pricing-derived estimate. |
-| Pending export coverage | Open | xAI/Grok remains provider-export pending. |
+| Pending granular export coverage | Open | xAI/Grok granular export, Kimi/Moonshot granular billed-cost export, Gemini model/token export, and Anthropic provider export remain unavailable. |
 | Overhead separation | Pass | Qwen subscription overhead is not merged into benchmark marginal cost. |
 | Full-sweep funding readiness | Pass with caveats | Sufficient for preliminary API-key-family funding; update after smoke-derived estimates and any new provider exports. |
 

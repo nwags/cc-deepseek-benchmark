@@ -30,8 +30,8 @@ Commit only normalized summaries that are safe for benchmark reporting.
 - Anthropic provider export is unavailable; internal records are accepted for canary/smoke planning because Phase 1/2 cost behavior appeared correct.
 - Qwen/Alibaba has both PAYG model inference and a separate Token Plan Team Edition subscription.
 - Z.AI/GLM is resolved from the uploaded `glm-5.1` billing table.
-- Moonshot/Kimi is estimated from a request log because the export contains tokens but not billed amount.
-- Grok/xAI remains pending provider export.
+- Moonshot/Kimi is reconciled from request-log token totals plus Kimi dashboard Total Consumption.
+- Grok/xAI is reconciled at provider-dashboard-total level; granular model/request export remains unavailable.
 
 ## Usage
 

@@ -29,10 +29,20 @@ Phase 3 work belongs on `phase3`.
 | DeepSeek | `DEEPSEEK_API_KEY` | resolved for retained June smoke | see existing report | see existing report | Existing DeepSeek family reconciliation remains source of truth. |
 | Gemini | `GEMINI_API_KEY` | billing-level only | see existing report | see existing report | Provider detail remains billing-level rather than exact model-row export. |
 | Anthropic | `ANTHROPIC_API_KEY` | external confirmation required | internal records only | external confirmation required | Project lacks direct provider-dashboard access. |
-| xAI / Grok | `XAI_API_KEY` | provider export pending | pending | pending | Need xAI usage/billing export or screenshot. |
-| Moonshot / Kimi | `MOONSHOT_API_KEY` | request-log estimated | `$1.918399` | pending | Moonshot request log contains token rows but no billed-cost column. |
+| xAI / Grok | `XAI_API_KEY` | provider dashboard total only | `$6.36` | `$6.36` | Dashboard reports 5,927,385 total tokens and `$6.36`; granular export unavailable. |
+| Moonshot / Kimi | `MOONSHOT_API_KEY` | request logs plus dashboard total reconciled | `$1.91830` | `$1.91830` | Request logs provide tokens; Kimi dashboard Total Consumption confirms cost. |
 | Z.AI / GLM | `ZAI_API_KEY` | provider billing resolved | `$3.094387` | `$3.094387` | Uploaded `KimiUsage` file is GLM/Z.AI `glm-5.1`, not Kimi. |
 | Alibaba / Qwen | `DASHSCOPE_API_KEY` | PAYG/subscription separated | `$1.310890` | `$31.310890` | `$30.00` Token Plan Team Edition is account overhead, not marginal model inference. |
+
+## xAI / Grok
+
+The xAI dashboard reports total token usage of `5,927,385` and total cost of `$6.36`.
+
+Interpretation:
+
+- Use `$6.36` as provider-dashboard-confirmed Grok benchmark marginal cost.
+- Mark Grok as `provider-dashboard-total-only`.
+- Granular model/request export remains unavailable.
 
 ## Moonshot / Kimi
 
@@ -48,13 +58,14 @@ Observed totals:
 | Input tokens | `2,608,591` |
 | Cached tokens | `1,063,441` |
 | Output tokens | `70,089` |
-| Estimated marginal cost | `$1.918399` |
+| Pricing-derived estimate | `$1.918399` |
+| Kimi dashboard Total Consumption | `$1.91830` |
 
 Interpretation:
 
-- Use `$1.918399` as the current Kimi benchmark marginal-cost estimate.
-- Mark as `request-log-estimated`, not provider-billed-cost resolved.
-- A billed usage export or billing screenshot is still needed to convert this to provider-billing-resolved.
+- Use `$1.91830` as the provider-dashboard-confirmed Kimi benchmark marginal cost.
+- Keep the request-log token totals as usage evidence.
+- Mark Kimi as `provider-dashboard-total-reconciled`; granular billed-cost export remains unavailable.
 
 ## Z.AI / GLM
 
@@ -116,8 +127,8 @@ Subscriptions, token plans, prepaid seats, account verification costs, and other
 
 | Provider family | Blocker |
 |---|---|
-| xAI / Grok | Need provider usage/billing export or screenshot. |
-| Moonshot / Kimi | Need billed-cost export or billing screenshot to validate pricing-derived estimate. |
+| xAI / Grok | Granular model/request export unavailable; dashboard total of `5,927,385` tokens and `$6.36` is accepted. |
+| Moonshot / Kimi | Granular billed-cost export unavailable; request-log token totals and Kimi dashboard Total Consumption of `$1.91830` are accepted. |
 | Anthropic | Need sponsor/provider-side confirmation of funding, spend limits, rate limits, and provider-side usage/cost if available. |
 | Gemini | Model-level provider export remains limited; current status is billing-level reconciliation. |
 
