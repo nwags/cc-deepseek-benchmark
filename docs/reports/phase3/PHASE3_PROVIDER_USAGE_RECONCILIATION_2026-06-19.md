@@ -97,9 +97,11 @@ The Moonshot request logs are true Kimi artifacts and provide deduplicated token
 
 ### Z.AI / GLM
 
-Status: provider-reconciled.
+Status: provider-reconciled for `glm-5.1`; `glm-5.2` added as a same-family Phase 3 arm.
 
-The uploaded file named `KimiUsage` is actually Z.AI/GLM `glm-5.1` billing data. It should not be merged into Kimi/Moonshot. Current provider-billed cost is `$3.094387`.
+The uploaded file named `KimiUsage` is actually Z.AI/GLM `glm-5.1` billing data. It should not be merged into Kimi/Moonshot. Current provider-billed cost for the reconciled `glm-5.1` usage is `$3.094387`.
+
+`router-glm-5.2` uses the same Z.AI API-key family and the same published GLM-5.2 token rates as GLM-5.1: `$1.40/M` input, `$0.26/M` cached input, and `$4.40/M` output. GLM-5.2 results must remain separate from GLM-5.1 evidence.
 
 ### Alibaba / Qwen
 

@@ -20,6 +20,9 @@ RATES: dict[str, TokenRate] = {
     "deepseek-v4-pro": TokenRate(0.435, 0.87, 0.003625),
     "deepseek-v4-pro[1m]": TokenRate(0.435, 0.87, 0.003625),
     "deepseek-v4-flash": TokenRate(0.14, 0.28, 0.0028),
+    # Z.AI / GLM published API rates, prices per 1M tokens.
+    "glm-5.1": TokenRate(1.40, 4.40, 0.26),
+    "glm-5.2": TokenRate(1.40, 4.40, 0.26),
 }
 
 

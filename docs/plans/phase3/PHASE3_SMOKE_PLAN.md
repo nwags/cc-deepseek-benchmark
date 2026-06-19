@@ -158,3 +158,15 @@ Do not run the full sweep until:
 - at least two concurrent dry-runs succeed,
 - at least two cheap paid jobs run concurrently without collisions,
 - dashboard or reports clearly show worker/slot provenance.
+
+## GLM-5.2 same-family addition
+
+`router-glm-5.2` is a same-provider/same-family successor to the already validated `router-glm-5.1` route.
+
+Policy:
+
+- keep `router-glm-5.1` results intact;
+- add `router-glm-5.2` as a separate Phase 3 arm;
+- require a cheap route/model probe before any paid Harbor work;
+- use Z.AI published GLM-5.2 rates: `$1.40/M` input, `$0.26/M` cached input, `$4.40/M` output;
+- do not merge GLM-5.2 results into GLM-5.1 evidence.
