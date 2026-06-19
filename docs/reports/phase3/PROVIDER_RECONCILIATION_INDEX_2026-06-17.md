@@ -43,3 +43,21 @@ Next families should be reconciled in this order, depending on artifact and prov
 4. GLM
 
 For each, reconcile provider family totals first, then split by model only when the provider export exposes reliable model-level rows.
+
+## 2026-06-19 update
+
+Additional provider exports were reviewed for Moonshot/Kimi, Z.AI/GLM, and Alibaba/Qwen.
+
+| Provider family | Updated status | Report / artifact |
+|---|---|---|
+| Moonshot / Kimi | request-log-estimated; billed-cost export still pending | `docs/reports/phase3/PHASE3_USAGE_RESOLUTION_2026-06-19.md` |
+| Z.AI / GLM | provider billing resolved for `glm-5.1` | `docs/reports/phase3/PHASE3_USAGE_RESOLUTION_2026-06-19.md` |
+| Alibaba / Qwen | PAYG inference and Token Plan subscription separated | `docs/reports/phase3/PHASE3_USAGE_RESOLUTION_2026-06-19.md` |
+| xAI / Grok | provider export still pending | unchanged |
+| Anthropic | external confirmation still required | unchanged |
+| Gemini | billing-level reconciliation remains current | unchanged |
+
+Normalized CSV outputs:
+
+- `results/phase3/provider_usage/normalized/provider_usage_resolution_2026-06-19.csv`
+- `results/phase3/provider_usage/normalized/full_sweep_api_key_funding_prelim_2026-06-19.csv`

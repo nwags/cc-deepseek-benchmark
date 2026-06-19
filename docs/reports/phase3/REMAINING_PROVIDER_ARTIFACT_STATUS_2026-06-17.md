@@ -53,3 +53,18 @@ Provider billing/usage exports have not yet been reconciled for these families, 
 - Reconcile provider family totals first; split by model only when provider exports expose reliable model-level rows.
 - Dashboard implication: keep run directory timestamp, run start/end, session message UTC dates, provider billing UTC date, routed arm, observed backend, internal estimate, provider billed cost, and reconciliation status as separate fields.
 - These artifacts are enough to characterize smoke-run behavior and internal estimated spend, but not enough to validate external provider invoices.
+
+## 2026-06-19 update
+
+The remaining-provider status changed after reviewing new provider exports.
+
+| Provider family | Prior status | Updated status |
+|---|---|---|
+| Z.AI / GLM | provider export pending | provider billing resolved for `glm-5.1` |
+| Alibaba / Qwen | provider export pending / payment-structure unclear | PAYG inference cost resolved; Token Plan subscription tracked as overhead |
+| Moonshot / Kimi | provider export pending | request-log estimate available; billed-cost export still pending |
+| xAI / Grok | provider export pending | unchanged |
+| Anthropic | external confirmation required | unchanged |
+| Gemini | billing-level only | unchanged |
+
+GLM and Qwen should no longer be grouped with unreconciled providers. Kimi should be treated as partially resolved because request-log tokens are available, but provider-billed cost is still not directly exported in the reviewed file.
