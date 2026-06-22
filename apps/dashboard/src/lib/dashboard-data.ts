@@ -299,3 +299,359 @@ export async function getRunArtifacts(runId: string): Promise<RunArtifactRow[]> 
     [runId]
   );
 }
+
+
+export type EvalSuiteRow = {
+  suite_id: string;
+  display_name: string;
+  description: string | null;
+  suite_type: string;
+  benchmark: string;
+  benchmark_version: string | null;
+  phase: string;
+  version: string | null;
+  active: boolean;
+  suite_items: number;
+  arm_run_count: number;
+  trial_count: number;
+  success_count: number;
+  pass_rate: number | null;
+  trial_cost_usd: number | null;
+};
+
+export type SuiteArmComparisonRow = {
+  suite_id: string;
+  suite_display_name: string | null;
+  suite_type: string | null;
+  arm_id: string;
+  trial_count: number;
+  task_count: number;
+  success_count: number;
+  pass_rate: number | null;
+  mean_reward: number | null;
+  median_runtime_seconds: number | null;
+  trial_cost_usd: number | null;
+  cost_row_count: number;
+  missing_cost_count: number;
+};
+
+export type ArmRunSummaryRow = {
+  arm_run_id: string;
+  run_id: string;
+  run_label: string;
+  arm_id: string;
+  provider_family: string | null;
+  backend_model: string | null;
+  router_model: string | null;
+  suite_id: string | null;
+  suite_display_name: string | null;
+  suite_type: string | null;
+  logical_mode: string;
+  storage_mode: string | null;
+  status: string;
+  started_at: string | null;
+  finished_at: string | null;
+  trial_count: number;
+  success_count: number;
+  failure_count: number;
+  pass_rate: number | null;
+  median_runtime_seconds: number | null;
+  trial_cost_usd: number;
+  cost_row_count: number;
+  missing_cost_count: number;
+  input_tokens: number | string;
+  cache_tokens: number | string;
+  output_tokens: number | string;
+  artifact_count: number;
+  r2_artifact_count: number;
+};
+
+export type ArmRunTrialDetailRow = {
+  trial_id: string;
+  task_id: string;
+  task_name: string | null;
+  attempt_index: number | null;
+  reward: number | null;
+  exception_type: string | null;
+  runtime_seconds: number | null;
+  cost_usd: number | null;
+  input_tokens: number | string | null;
+  cache_tokens: number | string | null;
+  output_tokens: number | string | null;
+  result_local_path: string | null;
+};
+
+export type EvalSummaryRow = {
+  task_id: string;
+  task_name: string | null;
+  arm_count: number;
+  trial_count: number;
+  success_count: number;
+  pass_rate: number | null;
+  median_runtime_seconds: number | null;
+  trial_cost_usd: number | null;
+};
+
+export type EvalArmComparisonRow = {
+  task_id: string;
+  task_name: string | null;
+  arm_id: string;
+  suite_id: string | null;
+  logical_mode: string | null;
+  trial_count: number;
+  success_count: number;
+  pass_rate: number | null;
+  mean_reward: number | null;
+  median_runtime_seconds: number | null;
+  trial_cost_usd: number | null;
+  cost_row_count: number;
+  missing_cost_count: number;
+};
+
+export async function getEvalSuites(): Promise<EvalSuiteRow[]> {
+  return queryRows<EvalSuiteRow>(`
+    with item_summary as (
+      select suite_id, count(*)::int as suite_items
+      from benchmark.benchmark_eval_suite_items
+      group by suite_id
+    ),
+    arm_summary as (
+      select
+        suite_id,
+        count(distinct arm_id)::int as arm_run_count,
+        coalesce(sum(trial_count), 0)::int as trial_count,
+        coalesce(sum(success_count), 0)::int as success_count,
+        case
+          when coalesce(sum(trial_count), 0) = 0 then null
+          else sum(success_count)::numeric / sum(trial_count)::numeric
+        end as pass_rate,
+        sum(trial_cost_usd)::float8 as trial_cost_usd
+      from benchmark.v_suite_arm_comparison
+      group by suite_id
+    )
+    select
+      s.suite_id,
+      s.display_name,
+      s.description,
+      s.suite_type,
+      s.benchmark,
+      s.benchmark_version,
+      s.phase,
+      s.version,
+      s.active,
+      coalesce(i.suite_items, 0)::int as suite_items,
+      coalesce(a.arm_run_count, 0)::int as arm_run_count,
+      coalesce(a.trial_count, 0)::int as trial_count,
+      coalesce(a.success_count, 0)::int as success_count,
+      a.pass_rate::float8,
+      a.trial_cost_usd::float8
+    from benchmark.benchmark_eval_suites s
+    left join item_summary i on i.suite_id = s.suite_id
+    left join arm_summary a on a.suite_id = s.suite_id
+    where s.phase = 'phase3'
+    order by
+      case s.suite_type when 'canary' then 1 when 'smoke' then 2 when 'full' then 3 else 9 end,
+      s.suite_id
+  `);
+}
+
+export async function getSuiteArmComparison(suiteId: string): Promise<SuiteArmComparisonRow[]> {
+  return queryRows<SuiteArmComparisonRow>(
+    `
+      select
+        suite_id,
+        suite_display_name,
+        suite_type,
+        arm_id,
+        trial_count::int,
+        task_count::int,
+        success_count::int,
+        pass_rate::float8,
+        mean_reward::float8,
+        median_runtime_seconds::float8,
+        trial_cost_usd::float8,
+        cost_row_count::int,
+        missing_cost_count::int
+      from benchmark.v_suite_arm_comparison
+      where suite_id = $1
+      order by pass_rate desc nulls last, arm_id
+    `,
+    [suiteId]
+  );
+}
+
+export async function getArmRunRows(limit = 100): Promise<ArmRunSummaryRow[]> {
+  return queryRows<ArmRunSummaryRow>(
+    `
+      select
+        arm_run_id::text,
+        run_id::text,
+        run_label,
+        arm_id,
+        provider_family,
+        backend_model,
+        router_model,
+        suite_id,
+        suite_display_name,
+        suite_type,
+        logical_mode,
+        storage_mode,
+        status,
+        started_at::text,
+        finished_at::text,
+        trial_count::int,
+        success_count::int,
+        failure_count::int,
+        pass_rate::float8,
+        median_runtime_seconds::float8,
+        trial_cost_usd::float8,
+        cost_row_count::int,
+        missing_cost_count::int,
+        input_tokens::text,
+        cache_tokens::text,
+        output_tokens::text,
+        artifact_count::int,
+        r2_artifact_count::int
+      from benchmark.v_arm_run_summary
+      order by started_at desc nulls last, run_label desc, arm_id
+      limit $1
+    `,
+    [limit]
+  );
+}
+
+export async function getArmRunDetail(armRunId: string): Promise<ArmRunSummaryRow | null> {
+  const rows = await queryRows<ArmRunSummaryRow>(
+    `
+      select
+        arm_run_id::text,
+        run_id::text,
+        run_label,
+        arm_id,
+        provider_family,
+        backend_model,
+        router_model,
+        suite_id,
+        suite_display_name,
+        suite_type,
+        logical_mode,
+        storage_mode,
+        status,
+        started_at::text,
+        finished_at::text,
+        trial_count::int,
+        success_count::int,
+        failure_count::int,
+        pass_rate::float8,
+        median_runtime_seconds::float8,
+        trial_cost_usd::float8,
+        cost_row_count::int,
+        missing_cost_count::int,
+        input_tokens::text,
+        cache_tokens::text,
+        output_tokens::text,
+        artifact_count::int,
+        r2_artifact_count::int
+      from benchmark.v_arm_run_summary
+      where arm_run_id = $1::uuid
+      limit 1
+    `,
+    [armRunId]
+  );
+
+  return rows[0] ?? null;
+}
+
+export async function getArmRunTrials(armRunId: string): Promise<ArmRunTrialDetailRow[]> {
+  return queryRows<ArmRunTrialDetailRow>(
+    `
+      select
+        trial_id::text,
+        task_id,
+        task_name,
+        attempt_index::int,
+        reward::float8,
+        exception_type,
+        runtime_seconds::float8,
+        cost_usd::float8,
+        input_tokens::text,
+        cache_tokens::text,
+        output_tokens::text,
+        result_local_path
+      from benchmark.v_arm_run_trials
+      where arm_run_id = $1::uuid
+      order by task_name, attempt_index
+    `,
+    [armRunId]
+  );
+}
+
+export async function getArmRunArtifacts(armRunId: string): Promise<RunArtifactRow[]> {
+  return queryRows<RunArtifactRow>(
+    `
+      select
+        coalesce(art.local_path, art.r2_uri, art.github_uri, art.id::text) as artifact_path,
+        art.artifact_type as artifact_kind,
+        art.size_bytes::int,
+        art.r2_uri
+      from benchmark.benchmark_arm_runs ar
+      join benchmark.benchmark_artifacts art
+        on art.run_id = ar.run_id
+      left join benchmark.benchmark_trials t
+        on t.id = art.trial_id
+      where ar.id = $1::uuid
+        and (
+          art.trial_id is null
+          or t.arm_run_id = ar.id
+        )
+      order by artifact_path
+      limit 200
+    `,
+    [armRunId]
+  );
+}
+
+export async function getEvalRows(): Promise<EvalSummaryRow[]> {
+  return queryRows<EvalSummaryRow>(`
+    select
+      task_id,
+      max(task_name) as task_name,
+      count(distinct arm_id)::int as arm_count,
+      coalesce(sum(trial_count), 0)::int as trial_count,
+      coalesce(sum(success_count), 0)::int as success_count,
+      case
+        when coalesce(sum(trial_count), 0) = 0 then null
+        else sum(success_count)::numeric / sum(trial_count)::numeric
+      end::float8 as pass_rate,
+      percentile_cont(0.5) within group (order by median_runtime_seconds)::float8 as median_runtime_seconds,
+      sum(trial_cost_usd)::float8 as trial_cost_usd
+    from benchmark.v_eval_arm_comparison
+    group by task_id
+    order by task_name
+  `);
+}
+
+export async function getEvalArmComparison(taskId: string): Promise<EvalArmComparisonRow[]> {
+  return queryRows<EvalArmComparisonRow>(
+    `
+      select
+        task_id,
+        task_name,
+        arm_id,
+        suite_id,
+        logical_mode,
+        trial_count::int,
+        success_count::int,
+        pass_rate::float8,
+        mean_reward::float8,
+        median_runtime_seconds::float8,
+        trial_cost_usd::float8,
+        cost_row_count::int,
+        missing_cost_count::int
+      from benchmark.v_eval_arm_comparison
+      where task_id = $1
+      order by pass_rate desc nulls last, arm_id, suite_id
+    `,
+    [taskId]
+  );
+}
