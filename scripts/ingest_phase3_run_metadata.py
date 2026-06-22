@@ -74,13 +74,33 @@ def git_value(args: list[str]) -> str | None:
 
 
 def detect_phase_mode(run_dir: Path) -> tuple[str, str]:
+    """Return phase and physical storage mode from a result path."""
     parts = run_dir.parts
     if "results" in parts:
         i = parts.index("results")
         phase = parts[i + 1] if len(parts) > i + 1 else "unknown"
-        mode = parts[i + 2] if len(parts) > i + 2 else "unknown"
-        return phase, mode
+        storage_mode = parts[i + 2] if len(parts) > i + 2 else "unknown"
+        return phase, storage_mode
     return "unknown", "unknown"
+
+
+def resolve_logical_mode(storage_mode: str, explicit_mode: str | None = None) -> str:
+    """Map physical result storage mode to sponsor-facing logical run mode."""
+    if explicit_mode:
+        return explicit_mode
+    if storage_mode == "raw":
+        return "full"
+    return storage_mode
+
+
+def default_suite_id(phase: str, logical_mode: str) -> str | None:
+    if phase != "phase3":
+        return None
+    return {
+        "canary": "phase3-canary-1",
+        "smoke": "phase3-smoke-5",
+        "full": "phase3-full-20",
+    }.get(logical_mode)
 
 
 def detect_arm(run_dir: Path) -> str | None:
@@ -271,10 +291,19 @@ def extract_trials(run_dir: Path) -> list[dict[str, Any]]:
     return trials
 
 
-def build_manifest(run_dir: Path, r2_prefix: str) -> dict[str, Any]:
+def build_manifest(
+    run_dir: Path,
+    r2_prefix: str,
+    *,
+    logical_mode_override: str | None = None,
+    suite_id_override: str | None = None,
+    github_run_id: str | None = None,
+) -> dict[str, Any]:
     run_result = read_json(run_dir / "result.json")
     run_config = read_json(run_dir / "config.json")
-    phase, mode = detect_phase_mode(run_dir)
+    phase, storage_mode = detect_phase_mode(run_dir)
+    logical_mode = resolve_logical_mode(storage_mode, logical_mode_override)
+    suite_id = suite_id_override or default_suite_id(phase, logical_mode)
     arm_id = detect_arm(run_dir)
 
     git_commit = git_value(["git", "rev-parse", "HEAD"])
@@ -285,7 +314,11 @@ def build_manifest(run_dir: Path, r2_prefix: str) -> dict[str, Any]:
         "schema_version": 1,
         "run": {
             "phase": phase,
-            "mode": mode,
+            "mode": logical_mode,
+            "logical_mode": logical_mode,
+            "storage_mode": storage_mode,
+            "suite_id": suite_id,
+            "github_run_id": github_run_id,
             "arm_id": arm_id,
             "run_dir": run_dir.as_posix(),
             "run_timestamp": run_dir.name,
@@ -309,7 +342,7 @@ def build_manifest(run_dir: Path, r2_prefix: str) -> dict[str, Any]:
             "jobs_dir": run_config.get("jobs_dir"),
         },
         "trials": extract_trials(run_dir),
-        "artifacts": [asdict(a) for a in collect_artifacts(run_dir, r2_prefix, phase, mode, arm_id)],
+        "artifacts": [asdict(a) for a in collect_artifacts(run_dir, r2_prefix, phase, storage_mode, arm_id)],
     }
     return manifest
 
@@ -371,7 +404,9 @@ def insert_manifest_into_postgres(manifest: dict[str, Any], *, db_url: str) -> N
     arm_id = run.get("arm_id") or "unknown-arm"
     config = manifest.get("config_summary", {})
     phase = run.get("phase") or "unknown"
-    mode = run.get("mode") or "unknown"
+    mode = run.get("mode") or run.get("logical_mode") or "unknown"
+    storage_mode = run.get("storage_mode")
+    suite_id = run.get("suite_id")
     run_label = f"{arm_id}/{run.get('run_timestamp')}"
 
     with psycopg.connect(db_url) as conn:
@@ -444,6 +479,75 @@ def insert_manifest_into_postgres(manifest: dict[str, Any], *, db_url: str) -> N
             )
             run_id = cur.fetchone()[0]
 
+            if suite_id:
+                cur.execute(
+                    """
+                    insert into benchmark.benchmark_eval_suites (
+                        suite_id, display_name, benchmark, benchmark_version,
+                        phase, suite_type, active, raw_metadata
+                    )
+                    values (%s, %s, 'terminal-bench', '2.0', %s, %s, true, %s)
+                    on conflict (suite_id) do nothing
+                    """,
+                    (
+                        suite_id,
+                        suite_id,
+                        phase,
+                        mode,
+                        Jsonb({"source": "ingest_phase3_run_metadata.py"}),
+                    ),
+                )
+
+            cur.execute(
+                """
+                insert into benchmark.benchmark_arm_runs (
+                    run_id, arm_id, suite_id, logical_mode, storage_mode,
+                    status, started_at, finished_at, n_trials, n_completed_trials,
+                    n_errored_trials, total_cost_usd, input_tokens, cache_tokens,
+                    output_tokens, github_run_id, raw_metadata
+                )
+                values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                on conflict (run_id, arm_id) do update set
+                    suite_id = excluded.suite_id,
+                    logical_mode = excluded.logical_mode,
+                    storage_mode = excluded.storage_mode,
+                    status = excluded.status,
+                    started_at = excluded.started_at,
+                    finished_at = excluded.finished_at,
+                    n_trials = excluded.n_trials,
+                    n_completed_trials = excluded.n_completed_trials,
+                    n_errored_trials = excluded.n_errored_trials,
+                    total_cost_usd = excluded.total_cost_usd,
+                    input_tokens = excluded.input_tokens,
+                    cache_tokens = excluded.cache_tokens,
+                    output_tokens = excluded.output_tokens,
+                    github_run_id = excluded.github_run_id,
+                    raw_metadata = excluded.raw_metadata,
+                    updated_at = now()
+                returning id
+                """,
+                (
+                    run_id,
+                    arm_id,
+                    suite_id,
+                    mode,
+                    storage_mode,
+                    run.get("status") or "unknown",
+                    run.get("started_at"),
+                    run.get("finished_at"),
+                    run.get("n_total_trials"),
+                    run.get("n_completed_trials"),
+                    run.get("n_errored_trials"),
+                    run.get("cost_usd"),
+                    run.get("input_tokens"),
+                    run.get("cache_tokens"),
+                    run.get("output_tokens"),
+                    run.get("github_run_id"),
+                    Jsonb(run),
+                ),
+            )
+            arm_run_id = cur.fetchone()[0]
+
             # Replace imported child rows for this run. This makes repeated
             # ingestion deterministic instead of accumulating duplicate trials
             # and artifacts.
@@ -471,16 +575,17 @@ def insert_manifest_into_postgres(manifest: dict[str, Any], *, db_url: str) -> N
                 cur.execute(
                     """
                     insert into benchmark.benchmark_trials (
-                        run_id, arm_id, task_id, attempt_index, reward,
+                        run_id, arm_run_id, arm_id, task_id, attempt_index, reward,
                         exception_type, runtime_seconds, cost_usd,
                         input_tokens, cache_tokens, output_tokens,
                         result_local_path, notes, raw_result
                     )
-                    values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     returning id
                     """,
                     (
                         run_id,
+                        arm_run_id,
                         arm_id,
                         task_id,
                         idx,
@@ -538,6 +643,9 @@ def main() -> int:
     parser.add_argument("--run-dir", required=True, help="Path to one timestamped Harbor result directory.")
     parser.add_argument("--manifest-out", default=None, help="Output manifest JSON path.")
     parser.add_argument("--r2-prefix", default=os.getenv("R2_PREFIX", "phase3"))
+    parser.add_argument("--logical-mode", choices=["canary", "smoke", "full", "ad-hoc"], default=None)
+    parser.add_argument("--suite-id", default=None)
+    parser.add_argument("--github-run-id", default=os.getenv("GITHUB_RUN_ID"))
     parser.add_argument("--dry-run", action="store_true", help="Build manifest only; do not upload or insert.")
     parser.add_argument("--upload-r2", action="store_true", help="Upload selected artifacts to Cloudflare R2.")
     parser.add_argument("--insert-db", action="store_true", help="Insert manifest metadata into Supabase/Postgres.")
@@ -556,7 +664,13 @@ def main() -> int:
         raise SystemExit(f"run directory is missing result.json: {run_dir}")
     ensure_timestamped_run_dir(run_dir)
 
-    manifest = build_manifest(run_dir, args.r2_prefix)
+    manifest = build_manifest(
+        run_dir,
+        args.r2_prefix,
+        logical_mode_override=args.logical_mode,
+        suite_id_override=args.suite_id,
+        github_run_id=args.github_run_id,
+    )
 
     if args.dry_run and (args.upload_r2 or args.insert_db):
         raise SystemExit("--dry-run cannot be combined with --upload-r2 or --insert-db")
