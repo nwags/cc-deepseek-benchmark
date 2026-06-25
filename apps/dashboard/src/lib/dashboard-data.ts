@@ -655,3 +655,42 @@ export async function getEvalArmComparison(taskId: string): Promise<EvalArmCompa
     [taskId]
   );
 }
+
+
+export type SuiteTaskDifficultyRow = {
+  suite_id: string;
+  task_id: string;
+  task_name: string | null;
+  arm_count: number;
+  trial_count: number;
+  success_count: number;
+  pass_rate: number | null;
+  median_runtime_seconds: number | null;
+  trial_cost_usd: number | null;
+};
+
+export async function getSuiteTaskDifficulty(suiteId: string, limit = 20): Promise<SuiteTaskDifficultyRow[]> {
+  return queryRows<SuiteTaskDifficultyRow>(
+    `
+      select
+        suite_id,
+        task_id,
+        max(task_name) as task_name,
+        count(distinct arm_id)::int as arm_count,
+        coalesce(sum(trial_count), 0)::int as trial_count,
+        coalesce(sum(success_count), 0)::int as success_count,
+        case
+          when coalesce(sum(trial_count), 0) = 0 then null
+          else sum(success_count)::numeric / sum(trial_count)::numeric
+        end::float8 as pass_rate,
+        percentile_cont(0.5) within group (order by median_runtime_seconds)::float8 as median_runtime_seconds,
+        sum(trial_cost_usd)::float8 as trial_cost_usd
+      from benchmark.v_eval_arm_comparison
+      where suite_id = $1
+      group by suite_id, task_id
+      order by pass_rate asc nulls last, trial_count desc, task_id
+      limit $2
+    `,
+    [suiteId, limit]
+  );
+}

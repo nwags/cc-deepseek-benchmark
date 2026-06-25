@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "../../../components/AppShell";
-import { getEvalSuites, getSuiteArmComparison } from "../../../lib/dashboard-data";
+import { getEvalSuites, getSuiteArmComparison, getSuiteTaskDifficulty } from "../../../lib/dashboard-data";
 import { formatRecordedCost, formatNumber, formatPercent, formatSeconds } from "../../../lib/format";
 
 export const dynamic = "force-dynamic";
@@ -13,9 +13,10 @@ export default async function EvalSuiteDetailPage({
 }) {
   const { suiteId } = await params;
   const decodedSuiteId = decodeURIComponent(suiteId);
-  const [suites, rows] = await Promise.all([
+  const [suites, rows, difficultyRows] = await Promise.all([
     getEvalSuites(),
-    getSuiteArmComparison(decodedSuiteId)
+    getSuiteArmComparison(decodedSuiteId),
+    getSuiteTaskDifficulty(decodedSuiteId, 25)
   ]);
   const suite = suites.find((row) => row.suite_id === decodedSuiteId);
 
@@ -80,6 +81,42 @@ export default async function EvalSuiteDetailPage({
           </table>
         </div>
       </section>
+      <section className="panel">
+        <div className="panel-heading">
+          <h2>Task difficulty</h2>
+          <p>Tasks ordered from lowest to highest pass rate within this suite.</p>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Eval</th>
+                <th>Arms</th>
+                <th>Trials</th>
+                <th>Successes</th>
+                <th>Pass rate</th>
+                <th>Median runtime</th>
+              </tr>
+            </thead>
+            <tbody>
+              {difficultyRows.map((row) => (
+                <tr key={row.task_id}>
+                  <td>
+                    <Link href={`/evals/${encodeURIComponent(row.task_id)}`}>{row.task_name ?? row.task_id}</Link>
+                    <div className="mono">{row.task_id}</div>
+                  </td>
+                  <td>{formatNumber(row.arm_count)}</td>
+                  <td>{formatNumber(row.trial_count)}</td>
+                  <td>{formatNumber(row.success_count)}</td>
+                  <td>{formatPercent(row.pass_rate)}</td>
+                  <td>{formatSeconds(row.median_runtime_seconds)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
     </AppShell>
   );
 }

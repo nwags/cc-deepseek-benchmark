@@ -5,60 +5,77 @@ import {
   getArmRunRows,
   getEvalSuites,
   getOverview,
-  getSuiteArmComparison
+  getSuiteArmComparison,
+  getSuiteTaskDifficulty
 } from "../lib/dashboard-data";
-import { formatRecordedCost, formatCurrency, formatNumber, formatPercent, formatSeconds } from "../lib/format";
+import { formatRecordedCost, formatNumber, formatPercent, formatSeconds } from "../lib/format";
 
 export const dynamic = "force-dynamic";
 
+function runHealthLabel(status: string, trialCount: number, logicalMode: string) {
+  if (status === "completed") return "completed";
+  if (status === "errors" && trialCount > 0) {
+    return logicalMode === "full" ? "imported with trial errors" : "trial errors";
+  }
+  return status;
+}
+
 export default async function DashboardPage() {
-  const [overview, suites, armRuns, fullSuiteRows] = await Promise.all([
+  const [overview, suites, armRuns, fullSuiteRows, hardestFullEvals] = await Promise.all([
     getOverview(),
     getEvalSuites(),
-    getArmRunRows(8),
-    getSuiteArmComparison("phase3-full-20")
+    getArmRunRows(12),
+    getSuiteArmComparison("phase3-full-20"),
+    getSuiteTaskDifficulty("phase3-full-20", 8)
   ]);
 
   const fullSuite = suites.find((suite) => suite.suite_id === "phase3-full-20");
+  const fullArmRuns = armRuns.filter((row) => row.logical_mode === "full");
 
   return (
     <AppShell
       title="Phase 3 Router Dashboard"
-      description="Sponsor-facing benchmark dashboard organized by eval suites, arm runs, evals, and artifacts."
+      description="Sponsor-facing benchmark dashboard focused on full-suite model comparison, cost coverage, and task-level failure patterns."
     >
       <section className="metric-grid">
-        <MetricCard label="Raw runs" value={formatNumber(overview.run_count)} detail="Imported run roots" />
-        <MetricCard label="Trials" value={formatNumber(overview.trial_count)} detail="All imported Phase 3 trials" />
-        <MetricCard label="Artifacts" value={formatNumber(overview.artifact_count)} detail="Tracked metadata rows" />
-        <MetricCard label="Recorded cost" value={formatRecordedCost(overview.cost_usd, overview.cost_row_count, overview.missing_cost_count)} />
-        <MetricCard label="Full-suite arms" value={formatNumber(fullSuite?.arm_run_count ?? 0)} detail="phase3-full-20" />
-        <MetricCard label="Full-suite pass rate" value={formatPercent(fullSuite?.pass_rate ?? null)} detail="Imported full arms" />
+        <MetricCard label="Full-suite arms" value={formatNumber(fullSuite?.arm_run_count ?? 0)} detail="Imported into phase3-full-20" />
+        <MetricCard label="Full-suite trials" value={formatNumber(fullSuite?.trial_count ?? 0)} detail="20 evals × 3 attempts × imported arms" />
+        <MetricCard label="Full-suite pass rate" value={formatPercent(fullSuite?.pass_rate ?? null)} detail="Across imported full arms" />
+        <MetricCard label="All imported trials" value={formatNumber(overview.trial_count)} detail="Canary + smoke + full" />
+        <MetricCard label="All R2 artifacts" value={formatNumber(overview.artifact_count)} detail="Tracked evidence rows" />
+        <MetricCard label="Recorded cost" value={formatRecordedCost(overview.cost_usd, overview.cost_row_count, overview.missing_cost_count)} detail="Known cost rows only" />
       </section>
 
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <h2>Phase 3 full-suite comparison</h2>
-            <p>Current imported full-sweep arms in <Link href="/eval-suites/phase3-full-20">phase3-full-20</Link>.</p>
+            <h2>Full-suite leaderboard</h2>
+            <p>
+              Current imported full-sweep arms in{" "}
+              <Link href="/eval-suites/phase3-full-20">phase3-full-20</Link>.
+              Costs are recorded costs; rows with missing cost coverage should be treated as lower bounds.
+            </p>
           </div>
-          <Link href="/eval-suites">All eval suites →</Link>
+          <Link href="/eval-suites/phase3-full-20">Open suite →</Link>
         </div>
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
+                <th>Rank</th>
                 <th>Arm</th>
                 <th>Tasks</th>
                 <th>Trials</th>
                 <th>Successes</th>
                 <th>Pass rate</th>
                 <th>Median runtime</th>
-                <th>Cost</th>
+                <th>Recorded cost</th>
               </tr>
             </thead>
             <tbody>
-              {fullSuiteRows.map((row) => (
+              {fullSuiteRows.map((row, index) => (
                 <tr key={row.arm_id}>
+                  <td>{index + 1}</td>
                   <td className="mono">{row.arm_id}</td>
                   <td>{formatNumber(row.task_count)}</td>
                   <td>{formatNumber(row.trial_count)}</td>
@@ -76,25 +93,64 @@ export default async function DashboardPage() {
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <h2>Recent arm runs</h2>
-            <p>Concrete model-arm executions with logical mode and storage mode separated.</p>
+            <h2>Hardest full-suite evals</h2>
+            <p>Tasks where the imported full-sweep arms struggle most. These are the best starting points for trajectory review.</p>
+          </div>
+          <Link href="/evals">All evals →</Link>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Eval</th>
+                <th>Arms</th>
+                <th>Trials</th>
+                <th>Successes</th>
+                <th>Pass rate</th>
+                <th>Median runtime</th>
+              </tr>
+            </thead>
+            <tbody>
+              {hardestFullEvals.map((row) => (
+                <tr key={row.task_id}>
+                  <td>
+                    <Link href={`/evals/${encodeURIComponent(row.task_id)}`}>{row.task_name ?? row.task_id}</Link>
+                    <div className="mono">{row.task_id}</div>
+                  </td>
+                  <td>{formatNumber(row.arm_count)}</td>
+                  <td>{formatNumber(row.trial_count)}</td>
+                  <td>{formatNumber(row.success_count)}</td>
+                  <td>{formatPercent(row.pass_rate)}</td>
+                  <td>{formatSeconds(row.median_runtime_seconds)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Full arm-run health</h2>
+            <p>These are complete imported arm executions. “Trial errors” means failures occurred inside the 60 attempts, not that ingestion failed.</p>
           </div>
           <Link href="/arm-runs">All arm runs →</Link>
         </div>
         <div className="run-list">
-          {armRuns.map((row) => (
+          {fullArmRuns.map((row) => (
             <article className="run-card" key={row.arm_run_id}>
               <div>
                 <h3>
                   <Link href={`/arm-runs/${row.arm_run_id}`}>{row.arm_id}</Link>
                 </h3>
-                <p>{row.logical_mode} / {row.storage_mode ?? "—"} · {row.suite_id ?? "no suite"} · {row.status}</p>
+                <p>{row.logical_mode} / {row.storage_mode ?? "—"} · {row.suite_id ?? "no suite"} · {runHealthLabel(row.status, row.trial_count, row.logical_mode)}</p>
                 <p className="mono">{row.run_label}</p>
               </div>
               <dl>
                 <div><dt>Trials</dt><dd>{formatNumber(row.trial_count)}</dd></div>
                 <div><dt>Pass rate</dt><dd>{formatPercent(row.pass_rate)}</dd></div>
-                <div><dt>Cost</dt><dd>{formatCurrency(row.trial_cost_usd)}</dd></div>
+                <div><dt>Recorded cost</dt><dd>{formatRecordedCost(row.trial_cost_usd, row.cost_row_count, row.missing_cost_count)}</dd></div>
                 <div><dt>R2 artifacts</dt><dd>{formatNumber(row.r2_artifact_count)} / {formatNumber(row.artifact_count)}</dd></div>
               </dl>
             </article>
