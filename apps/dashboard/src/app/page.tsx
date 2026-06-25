@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TermInfo } from "../components/TermInfo";
 import { AppShell } from "../components/AppShell";
 import { MetricCard } from "../components/MetricCard";
 import {
@@ -67,9 +68,9 @@ export default async function DashboardPage() {
                 <th>Tasks</th>
                 <th>Trials</th>
                 <th>Successes</th>
-                <th>Pass rate</th>
-                <th>Median runtime</th>
-                <th>Recorded cost</th>
+                <th><span className="term-label">Pass rate <TermInfo term="Pass rate" /></span></th>
+                <th><span className="term-label">Median runtime <TermInfo term="Median runtime" /></span></th>
+                <th><span className="term-label">Recorded cost <TermInfo term="Recorded cost" /></span></th>
               </tr>
             </thead>
             <tbody>
@@ -106,8 +107,8 @@ export default async function DashboardPage() {
                 <th>Arms</th>
                 <th>Trials</th>
                 <th>Successes</th>
-                <th>Pass rate</th>
-                <th>Median runtime</th>
+                <th><span className="term-label">Pass rate <TermInfo term="Pass rate" /></span></th>
+                <th><span className="term-label">Median runtime <TermInfo term="Median runtime" /></span></th>
               </tr>
             </thead>
             <tbody>
@@ -150,7 +151,7 @@ export default async function DashboardPage() {
               <dl>
                 <div><dt>Trials</dt><dd>{formatNumber(row.trial_count)}</dd></div>
                 <div><dt>Pass rate</dt><dd>{formatPercent(row.pass_rate)}</dd></div>
-                <div><dt>Recorded cost</dt><dd>{formatRecordedCost(row.trial_cost_usd, row.cost_row_count, row.missing_cost_count)}</dd></div>
+                <div><dt><span className="term-label">Recorded cost <TermInfo term="Recorded cost" /></span></dt><dd>{formatRecordedCost(row.trial_cost_usd, row.cost_row_count, row.missing_cost_count)}</dd></div>
                 <div><dt>R2 artifacts</dt><dd>{formatNumber(row.r2_artifact_count)} / {formatNumber(row.artifact_count)}</dd></div>
               </dl>
             </article>

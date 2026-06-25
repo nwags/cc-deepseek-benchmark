@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { TermInfo } from "../../../components/TermInfo";
 import { AppShell } from "../../../components/AppShell";
 import { getEvalSuites, getSuiteArmComparison, getSuiteTaskDifficulty } from "../../../lib/dashboard-data";
 import { formatRecordedCost, formatNumber, formatPercent, formatSeconds } from "../../../lib/format";
@@ -60,8 +61,8 @@ export default async function EvalSuiteDetailPage({
                 <th>Tasks</th>
                 <th>Trials</th>
                 <th>Successes</th>
-                <th>Pass rate</th>
-                <th>Median runtime</th>
+                <th><span className="term-label">Pass rate <TermInfo term="Pass rate" /></span></th>
+                <th><span className="term-label">Median runtime <TermInfo term="Median runtime" /></span></th>
                 <th>Cost</th>
               </tr>
             </thead>
@@ -94,8 +95,8 @@ export default async function EvalSuiteDetailPage({
                 <th>Arms</th>
                 <th>Trials</th>
                 <th>Successes</th>
-                <th>Pass rate</th>
-                <th>Median runtime</th>
+                <th><span className="term-label">Pass rate <TermInfo term="Pass rate" /></span></th>
+                <th><span className="term-label">Median runtime <TermInfo term="Median runtime" /></span></th>
               </tr>
             </thead>
             <tbody>
