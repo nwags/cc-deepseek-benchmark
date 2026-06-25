@@ -404,8 +404,11 @@ def insert_manifest_into_postgres(manifest: dict[str, Any], *, db_url: str) -> N
     arm_id = run.get("arm_id") or "unknown-arm"
     config = manifest.get("config_summary", {})
     phase = run.get("phase") or "unknown"
-    mode = run.get("mode") or run.get("logical_mode") or "unknown"
-    storage_mode = run.get("storage_mode")
+    logical_mode = run.get("logical_mode") or run.get("mode") or "unknown"
+    storage_mode = run.get("storage_mode") or logical_mode
+    # benchmark_runs.mode is a legacy/physical storage-mode key used by the
+    # existing idempotency constraint. Sponsor-facing mode lives on arm runs.
+    run_mode = storage_mode
     suite_id = run.get("suite_id")
     run_label = f"{arm_id}/{run.get('run_timestamp')}"
 
@@ -463,7 +466,7 @@ def insert_manifest_into_postgres(manifest: dict[str, Any], *, db_url: str) -> N
                 """,
                 (
                     phase,
-                    mode,
+                    run_mode,
                     run_label,
                     run.get("git_commit"),
                     run.get("branch"),
@@ -493,7 +496,7 @@ def insert_manifest_into_postgres(manifest: dict[str, Any], *, db_url: str) -> N
                         suite_id,
                         suite_id,
                         phase,
-                        mode,
+                        logical_mode,
                         Jsonb({"source": "ingest_phase3_run_metadata.py"}),
                     ),
                 )
@@ -530,7 +533,7 @@ def insert_manifest_into_postgres(manifest: dict[str, Any], *, db_url: str) -> N
                     run_id,
                     arm_id,
                     suite_id,
-                    mode,
+                    logical_mode,
                     storage_mode,
                     run.get("status") or "unknown",
                     run.get("started_at"),
@@ -551,6 +554,25 @@ def insert_manifest_into_postgres(manifest: dict[str, Any], *, db_url: str) -> N
             # Replace imported child rows for this run. This makes repeated
             # ingestion deterministic instead of accumulating duplicate trials
             # and artifacts.
+            #
+            # Preserve existing R2 URIs when doing a metadata-only re-ingest
+            # without --upload-r2. Otherwise a normalization/idempotency pass can
+            # accidentally erase R2 artifact coverage for an already-uploaded run.
+            cur.execute(
+                """
+                select local_path, r2_uri
+                from benchmark.benchmark_artifacts
+                where run_id = %s
+                  and r2_uri is not null
+                """,
+                (run_id,),
+            )
+            existing_r2_uri_by_local_path = {
+                local_path: r2_uri
+                for local_path, r2_uri in cur.fetchall()
+                if local_path and r2_uri
+            }
+
             cur.execute("delete from benchmark.benchmark_artifacts where run_id = %s", (run_id,))
             cur.execute("delete from benchmark.benchmark_trials where run_id = %s", (run_id,))
 
@@ -626,7 +648,7 @@ def insert_manifest_into_postgres(manifest: dict[str, Any], *, db_url: str) -> N
                         trial_db_id,
                         artifact.get("artifact_type"),
                         local_path,
-                        artifact.get("r2_uri"),
+                        artifact.get("r2_uri") or existing_r2_uri_by_local_path.get(local_path),
                         None,
                         artifact.get("sha256"),
                         artifact.get("size_bytes"),
