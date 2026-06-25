@@ -2,9 +2,12 @@ import Link from "next/link";
 
 const navItems = [
   { href: "/", label: "Overview" },
-  { href: "/runs", label: "Runs" },
-  { href: "/arms", label: "Arms" },
-  { href: "/tasks", label: "Tasks" },
+  { href: "/eval-suites", label: "Eval Suites" },
+  { href: "/arm-runs", label: "Arm Runs" },
+  { href: "/evals", label: "Evals" },
+  { href: "/runs", label: "Raw Runs" },
+  { href: "/arms", label: "Legacy Arms" },
+  { href: "/tasks", label: "Legacy Tasks" },
   { href: "/artifacts", label: "Artifacts" },
   { href: "/runners", label: "Runners" },
   { href: "/planner", label: "Planner" },
