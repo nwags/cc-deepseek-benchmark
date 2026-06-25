@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TermInfo } from "../../components/TermInfo";
 import { AppShell } from "../../components/AppShell";
 import { ArmRunSummaryRow, getArmRunRows } from "../../lib/dashboard-data";
 import { formatRecordedCost, formatNumber, formatPercent, formatSeconds } from "../../lib/format";
@@ -24,10 +25,10 @@ function ArmRunTable({ rows }: { rows: ArmRunSummaryRow[] }) {
             <th>Mode</th>
             <th>Health</th>
             <th>Trials</th>
-            <th>Pass rate</th>
-            <th>Median runtime</th>
-            <th>Recorded cost</th>
-            <th>R2 artifacts</th>
+            <th><span className="term-label">Pass rate <TermInfo term="Pass rate" /></span></th>
+            <th><span className="term-label">Median runtime <TermInfo term="Median runtime" /></span></th>
+            <th><span className="term-label">Recorded cost <TermInfo term="Recorded cost" /></span></th>
+            <th><span className="term-label">R2 artifacts <TermInfo term="R2 artifact" /></span></th>
           </tr>
         </thead>
         <tbody>
