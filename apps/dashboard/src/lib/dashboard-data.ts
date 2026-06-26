@@ -694,3 +694,55 @@ export async function getSuiteTaskDifficulty(suiteId: string, limit = 20): Promi
     [suiteId, limit]
   );
 }
+
+export type SuiteHeatmapCellRow = {
+  suite_id: string;
+  task_id: string;
+  task_name: string | null;
+  arm_id: string;
+  trial_count: number;
+  success_count: number;
+  pass_rate: number | null;
+  task_trial_count: number;
+  task_success_count: number;
+  task_pass_rate: number | null;
+};
+
+export async function getSuiteHeatmapCells(suiteId: string): Promise<SuiteHeatmapCellRow[]> {
+  return queryRows<SuiteHeatmapCellRow>(
+    `
+      with task_summary as (
+        select
+          suite_id,
+          task_id,
+          coalesce(sum(trial_count), 0)::int as task_trial_count,
+          coalesce(sum(success_count), 0)::int as task_success_count,
+          case
+            when coalesce(sum(trial_count), 0) = 0 then null
+            else sum(success_count)::numeric / sum(trial_count)::numeric
+          end as task_pass_rate
+        from benchmark.v_eval_arm_comparison
+        where suite_id = $1
+        group by suite_id, task_id
+      )
+      select
+        e.suite_id,
+        e.task_id,
+        e.task_name,
+        e.arm_id,
+        e.trial_count::int,
+        e.success_count::int,
+        e.pass_rate::float8,
+        ts.task_trial_count::int,
+        ts.task_success_count::int,
+        ts.task_pass_rate::float8
+      from benchmark.v_eval_arm_comparison e
+      join task_summary ts
+        on ts.suite_id = e.suite_id
+       and ts.task_id = e.task_id
+      where e.suite_id = $1
+      order by ts.task_pass_rate asc nulls last, e.task_id, e.arm_id
+    `,
+    [suiteId]
+  );
+}
