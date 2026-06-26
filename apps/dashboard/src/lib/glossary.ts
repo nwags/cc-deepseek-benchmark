@@ -49,6 +49,24 @@ export const glossaryEntries = [
     definition: "Pass rate is success_count divided by trial_count. For example, 39 successes out of 60 trials is a 65.0% pass rate."
   },
   {
+    term: "Raw pass rate",
+    slug: "raw-pass-rate",
+    shortDefinition: "Successes divided by all imported trials.",
+    definition: "Raw pass rate is successes divided by all imported trials. It remains the benchmark source of truth, including failed, errored, and suspect no-op trials."
+  },
+  {
+    term: "Qualified pass rate",
+    slug: "qualified-pass-rate",
+    shortDefinition: "Diagnostic pass rate excluding suspect no-op exits.",
+    definition: "Qualified pass rate is successes divided by trials after excluding suspect no-op zero-token exits. It is a diagnostic interpretation aid, especially for canary and smoke runs, and does not replace the raw benchmark result."
+  },
+  {
+    term: "Suspect no-op zero-token",
+    slug: "suspect-noop-zero-token",
+    shortDefinition: "A failed trial with an empty zero-token agent result.",
+    definition: "A suspect no-op zero-token trial is a failed trial with no exception, no recorded input or output tokens, no recorded cost, and an apparently empty completed agent result. Treat it as a possible route, provider, or harness anomaly until trajectory review confirms what happened."
+  },
+  {
     term: "Mean reward",
     slug: "mean-reward",
     shortDefinition: "Average reward across trials.",

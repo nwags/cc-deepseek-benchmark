@@ -848,3 +848,114 @@ export async function getSuspectNoopTrialRows(limit = 100): Promise<SuspectTrial
     [limit]
   );
 }
+
+export async function getSuiteArmQualityRows(suiteId: string): Promise<ArmRunQualitySummaryRow[]> {
+  return queryRows<ArmRunQualitySummaryRow>(
+    `
+      select
+        phase,
+        logical_mode,
+        storage_mode,
+        suite_id,
+        arm_id,
+        '' as run_label,
+        trial_count::int,
+        success_count::int,
+        raw_pass_rate::float8,
+        suspect_noop_count::int,
+        exception_count::int,
+        normal_failed_count::int,
+        qualified_trial_count::int,
+        qualified_success_count::int,
+        qualified_pass_rate::float8,
+        recorded_cost_usd,
+        missing_cost_count::int
+      from benchmark.v_suite_arm_quality_summary
+      where phase = 'phase3'
+        and suite_id = $1
+      order by raw_pass_rate desc nulls last, arm_id
+    `,
+    [suiteId]
+  );
+}
+
+export async function getArmRunQualityByRunLabels(runLabels: string[]): Promise<ArmRunQualitySummaryRow[]> {
+  if (runLabels.length === 0) return [];
+  return queryRows<ArmRunQualitySummaryRow>(
+    `
+      select
+        phase,
+        logical_mode,
+        storage_mode,
+        suite_id,
+        arm_id,
+        run_label,
+        trial_count::int,
+        success_count::int,
+        raw_pass_rate::float8,
+        suspect_noop_count::int,
+        exception_count::int,
+        normal_failed_count::int,
+        qualified_trial_count::int,
+        qualified_success_count::int,
+        qualified_pass_rate::float8,
+        recorded_cost_usd,
+        missing_cost_count::int
+      from benchmark.v_arm_run_quality_summary
+      where phase = 'phase3'
+        and run_label = any($1)
+      order by run_label
+    `,
+    [runLabels]
+  );
+}
+
+export async function getSuiteQualityTotals(suiteId: string): Promise<{
+  suite_id: string;
+  suspect_noop_count: number;
+  affected_arm_count: number;
+  affected_full_arm_count: number;
+} | null> {
+  const rows = await queryRows<{
+    suite_id: string;
+    suspect_noop_count: number;
+    affected_arm_count: number;
+    affected_full_arm_count: number;
+  }>(
+    `
+      select
+        suite_id,
+        coalesce(sum(suspect_noop_count), 0)::int as suspect_noop_count,
+        count(*) filter (where suspect_noop_count > 0)::int as affected_arm_count,
+        count(*) filter (where logical_mode = 'full' and suspect_noop_count > 0)::int as affected_full_arm_count
+      from benchmark.v_suite_arm_quality_summary
+      where phase = 'phase3'
+        and suite_id = $1
+      group by suite_id
+    `,
+    [suiteId]
+  );
+  return rows[0] ?? null;
+}
+
+export async function getOverallQualityTotals(): Promise<{
+  suspect_noop_count: number;
+  affected_arm_run_count: number;
+  affected_full_arm_run_count: number;
+} | null> {
+  const rows = await queryRows<{
+    suspect_noop_count: number;
+    affected_arm_run_count: number;
+    affected_full_arm_run_count: number;
+  }>(
+    `
+      select
+        coalesce(sum(suspect_noop_count), 0)::int as suspect_noop_count,
+        count(*) filter (where suspect_noop_count > 0)::int as affected_arm_run_count,
+        count(*) filter (where logical_mode = 'full' and suspect_noop_count > 0)::int as affected_full_arm_run_count
+      from benchmark.v_arm_run_quality_summary
+      where phase = 'phase3'
+    `
+  );
+  return rows[0] ?? null;
+}
