@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { TermInfo } from "../../../components/TermInfo";
 import { AppShell } from "../../../components/AppShell";
-import { getEvalSuites, getSuiteArmComparison, getSuiteTaskDifficulty } from "../../../lib/dashboard-data";
+import { SuiteHeatmap } from "../../../components/SuiteHeatmap";
+import { getEvalSuites, getSuiteArmComparison, getSuiteTaskDifficulty, getSuiteHeatmapCells } from "../../../lib/dashboard-data";
 import { formatRecordedCost, formatNumber, formatPercent, formatSeconds } from "../../../lib/format";
 
 export const dynamic = "force-dynamic";
@@ -14,10 +15,11 @@ export default async function EvalSuiteDetailPage({
 }) {
   const { suiteId } = await params;
   const decodedSuiteId = decodeURIComponent(suiteId);
-  const [suites, rows, difficultyRows] = await Promise.all([
+  const [suites, rows, difficultyRows, heatmapCells] = await Promise.all([
     getEvalSuites(),
     getSuiteArmComparison(decodedSuiteId),
-    getSuiteTaskDifficulty(decodedSuiteId, 25)
+    getSuiteTaskDifficulty(decodedSuiteId, 25),
+    getSuiteHeatmapCells(decodedSuiteId)
   ]);
   const suite = suites.find((row) => row.suite_id === decodedSuiteId);
 
@@ -82,6 +84,12 @@ export default async function EvalSuiteDetailPage({
           </table>
         </div>
       </section>
+      <SuiteHeatmap
+        rows={heatmapCells}
+        title="Eval × arm heatmap"
+        description="Rows are evals, columns are arms attached to this suite, and each cell shows successes / trials."
+      />
+
       <section className="panel">
         <div className="panel-heading">
           <h2>Task difficulty</h2>

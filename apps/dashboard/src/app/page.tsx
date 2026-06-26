@@ -2,12 +2,14 @@ import Link from "next/link";
 import { TermInfo } from "../components/TermInfo";
 import { AppShell } from "../components/AppShell";
 import { MetricCard } from "../components/MetricCard";
+import { SuiteHeatmap } from "../components/SuiteHeatmap";
 import {
   getArmRunRows,
   getEvalSuites,
   getOverview,
   getSuiteArmComparison,
-  getSuiteTaskDifficulty
+  getSuiteTaskDifficulty,
+  getSuiteHeatmapCells
 } from "../lib/dashboard-data";
 import { formatRecordedCost, formatNumber, formatPercent, formatSeconds } from "../lib/format";
 
@@ -22,12 +24,13 @@ function runHealthLabel(status: string, trialCount: number, logicalMode: string)
 }
 
 export default async function DashboardPage() {
-  const [overview, suites, armRuns, fullSuiteRows, hardestFullEvals] = await Promise.all([
+  const [overview, suites, armRuns, fullSuiteRows, hardestFullEvals, heatmapCells] = await Promise.all([
     getOverview(),
     getEvalSuites(),
     getArmRunRows(12),
     getSuiteArmComparison("phase3-full-20"),
-    getSuiteTaskDifficulty("phase3-full-20", 8)
+    getSuiteTaskDifficulty("phase3-full-20", 8),
+    getSuiteHeatmapCells("phase3-full-20")
   ]);
 
   const fullSuite = suites.find((suite) => suite.suite_id === "phase3-full-20");
@@ -90,6 +93,12 @@ export default async function DashboardPage() {
           </table>
         </div>
       </section>
+
+      <SuiteHeatmap
+        rows={heatmapCells}
+        title="Full-suite pass/fail heatmap"
+        description="Rows are evals, columns are imported full-suite arms, and each cell shows successes / trials."
+      />
 
       <section className="panel">
         <div className="panel-heading">
