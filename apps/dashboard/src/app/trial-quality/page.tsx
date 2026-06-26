@@ -67,7 +67,7 @@ export default async function TrialQualityPage() {
         </div>
       </section>
 
-      <section className="metric-grid">
+      <section className="metric-grid metric-grid-compact">
         <article className="metric-card">
           <span className="metric-label">Suspect no-op trials</span>
           <strong>{totalSuspect}</strong>

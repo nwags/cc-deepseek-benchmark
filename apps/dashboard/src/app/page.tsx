@@ -3,13 +3,16 @@ import { TermInfo } from "../components/TermInfo";
 import { AppShell } from "../components/AppShell";
 import { MetricCard } from "../components/MetricCard";
 import { SuiteHeatmap } from "../components/SuiteHeatmap";
+import { QualityPassRate, QualityBadge } from "../components/QualityContext";
 import {
   getArmRunRows,
   getEvalSuites,
   getOverview,
   getSuiteArmComparison,
   getSuiteTaskDifficulty,
-  getSuiteHeatmapCells
+  getSuiteHeatmapCells,
+  getSuiteArmQualityRows,
+  getArmRunQualityByRunLabels
 } from "../lib/dashboard-data";
 import { formatRecordedCost, formatNumber, formatPercent, formatSeconds } from "../lib/format";
 
@@ -24,23 +27,24 @@ function runHealthLabel(status: string, trialCount: number, logicalMode: string)
 }
 
 export default async function DashboardPage() {
-  const [overview, suites, armRuns, fullSuiteRows, hardestFullEvals, heatmapCells] = await Promise.all([
+  const [overview, suites, armRuns, fullSuiteRows, hardestFullEvals, heatmapCells, fullSuiteQualityRows] = await Promise.all([
     getOverview(),
     getEvalSuites(),
     getArmRunRows(12),
     getSuiteArmComparison("phase3-full-20"),
     getSuiteTaskDifficulty("phase3-full-20", 8),
-    getSuiteHeatmapCells("phase3-full-20")
+    getSuiteHeatmapCells("phase3-full-20"),
+    getSuiteArmQualityRows("phase3-full-20")
   ]);
 
   const fullSuite = suites.find((suite) => suite.suite_id === "phase3-full-20");
   const fullArmRuns = armRuns.filter((row) => row.logical_mode === "full");
+  const fullQualityByArm = new Map(fullSuiteQualityRows.map((row) => [row.arm_id, row]));
+  const fullRunQualityRows = await getArmRunQualityByRunLabels(fullArmRuns.map((row) => row.run_label));
+  const fullQualityByRun = new Map(fullRunQualityRows.map((row) => [row.run_label, row]));
 
   return (
-    <AppShell
-      title="Phase 3 Router Dashboard"
-      description="Sponsor-facing benchmark dashboard focused on full-suite model comparison, cost coverage, and task-level failure patterns."
-    >
+    <AppShell title="Phase 3 Router Dashboard">
       <section className="metric-grid">
         <MetricCard label="Full-suite arms" value={formatNumber(fullSuite?.arm_run_count ?? 0)} detail="Imported into phase3-full-20" />
         <MetricCard label="Full-suite trials" value={formatNumber(fullSuite?.trial_count ?? 0)} detail="20 evals × 3 attempts × imported arms" />
@@ -84,7 +88,16 @@ export default async function DashboardPage() {
                   <td>{formatNumber(row.task_count)}</td>
                   <td>{formatNumber(row.trial_count)}</td>
                   <td>{formatNumber(row.success_count)}</td>
-                  <td>{formatPercent(row.pass_rate)}</td>
+                  <td><QualityPassRate row={fullQualityByArm.get(row.arm_id) ?? {
+                    raw_pass_rate: row.pass_rate,
+                    trial_count: row.trial_count,
+                    success_count: row.success_count,
+                    qualified_pass_rate: row.pass_rate,
+                    qualified_trial_count: row.trial_count,
+                    qualified_success_count: row.success_count,
+                    suspect_noop_count: 0
+                  }} /></td>
+                  <td><QualityBadge count={fullQualityByArm.get(row.arm_id)?.suspect_noop_count ?? 0} /></td>
                   <td>{formatSeconds(row.median_runtime_seconds)}</td>
                   <td>{formatRecordedCost(row.trial_cost_usd, row.cost_row_count, row.missing_cost_count)}</td>
                 </tr>
@@ -159,7 +172,16 @@ export default async function DashboardPage() {
               </div>
               <dl>
                 <div><dt>Trials</dt><dd>{formatNumber(row.trial_count)}</dd></div>
-                <div><dt>Pass rate</dt><dd>{formatPercent(row.pass_rate)}</dd></div>
+                <div><dt>Raw / qualified pass</dt><dd><QualityPassRate compact row={fullQualityByRun.get(row.run_label) ?? {
+                  raw_pass_rate: row.pass_rate,
+                  trial_count: row.trial_count,
+                  success_count: row.success_count,
+                  qualified_pass_rate: row.pass_rate,
+                  qualified_trial_count: row.trial_count,
+                  qualified_success_count: row.success_count,
+                  suspect_noop_count: 0
+                }} /></dd></div>
+                <div><dt>Suspect no-op</dt><dd><QualityBadge count={fullQualityByRun.get(row.run_label)?.suspect_noop_count ?? 0} /></dd></div>
                 <div><dt><span className="term-label">Recorded cost <TermInfo term="Recorded cost" /></span></dt><dd>{formatRecordedCost(row.trial_cost_usd, row.cost_row_count, row.missing_cost_count)}</dd></div>
                 <div><dt>R2 artifacts</dt><dd>{formatNumber(row.r2_artifact_count)} / {formatNumber(row.artifact_count)}</dd></div>
               </dl>
