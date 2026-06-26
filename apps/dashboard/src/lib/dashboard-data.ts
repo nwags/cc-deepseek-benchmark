@@ -959,3 +959,19 @@ export async function getOverallQualityTotals(): Promise<{
   );
   return rows[0] ?? null;
 }
+
+export async function getRunLabelForArmRunId(armRunId: string): Promise<string | null> {
+  const rows = await queryRows<{ run_label: string }>(
+    `
+      select r.run_label
+      from benchmark.benchmark_arm_runs ar
+      join benchmark.benchmark_runs r
+        on r.id = ar.run_id
+      where ar.id = $1
+      limit 1
+    `,
+    [armRunId]
+  );
+
+  return rows[0]?.run_label ?? null;
+}

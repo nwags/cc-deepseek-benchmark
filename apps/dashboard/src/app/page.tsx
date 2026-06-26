@@ -3,7 +3,7 @@ import { TermInfo } from "../components/TermInfo";
 import { AppShell } from "../components/AppShell";
 import { MetricCard } from "../components/MetricCard";
 import { SuiteHeatmap } from "../components/SuiteHeatmap";
-import { QualityNotice, QualityPassRate, QualityBadge } from "../components/QualityContext";
+import { QualityPassRate, QualityBadge } from "../components/QualityContext";
 import {
   getArmRunRows,
   getEvalSuites,
@@ -11,7 +11,6 @@ import {
   getSuiteArmComparison,
   getSuiteTaskDifficulty,
   getSuiteHeatmapCells,
-  getOverallQualityTotals,
   getSuiteArmQualityRows,
   getArmRunQualityByRunLabels
 } from "../lib/dashboard-data";
@@ -28,14 +27,13 @@ function runHealthLabel(status: string, trialCount: number, logicalMode: string)
 }
 
 export default async function DashboardPage() {
-  const [overview, suites, armRuns, fullSuiteRows, hardestFullEvals, heatmapCells, overallQuality, fullSuiteQualityRows] = await Promise.all([
+  const [overview, suites, armRuns, fullSuiteRows, hardestFullEvals, heatmapCells, fullSuiteQualityRows] = await Promise.all([
     getOverview(),
     getEvalSuites(),
     getArmRunRows(12),
     getSuiteArmComparison("phase3-full-20"),
     getSuiteTaskDifficulty("phase3-full-20", 8),
     getSuiteHeatmapCells("phase3-full-20"),
-    getOverallQualityTotals(),
     getSuiteArmQualityRows("phase3-full-20")
   ]);
 
@@ -46,15 +44,7 @@ export default async function DashboardPage() {
   const fullQualityByRun = new Map(fullRunQualityRows.map((row) => [row.run_label, row]));
 
   return (
-    <AppShell
-      title="Phase 3 Router Dashboard"
-      description="Sponsor-facing benchmark dashboard focused on full-suite model comparison, cost coverage, and task-level failure patterns."
-    >
-      <QualityNotice
-        suspectNoopCount={overallQuality?.suspect_noop_count ?? 0}
-        affectedFullRuns={overallQuality?.affected_full_arm_run_count ?? 0}
-      />
-
+    <AppShell title="Phase 3 Router Dashboard">
       <section className="metric-grid">
         <MetricCard label="Full-suite arms" value={formatNumber(fullSuite?.arm_run_count ?? 0)} detail="Imported into phase3-full-20" />
         <MetricCard label="Full-suite trials" value={formatNumber(fullSuite?.trial_count ?? 0)} detail="20 evals × 3 attempts × imported arms" />

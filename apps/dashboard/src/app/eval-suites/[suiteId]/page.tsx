@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { TermInfo } from "../../../components/TermInfo";
 import { AppShell } from "../../../components/AppShell";
 import { SuiteHeatmap } from "../../../components/SuiteHeatmap";
-import { QualityNotice, QualityPassRate, QualityBadge } from "../../../components/QualityContext";
+import { QualityPassRate, QualityBadge } from "../../../components/QualityContext";
 import { getEvalSuites, getSuiteArmComparison, getSuiteTaskDifficulty, getSuiteHeatmapCells, getSuiteArmQualityRows, getSuiteQualityTotals } from "../../../lib/dashboard-data";
 import { formatRecordedCost, formatNumber, formatPercent, formatSeconds } from "../../../lib/format";
 
@@ -36,12 +36,6 @@ export default async function EvalSuiteDetailPage({
       title={suite.display_name}
       description={suite.description ?? "Suite-level cross-arm comparison."}
     >
-      <QualityNotice
-        mode={suite.suite_type}
-        suspectNoopCount={qualityTotals?.suspect_noop_count ?? 0}
-        affectedFullRuns={qualityTotals?.affected_full_arm_count ?? 0}
-      />
-
       <section className="panel">
         <div className="panel-heading">
           <div>

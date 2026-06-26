@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "../../../components/AppShell";
 import { MetricCard } from "../../../components/MetricCard";
-import { QualityBadge, QualityNotice, QualityPassRate } from "../../../components/QualityContext";
+import { QualityBadge, QualityPassRate } from "../../../components/QualityContext";
 import {
   getArmRunQualityByRunLabels,
   getRunArtifacts,
@@ -49,16 +49,7 @@ export default async function RunDetailPage({
   const quality = qualityRows[0] ?? null;
 
   return (
-    <AppShell
-      title="Run detail"
-      description="Per-run benchmark metadata, trials, audit counters, and artifact index."
-    >
-      <QualityNotice
-        mode={quality?.logical_mode ?? run.mode}
-        suspectNoopCount={quality?.suspect_noop_count ?? 0}
-        affectedFullRuns={(quality?.logical_mode === "full" && (quality?.suspect_noop_count ?? 0) > 0) ? 1 : 0}
-      />
-
+    <AppShell title="Run detail">
       <section className="panel">
         <div className="panel-heading">
           <div>
@@ -90,7 +81,10 @@ export default async function RunDetailPage({
 
         <div className="detail-grid">
           <div><span>Phase</span><strong>{run.phase}</strong></div>
-          <div><span>Mode</span><strong>{run.mode}</strong></div>
+          <div><span>Arm</span><strong className="mono">{quality?.arm_id ?? "—"}</strong></div>
+          <div><span>Logical mode</span><strong>{quality?.logical_mode ?? run.mode}</strong></div>
+          <div><span>Storage mode</span><strong>{quality?.storage_mode ?? run.mode}</strong></div>
+          <div><span>Suite</span><strong className="mono">{quality?.suite_id ?? "—"}</strong></div>
           <div><span>Branch</span><strong>{run.branch ?? "—"}</strong></div>
           <div><span>Git commit</span><strong className="mono">{run.git_commit ?? "—"}</strong></div>
           <div><span>Runner</span><strong>{run.runner_name ?? "—"}</strong></div>
