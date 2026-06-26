@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "../../../components/AppShell";
 import { MetricCard } from "../../../components/MetricCard";
+import { QualityBadge, QualityNotice, QualityPassRate } from "../../../components/QualityContext";
 import {
+  getArmRunQualityByRunLabels,
   getRunArtifacts,
   getRunDetail,
   getRunTrials
@@ -39,16 +41,24 @@ export default async function RunDetailPage({
     notFound();
   }
 
-  const [trials, artifacts] = await Promise.all([
+  const [trials, artifacts, qualityRows] = await Promise.all([
     getRunTrials(run.run_id),
-    getRunArtifacts(run.run_id)
+    getRunArtifacts(run.run_id),
+    getArmRunQualityByRunLabels([run.run_label])
   ]);
+  const quality = qualityRows[0] ?? null;
 
   return (
     <AppShell
       title="Run detail"
       description="Per-run benchmark metadata, trials, audit counters, and artifact index."
     >
+      <QualityNotice
+        mode={quality?.logical_mode ?? run.mode}
+        suspectNoopCount={quality?.suspect_noop_count ?? 0}
+        affectedFullRuns={(quality?.logical_mode === "full" && (quality?.suspect_noop_count ?? 0) > 0) ? 1 : 0}
+      />
+
       <section className="panel">
         <div className="panel-heading">
           <div>
@@ -62,7 +72,9 @@ export default async function RunDetailPage({
 
         <div className="metric-grid">
           <MetricCard label="Trials" value={formatNumber(run.trial_count)} />
-          <MetricCard label="Pass rate" value={formatPercent(run.pass_rate)} />
+          <MetricCard label="Raw pass rate" value={formatPercent(run.pass_rate)} />
+          <MetricCard label="Qualified pass rate" value={formatPercent(quality?.qualified_pass_rate ?? run.pass_rate)} />
+          <MetricCard label="Suspect no-op" value={formatNumber(quality?.suspect_noop_count ?? 0)} />
           <MetricCard label="Cost" value={formatRecordedCost(run.trial_cost_usd, run.cost_row_count, run.missing_cost_count)} />
           <MetricCard label="Median runtime" value={formatSeconds(run.median_runtime_seconds)} />
           <MetricCard label="Artifacts in R2" value={`${formatNumber(run.r2_artifact_count)} / ${formatNumber(run.artifact_count)}`} />
@@ -88,6 +100,16 @@ export default async function RunDetailPage({
           <div><span>Input tokens</span><strong>{formatNumber(run.input_tokens)}</strong></div>
           <div><span>Cache tokens</span><strong>{formatNumber(run.cache_tokens)}</strong></div>
           <div><span>Output tokens</span><strong>{formatNumber(run.output_tokens)}</strong></div>
+          <div><span>Qualified pass</span><strong><QualityPassRate row={quality ?? {
+            raw_pass_rate: run.pass_rate,
+            trial_count: run.trial_count,
+            success_count: Math.round((run.pass_rate ?? 0) * (run.trial_count ?? 0)),
+            qualified_pass_rate: run.pass_rate,
+            qualified_trial_count: run.trial_count,
+            qualified_success_count: Math.round((run.pass_rate ?? 0) * (run.trial_count ?? 0)),
+            suspect_noop_count: 0
+          }} /></strong></div>
+          <div><span>Suspect no-op</span><strong><QualityBadge count={quality?.suspect_noop_count ?? 0} /></strong></div>
           <div><span>Artifact bytes</span><strong>{formatBytes(run.artifact_size_bytes)}</strong></div>
           <div><span>WebSearch events</span><strong>{formatNumber(run.websearch_events)}</strong></div>
           <div><span>WebFetch events</span><strong>{formatNumber(run.webfetch_events)}</strong></div>
