@@ -746,3 +746,105 @@ export async function getSuiteHeatmapCells(suiteId: string): Promise<SuiteHeatma
     [suiteId]
   );
 }
+
+export type ArmRunQualitySummaryRow = {
+  phase: string;
+  logical_mode: string | null;
+  storage_mode: string | null;
+  suite_id: string | null;
+  arm_id: string;
+  run_label: string;
+  trial_count: number;
+  success_count: number;
+  raw_pass_rate: number | null;
+  suspect_noop_count: number;
+  exception_count: number;
+  normal_failed_count: number;
+  qualified_trial_count: number;
+  qualified_success_count: number;
+  qualified_pass_rate: number | null;
+  recorded_cost_usd: number | string | null;
+  missing_cost_count: number;
+};
+
+export type SuspectTrialRow = {
+  arm_id: string;
+  logical_mode: string | null;
+  storage_mode: string | null;
+  suite_id: string | null;
+  run_label: string;
+  task_id: string;
+  reward: number | string | null;
+  runtime_seconds: number | string | null;
+  cost_usd: number | string | null;
+  input_tokens: number | string | null;
+  output_tokens: number | string | null;
+  exception_type: string | null;
+  exception_summary: string | null;
+};
+
+export async function getArmRunQualitySummaryRows(limit = 100): Promise<ArmRunQualitySummaryRow[]> {
+  return queryRows<ArmRunQualitySummaryRow>(
+    `
+      select
+        phase,
+        logical_mode,
+        storage_mode,
+        suite_id,
+        arm_id,
+        run_label,
+        trial_count::int,
+        success_count::int,
+        raw_pass_rate::float8,
+        suspect_noop_count::int,
+        exception_count::int,
+        normal_failed_count::int,
+        qualified_trial_count::int,
+        qualified_success_count::int,
+        qualified_pass_rate::float8,
+        recorded_cost_usd,
+        missing_cost_count::int
+      from benchmark.v_arm_run_quality_summary
+      where phase = 'phase3'
+      order by
+        case logical_mode
+          when 'full' then 1
+          when 'smoke' then 2
+          when 'canary' then 3
+          else 4
+        end,
+        suspect_noop_count desc,
+        exception_count desc,
+        run_label
+      limit $1
+    `,
+    [limit]
+  );
+}
+
+export async function getSuspectNoopTrialRows(limit = 100): Promise<SuspectTrialRow[]> {
+  return queryRows<SuspectTrialRow>(
+    `
+      select
+        arm_id,
+        logical_mode,
+        storage_mode,
+        suite_id,
+        run_label,
+        task_id,
+        reward,
+        runtime_seconds,
+        cost_usd,
+        input_tokens,
+        output_tokens,
+        exception_type,
+        exception_summary
+      from benchmark.v_trial_quality_flags
+      where phase = 'phase3'
+        and quality_flag = 'suspect_noop_zero_token'
+      order by logical_mode, arm_id, run_label, task_id
+      limit $1
+    `,
+    [limit]
+  );
+}
