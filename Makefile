@@ -38,6 +38,26 @@ contamination-audit-phase3-hardened:
 
 ARM ?= router-anthropic-sonnet
 MODE ?= canary
+PHASE ?= phase3
+SUITE_ID ?= phase3-full-20
+RUNS ?=
+DEST ?= tmp/eval-artifacts/wave
+RUN_DIRS_FILE ?= tmp/eval_wave_run_dirs.tsv
+ARMS ?=
+MANIFEST_DIR ?= tmp/eval-ingest-manifests
+ARTIFACT_PREFIX ?= $(PHASE)
+R2_PREFIX ?= $(PHASE)
+OVERWRITE ?= 0
+DRY_RUN ?= 0
+INSPECT_LOCAL ?= 0
+LOCAL_ROOTS ?= $(DEST)
+EVAL_DB_PY ?= uv run --with 'psycopg[binary]' python
+EVAL_INGEST_PY ?= uv run --with boto3 --with 'psycopg[binary]' python
+EVAL_GH_PY ?= uv run python
+OVERWRITE_FLAG = $(if $(filter 1 true yes,$(OVERWRITE)),--overwrite,)
+INGEST_FLAGS = $(if $(filter 1 true yes,$(DRY_RUN)),--dry-run,--upload-r2 --insert-db)
+INSPECT_LOCAL_FLAG = $(if $(filter 1 true yes,$(INSPECT_LOCAL)),--inspect-local,)
+LOCAL_ROOT_ARGS = $(if $(filter 1 true yes,$(INSPECT_LOCAL)),$(foreach root,$(LOCAL_ROOTS),--local-root "$(root)"),)
 
 .PHONY: litellm-up
 litellm-up:
@@ -69,6 +89,107 @@ phase3-canary:
 .PHONY: phase3-smoke
 phase3-smoke:
 	$(MAKE) phase3-run ARM=$(ARM) MODE=smoke
+
+.PHONY: eval-suite-summary
+eval-suite-summary:
+	@set -e; \
+	if [ -f .secrets/supabase.env ]; then set -a; . .secrets/supabase.env; set +a; fi; \
+	$(EVAL_DB_PY) scripts/eval_quality_audit.py suite-summary \
+	  --suite-id "$(SUITE_ID)" \
+	  --arms "$(ARMS)"
+
+.PHONY: eval-arm-run-summary
+eval-arm-run-summary:
+	@set -e; \
+	if [ -f .secrets/supabase.env ]; then set -a; . .secrets/supabase.env; set +a; fi; \
+	$(EVAL_DB_PY) scripts/eval_quality_audit.py arm-run-summary \
+	  --suite-id "$(SUITE_ID)" \
+	  --arms "$(ARMS)"
+
+.PHONY: eval-exception-audit
+eval-exception-audit:
+	@set -e; \
+	if [ -f .secrets/supabase.env ]; then set -a; . .secrets/supabase.env; set +a; fi; \
+	$(EVAL_DB_PY) scripts/eval_quality_audit.py exception-audit \
+	  --suite-id "$(SUITE_ID)" \
+	  --arms "$(ARMS)" \
+	  $(INSPECT_LOCAL_FLAG) \
+	  $(LOCAL_ROOT_ARGS)
+
+.PHONY: eval-list-artifacts
+eval-list-artifacts:
+	$(EVAL_GH_PY) scripts/eval_wave.py list-artifacts \
+	  --runs "$(RUNS)" \
+	  --suite-id "$(SUITE_ID)" \
+	  --phase "$(PHASE)" \
+	  --artifact-prefix "$(ARTIFACT_PREFIX)"
+
+.PHONY: eval-download-wave
+eval-download-wave:
+	$(EVAL_GH_PY) scripts/eval_wave.py download-wave \
+	  --runs "$(RUNS)" \
+	  --dest "$(DEST)" \
+	  --phase "$(PHASE)" \
+	  --suite-id "$(SUITE_ID)" \
+	  --artifact-prefix "$(ARTIFACT_PREFIX)" \
+	  $(OVERWRITE_FLAG)
+
+.PHONY: eval-discover-wave
+eval-discover-wave:
+	$(EVAL_GH_PY) scripts/eval_wave.py discover-wave \
+	  --runs "$(RUNS)" \
+	  --dest "$(DEST)" \
+	  --phase "$(PHASE)" \
+	  --suite-id "$(SUITE_ID)" \
+	  --artifact-prefix "$(ARTIFACT_PREFIX)" \
+	  --run-dirs-file "$(RUN_DIRS_FILE)" \
+	  --arms "$(ARMS)"
+
+.PHONY: eval-manifest-wave
+eval-manifest-wave:
+	$(EVAL_GH_PY) scripts/eval_wave.py manifest-wave \
+	  --run-dirs-file "$(RUN_DIRS_FILE)" \
+	  --manifest-dir "$(MANIFEST_DIR)" \
+	  --suite-id "$(SUITE_ID)" \
+	  --phase "$(PHASE)" \
+	  --r2-prefix "$(R2_PREFIX)"
+
+.PHONY: eval-ingest-wave
+eval-ingest-wave:
+	@set -e; \
+	if [ -f .secrets/supabase.env ]; then set -a; . .secrets/supabase.env; set +a; fi; \
+	if [ -f .secrets/r2.env ]; then set -a; . .secrets/r2.env; set +a; fi; \
+	$(EVAL_INGEST_PY) scripts/eval_wave.py ingest-wave \
+	  --run-dirs-file "$(RUN_DIRS_FILE)" \
+	  --manifest-dir "$(MANIFEST_DIR)" \
+	  --suite-id "$(SUITE_ID)" \
+	  --phase "$(PHASE)" \
+	  --r2-prefix "$(R2_PREFIX)" \
+	  $(INGEST_FLAGS)
+
+.PHONY: phase3-suite-summary
+phase3-suite-summary: eval-suite-summary
+
+.PHONY: phase3-arm-run-summary
+phase3-arm-run-summary: eval-arm-run-summary
+
+.PHONY: phase3-exception-audit
+phase3-exception-audit: eval-exception-audit
+
+.PHONY: phase3-list-artifacts
+phase3-list-artifacts: eval-list-artifacts
+
+.PHONY: phase3-download-wave
+phase3-download-wave: eval-download-wave
+
+.PHONY: phase3-discover-wave
+phase3-discover-wave: eval-discover-wave
+
+.PHONY: phase3-manifest-wave
+phase3-manifest-wave: eval-manifest-wave
+
+.PHONY: phase3-ingest-wave
+phase3-ingest-wave: eval-ingest-wave
 
 
 .PHONY: sanitizer-up

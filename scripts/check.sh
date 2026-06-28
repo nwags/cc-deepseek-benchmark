@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Current Phase 3 migration scripts.
+# Current benchmark helper scripts.
 python -m py_compile scripts/aggregate_phase.py
 python -m py_compile scripts/generate_figures.py
 python -m py_compile scripts/summarize_trials.py
 python -m py_compile scripts/audit_tool_usage.py
 python -m py_compile scripts/anthropic_sanitizer_proxy.py
+python -m py_compile scripts/eval_wave.py
+python -m py_compile scripts/eval_quality_audit.py
 
 bash -n scripts/run_arm.sh
 bash -n scripts/check.sh
