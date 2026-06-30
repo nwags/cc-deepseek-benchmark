@@ -13,6 +13,8 @@ python -m py_compile scripts/eval_quality_audit.py
 bash -n scripts/run_arm.sh
 bash -n scripts/check.sh
 bash -n scripts/secret_scan.sh
+bash -n scripts/ensure_arm_runtime_services.sh
+bash -n scripts/stop_arm_runtime_services.sh
 bash -n scripts/eval_remote_ops.sh
 
 # Optional legacy syntax check while old-scripts remains as migration backup.

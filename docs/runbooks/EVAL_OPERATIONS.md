@@ -92,6 +92,48 @@ The ingest target sources ignored local secret files when present:
 
 Required values are the same ones used by `scripts/ingest_phase3_run_metadata.py`, including `SUPABASE_DB_URL`, `R2_BUCKET`, `R2_ENDPOINT_URL`, `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY`.
 
+## Arm Runtime Services
+
+Arm configs may declare host-local runtime sidecars or request normalizers with `runtime_services`. This is a generic mechanism for future phases and model families; it is not a Haiku-only workflow special case.
+
+Example:
+
+```yaml
+runtime_services:
+- anthropic-sanitizer
+```
+
+Use the generic helpers:
+
+```bash
+scripts/ensure_arm_runtime_services.sh router-anthropic-haiku-sanitized
+scripts/stop_arm_runtime_services.sh router-anthropic-haiku-sanitized
+```
+
+If an arm has no `runtime_services`, the helpers print a no-op message and exit `0`. Unknown service names fail clearly so a misspelled sidecar is not silently ignored.
+
+Current service:
+
+- `anthropic-sanitizer` starts `scripts/ensure_anthropic_sanitizer_proxy.sh`.
+- The sanitizer listens on `http://172.17.0.1:4010` for Docker-launched benchmark workers and forwards to LiteLLM on port `4000`.
+- It strips unsupported top-level Anthropic request fields such as `effort`, `output_config`, `thinking`, and `reasoning_effort`.
+- Logs are written to `.run/anthropic-sanitizer/sanitizer.log`.
+
+Current arm example:
+
+- `router-anthropic-haiku-sanitized` declares `runtime_services: [anthropic-sanitizer]`.
+- Prior canary `2026-06-01__13-17-13` completed `1` trial with `0` errored.
+- Prior smoke `2026-06-01__15-19-23` completed `5` trials with `0` errored.
+
+Operational requirements:
+
+1. Start shared router services first, such as LiteLLM.
+2. Start arm-declared runtime services on the runner host before `scripts/run_arm.sh`.
+3. Do not automatically stop shared runtime services in workflow jobs unless host isolation proves it is safe for concurrent runner slots.
+4. Upload or inspect sidecar logs when a run fails.
+
+The active paid dispatch path currently uses `Phase 3 Arm Dispatch V2` from `origin/main` with `--ref main`. This branch now carries `.github/workflows/phase3-arm-dispatch-v2.yml`, but live V2 dispatch will not benefit until this change is ported, cherry-picked, or otherwise applied to `main`.
+
 ## Remote Runner Recovery
 
 The current Phase 3 runner fleet is six GitHub self-hosted runner slots across two VPS hosts:
