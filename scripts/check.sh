@@ -13,6 +13,7 @@ python -m py_compile scripts/eval_quality_audit.py
 bash -n scripts/run_arm.sh
 bash -n scripts/check.sh
 bash -n scripts/secret_scan.sh
+bash -n scripts/eval_remote_ops.sh
 
 # Optional legacy syntax check while old-scripts remains as migration backup.
 # These are not the preferred entry points, but syntax-checking them is cheap.

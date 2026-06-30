@@ -50,6 +50,14 @@ class RunDirRow:
 
 
 @dataclass(frozen=True)
+class SkippedRunDir:
+    run_id: str
+    arm_id: str
+    root: Path
+    reason: str
+
+
+@dataclass(frozen=True)
 class EvalContext:
     suite_id: str | None
     phase: str | None
@@ -539,10 +547,11 @@ def discover_run_dir_rows(
     storage_mode: str | None,
     expected_trials: int | None,
     strict: bool,
-) -> list[RunDirRow]:
+) -> tuple[list[RunDirRow], list[SkippedRunDir]]:
     specs = parse_run_specs(runs)
     allowed_arms = set(arms)
     rows: list[RunDirRow] = []
+    skipped: list[SkippedRunDir] = []
     failures: list[str] = []
 
     for run_id, arm_id, root in candidate_roots(dest, specs):
@@ -568,6 +577,16 @@ def discover_run_dir_rows(
             rows.append(RunDirRow(run_id=run_id, arm_id=arm_id, run_dir=matches[0]))
             continue
 
+        if len(matches) == 0 and not strict:
+            if not root.exists():
+                reason = "artifact_dir_missing"
+            elif not any(root.iterdir()):
+                reason = "artifact_dir_empty"
+            else:
+                reason = "no_matching_top_level_run_dir"
+            skipped.append(SkippedRunDir(run_id=run_id, arm_id=arm_id, root=root, reason=reason))
+            continue
+
         message = f"{run_id}\t{arm_id}\tfound {len(matches)} top-level run dirs under {root}"
         if matches:
             message += "\t" + ",".join(str(m) for m in matches)
@@ -575,20 +594,23 @@ def discover_run_dir_rows(
 
     if failures and strict:
         raise SystemExit("run-dir discovery failed:\n" + "\n".join(failures))
+    if failures:
+        raise SystemExit("run-dir discovery found ambiguous results:\n" + "\n".join(failures))
 
-    return rows
+    return rows, skipped
 
 
 def command_discover_wave(args: argparse.Namespace) -> int:
     context = resolve_context(args)
-    rows = discover_run_dir_rows(
+    skip_missing_run_dirs = args.skip_missing_run_dirs or args.allow_missing
+    rows, skipped = discover_run_dir_rows(
         dest=Path(args.dest),
         runs=args.runs,
         arms=parse_arms(args.arms),
         phase=context.phase,
         storage_mode=context.storage_mode,
         expected_trials=context.expected_trials,
-        strict=not args.allow_missing,
+        strict=not skip_missing_run_dirs,
     )
 
     out = Path(args.run_dirs_file)
@@ -602,6 +624,11 @@ def command_discover_wave(args: argparse.Namespace) -> int:
         f"logical_mode={context.logical_mode or ''}\tstorage_mode={context.storage_mode or ''}\t"
         f"expected_trials={context.expected_trials or ''}"
     )
+    for item in skipped:
+        print(
+            f"skipped_run_dir\t{item.run_id}\t{item.arm_id}\t{item.reason}\t{item.root}",
+            file=sys.stderr,
+        )
     for row in rows:
         write_tsv_row([row.run_id, row.arm_id, row.run_dir])
     return 0
@@ -805,6 +832,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--storage-mode", default=os.getenv("STORAGE_MODE"))
     p.add_argument("--expected-trials", type=int, default=env_int("EXPECTED_TRIALS"))
     p.add_argument("--allow-missing", action="store_true")
+    p.add_argument("--skip-missing-run-dirs", action="store_true")
     p.set_defaults(func=command_discover_wave)
 
     p = sub.add_parser("manifest-wave", help="Build and validate local ingestion manifests for a discovered wave.")

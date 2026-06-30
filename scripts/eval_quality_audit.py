@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import os
 import sys
@@ -31,6 +32,15 @@ class SchemaInfo:
         return self.columns.get(relation, set())
 
 
+@dataclass(frozen=True)
+class InvalidRun:
+    suite_id: str
+    arm_id: str
+    run_label: str | None
+    provider_run_id: str | None
+    reason: str
+
+
 def parse_words(value: str | None) -> list[str]:
     if not value:
         return []
@@ -41,6 +51,75 @@ def require_suite_id(args: argparse.Namespace) -> str:
     if not args.suite_id:
         raise SystemExit("SUITE_ID is required; pass --suite-id or set SUITE_ID in the environment.")
     return args.suite_id
+
+
+def load_invalid_runs_file(path: Path, suite_id: str) -> list[InvalidRun]:
+    lines = [
+        line
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    if not lines:
+        return []
+
+    reader = csv.DictReader(lines, delimiter="\t")
+    fieldnames = set(reader.fieldnames or [])
+    required = {"suite_id", "arm_id", "reason"}
+    missing = sorted(required - fieldnames)
+    if missing:
+        raise SystemExit(f"{path}: missing required column(s): {', '.join(missing)}")
+    if "run_label" not in fieldnames and "provider_run_id" not in fieldnames and "github_run_id" not in fieldnames:
+        raise SystemExit(f"{path}: expected run_label or provider_run_id/github_run_id column")
+
+    invalid_runs: list[InvalidRun] = []
+    for lineno, row in enumerate(reader, start=2):
+        row_suite_id = (row.get("suite_id") or "").strip()
+        if row_suite_id != suite_id:
+            continue
+
+        arm_id = (row.get("arm_id") or "").strip()
+        run_label = (row.get("run_label") or "").strip() or None
+        provider_run_id = (
+            (row.get("provider_run_id") or "").strip()
+            or (row.get("github_run_id") or "").strip()
+            or None
+        )
+        reason = (row.get("reason") or "").strip()
+        if not arm_id:
+            raise SystemExit(f"{path}:{lineno}: arm_id is required")
+        if not run_label and not provider_run_id:
+            raise SystemExit(f"{path}:{lineno}: run_label or provider_run_id/github_run_id is required")
+        if not reason:
+            raise SystemExit(f"{path}:{lineno}: reason is required")
+        invalid_runs.append(
+            InvalidRun(
+                suite_id=row_suite_id,
+                arm_id=arm_id,
+                run_label=run_label,
+                provider_run_id=provider_run_id,
+                reason=reason,
+            )
+        )
+    return invalid_runs
+
+
+def load_invalid_runs_from_args(args: argparse.Namespace) -> list[InvalidRun]:
+    path_text = getattr(args, "invalid_runs_file", None)
+    if not path_text:
+        if getattr(args, "valid_only", False):
+            raise SystemExit("--invalid-runs-file is required for valid-only summaries")
+        return []
+
+    path = Path(path_text)
+    if not path.exists():
+        if getattr(args, "missing_invalid_runs_ok", False):
+            print(f"invalid_runs_file_missing\t{path}", file=sys.stderr)
+            return []
+        raise SystemExit(f"Invalid-runs file not found: {path}")
+
+    invalid_runs = load_invalid_runs_file(path, require_suite_id(args))
+    print(f"invalid_run_exclusions_loaded\t{len(invalid_runs)}\t{path}", file=sys.stderr)
+    return invalid_runs
 
 
 def require_psycopg() -> tuple[Any, Any]:
@@ -103,6 +182,101 @@ def any_filter(column_sql: str, values: list[str], params: list[Any]) -> str:
         return ""
     params.append(values)
     return f" and {column_sql} = any(%s)"
+
+
+def append_json_text_match(
+    matchers: list[str],
+    matcher_params: list[Any],
+    *,
+    schema: SchemaInfo,
+    relation: str,
+    alias: str,
+    key: str,
+    value: str,
+) -> None:
+    if schema.has_column(relation, "raw_metadata"):
+        matchers.append(f"({alias}.raw_metadata ->> %s) = %s")
+        matcher_params.extend([key, value])
+
+
+def invalid_run_filter(schema: SchemaInfo, args: argparse.Namespace, params: list[Any]) -> str:
+    invalid_runs: list[InvalidRun] = getattr(args, "_invalid_runs", [])
+    if not invalid_runs:
+        return ""
+
+    clauses: list[str] = []
+    unsupported: list[str] = []
+    run_cols = schema.relation_columns("benchmark_runs")
+    arm_run_cols = schema.relation_columns("benchmark_arm_runs")
+
+    for invalid in invalid_runs:
+        matchers: list[str] = []
+        matcher_params: list[Any] = []
+        if invalid.run_label:
+            if "run_label" in run_cols:
+                matchers.append("r.run_label = %s")
+                matcher_params.append(invalid.run_label)
+
+        if invalid.provider_run_id:
+            if "provider_run_id" in arm_run_cols:
+                matchers.append("ar.provider_run_id = %s")
+                matcher_params.append(invalid.provider_run_id)
+            if "github_run_id" in arm_run_cols:
+                matchers.append("ar.github_run_id = %s")
+                matcher_params.append(invalid.provider_run_id)
+            if "provider_run_id" in run_cols:
+                matchers.append("r.provider_run_id = %s")
+                matcher_params.append(invalid.provider_run_id)
+            if "github_run_id" in run_cols:
+                matchers.append("r.github_run_id = %s")
+                matcher_params.append(invalid.provider_run_id)
+            append_json_text_match(
+                matchers,
+                matcher_params,
+                schema=schema,
+                relation="benchmark_arm_runs",
+                alias="ar",
+                key="provider_run_id",
+                value=invalid.provider_run_id,
+            )
+            append_json_text_match(
+                matchers,
+                matcher_params,
+                schema=schema,
+                relation="benchmark_arm_runs",
+                alias="ar",
+                key="github_run_id",
+                value=invalid.provider_run_id,
+            )
+            append_json_text_match(
+                matchers,
+                matcher_params,
+                schema=schema,
+                relation="benchmark_runs",
+                alias="r",
+                key="provider_run_id",
+                value=invalid.provider_run_id,
+            )
+            append_json_text_match(
+                matchers,
+                matcher_params,
+                schema=schema,
+                relation="benchmark_runs",
+                alias="r",
+                key="github_run_id",
+                value=invalid.provider_run_id,
+            )
+
+        if not matchers:
+            unsupported.append(f"{invalid.suite_id}\t{invalid.arm_id}\tno supported exclusion key")
+            continue
+
+        clauses.append(f"(ar.suite_id = %s and ar.arm_id = %s and ({' or '.join(matchers)}))")
+        params.extend([invalid.suite_id, invalid.arm_id, *matcher_params])
+
+    if unsupported:
+        raise SystemExit("invalid-run exclusions could not be applied:\n" + "\n".join(unsupported))
+    return " and not (" + " or ".join(clauses) + ")"
 
 
 def rows_for_query(conn: Any, sql: str, params: Iterable[Any]) -> list[dict[str, Any]]:
@@ -198,6 +372,8 @@ def suite_summary_from_base(conn: Any, schema: SchemaInfo, args: argparse.Namesp
     task_count = "count(distinct t.task_id)::int" if "task_id" in t_cols else "null::integer"
     logical_mode = "ar.logical_mode" if "logical_mode" in ar_cols else "null::text"
     storage_mode = "ar.storage_mode" if "storage_mode" in ar_cols else "null::text"
+    arm_filter = any_filter("ar.arm_id", parse_words(args.arms), params)
+    invalid_filter = invalid_run_filter(schema, args, params)
 
     sql = f"""
         select
@@ -227,7 +403,8 @@ def suite_summary_from_base(conn: Any, schema: SchemaInfo, args: argparse.Namesp
         join benchmark.benchmark_runs r on r.id = t.run_id
         {trial_join(schema)}
         where ar.suite_id = %s
-        {any_filter("ar.arm_id", parse_words(args.arms), params)}
+        {arm_filter}
+        {invalid_filter}
         group by r.phase, logical_mode, storage_mode, ar.suite_id, ar.arm_id
         order by ar.arm_id
     """
@@ -236,9 +413,10 @@ def suite_summary_from_base(conn: Any, schema: SchemaInfo, args: argparse.Namesp
 
 def command_suite_summary(args: argparse.Namespace) -> int:
     require_suite_id(args)
+    args._invalid_runs = load_invalid_runs_from_args(args)
     with connect(args.db_url) as conn:
         schema = load_schema_info(conn)
-        if schema.has_relation("v_suite_arm_quality_summary"):
+        if schema.has_relation("v_suite_arm_quality_summary") and not args._invalid_runs:
             rows = suite_summary_from_view(conn, schema, args)
         else:
             rows = suite_summary_from_base(conn, schema, args)
@@ -313,6 +491,8 @@ def arm_run_summary_from_base(conn: Any, schema: SchemaInfo, args: argparse.Name
         trial_on = "t.arm_id = ar.arm_id"
     else:
         trial_on = "true"
+    arm_filter = any_filter("ar.arm_id", parse_words(args.arms), params)
+    invalid_filter = invalid_run_filter(schema, args, params)
 
     sql = f"""
         select
@@ -347,7 +527,8 @@ def arm_run_summary_from_base(conn: Any, schema: SchemaInfo, args: argparse.Name
           and ({trial_on})
         {artifact_join}
         where ar.suite_id = %s
-        {any_filter("ar.arm_id", parse_words(args.arms), params)}
+        {arm_filter}
+        {invalid_filter}
         group by r.id, ar.id
         order by ar.arm_id, r.run_label
     """
@@ -356,9 +537,10 @@ def arm_run_summary_from_base(conn: Any, schema: SchemaInfo, args: argparse.Name
 
 def command_arm_run_summary(args: argparse.Namespace) -> int:
     require_suite_id(args)
+    args._invalid_runs = load_invalid_runs_from_args(args)
     with connect(args.db_url) as conn:
         schema = load_schema_info(conn)
-        if schema.has_relation("v_arm_run_quality_summary"):
+        if schema.has_relation("v_arm_run_quality_summary") and not args._invalid_runs:
             rows = arm_run_summary_from_view(conn, schema, args)
         else:
             rows = arm_run_summary_from_base(conn, schema, args)
@@ -615,14 +797,24 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument("--suite-id", default=os.getenv("SUITE_ID"))
         p.add_argument("--arms", default=os.getenv("ARMS"))
         p.add_argument("--db-url", default=os.getenv("SUPABASE_DB_URL"))
+        p.add_argument("--invalid-runs-file", default=os.getenv("INVALID_RUNS_FILE"))
+        p.add_argument("--missing-invalid-runs-ok", action="store_true")
 
     p = sub.add_parser("suite-summary", help="Summarize suite quality by arm from Supabase.")
     add_db_summary_args(p)
-    p.set_defaults(func=command_suite_summary)
+    p.set_defaults(func=command_suite_summary, valid_only=False)
+
+    p = sub.add_parser("suite-summary-valid", help="Summarize suite quality excluding locally listed invalid runs.")
+    add_db_summary_args(p)
+    p.set_defaults(func=command_suite_summary, valid_only=True)
 
     p = sub.add_parser("arm-run-summary", help="Summarize each ingested arm run from Supabase.")
     add_db_summary_args(p)
-    p.set_defaults(func=command_arm_run_summary)
+    p.set_defaults(func=command_arm_run_summary, valid_only=False)
+
+    p = sub.add_parser("arm-run-summary-valid", help="Summarize each ingested arm run excluding locally listed invalid runs.")
+    add_db_summary_args(p)
+    p.set_defaults(func=command_arm_run_summary, valid_only=True)
 
     p = sub.add_parser("exception-audit", help="List exception and suspect trials from Supabase.")
     add_db_summary_args(p)

@@ -51,6 +51,19 @@ OVERWRITE ?= 0
 DRY_RUN ?= 0
 INSPECT_LOCAL ?= 0
 LOCAL_ROOTS ?= $(DEST)
+SKIP_MISSING_RUN_DIRS ?= false
+INVALID_RUNS_FILE ?= configs/eval_invalid_runs.local.tsv
+MISSING_INVALID_RUNS_OK ?= 0
+EVAL_REMOTE_HOSTS ?= vps1 vps2
+EVAL_REMOTE_VPS1_HOST ?= bench@51.81.81.176
+EVAL_REMOTE_VPS1_AS_USER ?=
+EVAL_REMOTE_VPS1_RUNNER_DIRS ?= /home/bench/actions-runner /home/bench/actions-runner-slot2 /home/bench/actions-runner-slot3
+EVAL_REMOTE_VPS2_HOST ?= ubuntu@135.148.42.89
+EVAL_REMOTE_VPS2_AS_USER ?= sudo -iu bench
+EVAL_REMOTE_VPS2_RUNNER_DIRS ?= /home/bench/actions-runner-slot4 /home/bench/actions-runner-slot5 /home/bench/actions-runner-slot6
+EVAL_REMOTE_FIND_LIMIT ?= 80
+EVAL_REMOTE_RESCUE_DEST ?= tmp/eval-remote-rescue
+EVAL_REMOTE_CLEAN_CONFIRM ?= 0
 EVAL_DB_PY ?= uv run --with 'psycopg[binary]' python
 EVAL_INGEST_PY ?= uv run --with boto3 --with 'psycopg[binary]' python
 EVAL_GH_PY ?= uv run python
@@ -58,6 +71,9 @@ OVERWRITE_FLAG = $(if $(filter 1 true yes,$(OVERWRITE)),--overwrite,)
 INGEST_FLAGS = $(if $(filter 1 true yes,$(DRY_RUN)),--dry-run,--upload-r2 --insert-db)
 INSPECT_LOCAL_FLAG = $(if $(filter 1 true yes,$(INSPECT_LOCAL)),--inspect-local,)
 LOCAL_ROOT_ARGS = $(if $(filter 1 true yes,$(INSPECT_LOCAL)),$(foreach root,$(LOCAL_ROOTS),--local-root "$(root)"),)
+SKIP_MISSING_RUN_DIRS_FLAG = $(if $(filter 1 true yes,$(SKIP_MISSING_RUN_DIRS)),--skip-missing-run-dirs,)
+MISSING_INVALID_RUNS_OK_FLAG = $(if $(filter 1 true yes,$(MISSING_INVALID_RUNS_OK)),--missing-invalid-runs-ok,)
+EVAL_REMOTE_ENV = EVAL_REMOTE_HOSTS="$(EVAL_REMOTE_HOSTS)" EVAL_REMOTE_VPS1_HOST="$(EVAL_REMOTE_VPS1_HOST)" EVAL_REMOTE_VPS1_AS_USER="$(EVAL_REMOTE_VPS1_AS_USER)" EVAL_REMOTE_VPS1_RUNNER_DIRS="$(EVAL_REMOTE_VPS1_RUNNER_DIRS)" EVAL_REMOTE_VPS2_HOST="$(EVAL_REMOTE_VPS2_HOST)" EVAL_REMOTE_VPS2_AS_USER="$(EVAL_REMOTE_VPS2_AS_USER)" EVAL_REMOTE_VPS2_RUNNER_DIRS="$(EVAL_REMOTE_VPS2_RUNNER_DIRS)" EVAL_REMOTE_FIND_LIMIT="$(EVAL_REMOTE_FIND_LIMIT)" EVAL_REMOTE_RESCUE_DEST="$(EVAL_REMOTE_RESCUE_DEST)" EVAL_REMOTE_CLEAN_CONFIRM="$(EVAL_REMOTE_CLEAN_CONFIRM)"
 
 .PHONY: litellm-up
 litellm-up:
@@ -98,6 +114,15 @@ eval-suite-summary:
 	  --suite-id "$(SUITE_ID)" \
 	  --arms "$(ARMS)"
 
+.PHONY: eval-suite-summary-valid
+eval-suite-summary-valid:
+	@set -e; \
+	if [ -f .secrets/supabase.env ]; then set -a; . .secrets/supabase.env; set +a; fi; \
+	$(EVAL_DB_PY) scripts/eval_quality_audit.py suite-summary-valid \
+	  --suite-id "$(SUITE_ID)" \
+	  --arms "$(ARMS)" \
+	  --invalid-runs-file "$(INVALID_RUNS_FILE)" $(MISSING_INVALID_RUNS_OK_FLAG)
+
 .PHONY: eval-arm-run-summary
 eval-arm-run-summary:
 	@set -e; \
@@ -105,6 +130,15 @@ eval-arm-run-summary:
 	$(EVAL_DB_PY) scripts/eval_quality_audit.py arm-run-summary \
 	  --suite-id "$(SUITE_ID)" \
 	  --arms "$(ARMS)"
+
+.PHONY: eval-arm-run-summary-valid
+eval-arm-run-summary-valid:
+	@set -e; \
+	if [ -f .secrets/supabase.env ]; then set -a; . .secrets/supabase.env; set +a; fi; \
+	$(EVAL_DB_PY) scripts/eval_quality_audit.py arm-run-summary-valid \
+	  --suite-id "$(SUITE_ID)" \
+	  --arms "$(ARMS)" \
+	  --invalid-runs-file "$(INVALID_RUNS_FILE)" $(MISSING_INVALID_RUNS_OK_FLAG)
 
 .PHONY: eval-exception-audit
 eval-exception-audit:
@@ -143,7 +177,7 @@ eval-discover-wave:
 	  --suite-id "$(SUITE_ID)" \
 	  --artifact-prefix "$(ARTIFACT_PREFIX)" \
 	  --run-dirs-file "$(RUN_DIRS_FILE)" \
-	  --arms "$(ARMS)"
+	  --arms "$(ARMS)" $(SKIP_MISSING_RUN_DIRS_FLAG)
 
 .PHONY: eval-manifest-wave
 eval-manifest-wave:
@@ -167,11 +201,33 @@ eval-ingest-wave:
 	  --r2-prefix "$(R2_PREFIX)" \
 	  $(INGEST_FLAGS)
 
+.PHONY: eval-remote-runner-status
+eval-remote-runner-status:
+	$(EVAL_REMOTE_ENV) bash scripts/eval_remote_ops.sh status
+
+.PHONY: eval-remote-find-results
+eval-remote-find-results:
+	$(EVAL_REMOTE_ENV) bash scripts/eval_remote_ops.sh find-results
+
+.PHONY: eval-remote-rescue-results
+eval-remote-rescue-results:
+	$(EVAL_REMOTE_ENV) bash scripts/eval_remote_ops.sh rescue-results
+
+.PHONY: eval-harbor-cache-clean
+eval-harbor-cache-clean:
+	$(EVAL_REMOTE_ENV) bash scripts/eval_remote_ops.sh harbor-cache-clean
+
 .PHONY: phase3-suite-summary
 phase3-suite-summary: eval-suite-summary
 
+.PHONY: phase3-suite-summary-valid
+phase3-suite-summary-valid: eval-suite-summary-valid
+
 .PHONY: phase3-arm-run-summary
 phase3-arm-run-summary: eval-arm-run-summary
+
+.PHONY: phase3-arm-run-summary-valid
+phase3-arm-run-summary-valid: eval-arm-run-summary-valid
 
 .PHONY: phase3-exception-audit
 phase3-exception-audit: eval-exception-audit
