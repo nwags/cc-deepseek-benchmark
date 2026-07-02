@@ -213,6 +213,12 @@ jobs:
           set -euxo pipefail
           ./scripts/ensure_litellm_proxy.sh
 
+      - name: Ensure arm runtime services
+        if: ${{ inputs.dry_run == false }}
+        run: |
+          set -euxo pipefail
+          ./scripts/ensure_arm_runtime_services.sh "${{ inputs.arm_id }}"
+
       - name: Run configured arm
         env:
           ARM_ID: ${{ inputs.arm_id }}
@@ -270,6 +276,7 @@ jobs:
             fi
           done
           test -f .run/litellm/litellm.log && tail -80 .run/litellm/litellm.log || true
+          test -f .run/anthropic-sanitizer/sanitizer.log && tail -80 .run/anthropic-sanitizer/sanitizer.log || true
 
       - name: Upload Phase 3 run artifacts
         if: ${{ always() && inputs.dry_run == false }}
@@ -281,6 +288,7 @@ jobs:
             results/phase3/raw/arm-${{ inputs.arm_id }}/
             results/phase3/ad-hoc/**/arm-${{ inputs.arm_id }}/
             .run/litellm/litellm.log
+            .run/anthropic-sanitizer/sanitizer.log
           if-no-files-found: warn
           retention-days: 14
 
@@ -289,3 +297,4 @@ jobs:
         run: |
           set +e
           tail -160 .run/litellm/litellm.log || true
+          tail -160 .run/anthropic-sanitizer/sanitizer.log || true
