@@ -195,8 +195,12 @@ def append_json_text_match(
     value: str,
 ) -> None:
     if schema.has_column(relation, "raw_metadata"):
-        matchers.append(f"({alias}.raw_metadata ->> %s) = %s")
+        matchers.append(f"coalesce(({alias}.raw_metadata ->> %s) = %s, false)")
         matcher_params.extend([key, value])
+
+
+def null_safe_match(expr: str) -> str:
+    return f"coalesce(({expr}), false)"
 
 
 def invalid_run_filter(schema: SchemaInfo, args: argparse.Namespace, params: list[Any]) -> str:
@@ -214,21 +218,21 @@ def invalid_run_filter(schema: SchemaInfo, args: argparse.Namespace, params: lis
         matcher_params: list[Any] = []
         if invalid.run_label:
             if "run_label" in run_cols:
-                matchers.append("r.run_label = %s")
+                matchers.append(null_safe_match("r.run_label = %s"))
                 matcher_params.append(invalid.run_label)
 
         if invalid.provider_run_id:
             if "provider_run_id" in arm_run_cols:
-                matchers.append("ar.provider_run_id = %s")
+                matchers.append(null_safe_match("ar.provider_run_id = %s"))
                 matcher_params.append(invalid.provider_run_id)
             if "github_run_id" in arm_run_cols:
-                matchers.append("ar.github_run_id = %s")
+                matchers.append(null_safe_match("ar.github_run_id = %s"))
                 matcher_params.append(invalid.provider_run_id)
             if "provider_run_id" in run_cols:
-                matchers.append("r.provider_run_id = %s")
+                matchers.append(null_safe_match("r.provider_run_id = %s"))
                 matcher_params.append(invalid.provider_run_id)
             if "github_run_id" in run_cols:
-                matchers.append("r.github_run_id = %s")
+                matchers.append(null_safe_match("r.github_run_id = %s"))
                 matcher_params.append(invalid.provider_run_id)
             append_json_text_match(
                 matchers,
