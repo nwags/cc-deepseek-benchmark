@@ -190,10 +190,19 @@ jobs:
           PY
 
       - name: Create runtime LiteLLM config
+        env:
+          ARM_ID: ${{ inputs.arm_id }}
         run: |
           set -euxo pipefail
           cp configs/router/litellm.config.yaml.example configs/router/litellm.config.yaml
-          grep -n "${{ inputs.arm_id }}" configs/router/litellm.config.yaml
+
+          route_model="$(
+            awk '$1 == "model:" {print $2; exit}' "configs/arms/${ARM_ID}.yaml"
+          )"
+          route_model="${route_model:-${ARM_ID}}"
+
+          echo "Checking LiteLLM route for ${route_model} from arm ${ARM_ID}"
+          grep -n "${route_model}" configs/router/litellm.config.yaml
 
       - name: Install LiteLLM proxy tool
         if: ${{ inputs.dry_run == false }}
