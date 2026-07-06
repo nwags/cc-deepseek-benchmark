@@ -1,5 +1,10 @@
 # Phase 3 Progress Log
 
+## 2026-07-06
+
+- Started qualitative audit scaffolding after artifact drilldown and R2-backed preview, with evidence inventories for Sonnet exceptions, suspect no-op trials, arm/task review matrices, and a Markdown review scaffold.
+- Kept the qualitative pass separate from scoring semantics and kept Haiku/Fable gated until drilldown review and ingestion automation are ready.
+
 ## 2026-07-05
 
 - Added and applied valid-only dashboard views for Phase 3 comparison surfaces.
