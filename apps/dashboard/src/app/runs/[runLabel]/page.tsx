@@ -2,9 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "../../../components/AppShell";
 import { MetricCard } from "../../../components/MetricCard";
-import { QualityBadge, QualityPassRate } from "../../../components/QualityContext";
+import { QualityBadge, QualityPassRate, buildSuspectNoopHref } from "../../../components/QualityContext";
+import { InvalidReason, ValidityBadge, invalidCategory, validityLabel } from "../../../components/ValidityContext";
+import { buildArtifactHref } from "../../../lib/links";
 import {
   getArmRunQualityByRunLabels,
+  getInvalidArmRunRowsByRunLabels,
   getRunArtifacts,
   getRunDetail,
   getRunTrials
@@ -41,12 +44,15 @@ export default async function RunDetailPage({
     notFound();
   }
 
-  const [trials, artifacts, qualityRows] = await Promise.all([
+  const [trials, artifacts, qualityRows, invalidRows] = await Promise.all([
     getRunTrials(run.run_id),
     getRunArtifacts(run.run_id),
-    getArmRunQualityByRunLabels([run.run_label])
+    getArmRunQualityByRunLabels([run.run_label]),
+    getInvalidArmRunRowsByRunLabels([run.run_label])
   ]);
   const quality = qualityRows[0] ?? null;
+  const invalidRow = invalidRows[0] ?? null;
+  const suspectNoopCount = quality?.suspect_noop_count ?? 0;
 
   return (
     <AppShell title="Run detail">
@@ -65,13 +71,49 @@ export default async function RunDetailPage({
           <MetricCard label="Trials" value={formatNumber(run.trial_count)} />
           <MetricCard label="Raw pass rate" value={formatPercent(run.pass_rate)} />
           <MetricCard label="Qualified pass rate" value={formatPercent(quality?.qualified_pass_rate ?? run.pass_rate)} />
-          <MetricCard label="Suspect no-op" value={formatNumber(quality?.suspect_noop_count ?? 0)} />
+          <MetricCard
+            label="Suspect no-op"
+            value={suspectNoopCount > 0 ? (
+              <Link href={buildSuspectNoopHref({ run_label: run.run_label })}>
+                <QualityBadge count={suspectNoopCount} />
+              </Link>
+            ) : (
+              <QualityBadge count={suspectNoopCount} />
+            )}
+          />
           <MetricCard label="Cost" value={formatRecordedCost(run.trial_cost_usd, run.cost_row_count, run.missing_cost_count)} />
           <MetricCard label="Median runtime" value={formatSeconds(run.median_runtime_seconds)} />
           <MetricCard label="Artifacts in R2" value={`${formatNumber(run.r2_artifact_count)} / ${formatNumber(run.artifact_count)}`} />
           <MetricCard label="Audit events" value={formatNumber(run.audit_count)} />
         </div>
+        <div className="placeholder-body">
+          Suspect no-op drilldown opens the affected zero-token trials in Trial Quality.
+        </div>
       </section>
+
+      {invalidRow ? (
+        <section className="panel warning-panel">
+          <div className="panel-heading">
+            <div>
+              <h2>Invalid / quarantined run</h2>
+              <p>This run is retained for audit but excluded from valid-only scored comparisons.</p>
+            </div>
+            <ValidityBadge row={invalidRow} />
+          </div>
+          <div className="detail-grid">
+            <div><span>Validity</span><strong>{validityLabel(invalidRow)}</strong></div>
+            <div><span>Category</span><strong>{invalidCategory(invalidRow) ?? "—"}</strong></div>
+            <div><span>Provider/workflow id</span><strong className="mono">{invalidRow.provider_run_id ?? "—"}</strong></div>
+            <div><span>Reason</span><strong><InvalidReason row={invalidRow} includeProvider={false} /></strong></div>
+            <div><span>Invalidated by</span><strong>{invalidRow.invalidated_by ?? "—"}</strong></div>
+            <div><span>Invalidated at</span><strong>{invalidRow.invalidated_at ?? "—"}</strong></div>
+          </div>
+        </section>
+      ) : (
+        <section className="quality-context-panel">
+          <strong>Validity:</strong> <ValidityBadge row={invalidRow} />
+        </section>
+      )}
 
       <section className="panel">
         <div className="panel-heading">
@@ -103,7 +145,18 @@ export default async function RunDetailPage({
             qualified_success_count: Math.round((run.pass_rate ?? 0) * (run.trial_count ?? 0)),
             suspect_noop_count: 0
           }} /></strong></div>
-          <div><span>Suspect no-op</span><strong><QualityBadge count={quality?.suspect_noop_count ?? 0} /></strong></div>
+          <div>
+            <span>Suspect no-op</span>
+            <strong>
+              {suspectNoopCount > 0 ? (
+                <Link href={buildSuspectNoopHref({ run_label: run.run_label })}>
+                  <QualityBadge count={suspectNoopCount} />
+                </Link>
+              ) : (
+                <QualityBadge count={suspectNoopCount} />
+              )}
+            </strong>
+          </div>
           <div><span>Artifact bytes</span><strong>{formatBytes(run.artifact_size_bytes)}</strong></div>
           <div><span>WebSearch events</span><strong>{formatNumber(run.websearch_events)}</strong></div>
           <div><span>WebFetch events</span><strong>{formatNumber(run.webfetch_events)}</strong></div>
@@ -149,8 +202,18 @@ export default async function RunDetailPage({
 
       <section className="panel">
         <div className="panel-heading">
-          <h2>Artifacts</h2>
-          <p>First 100 artifact records. Signed download links will come in a later pass.</p>
+          <div>
+            <h2>Artifacts</h2>
+            <p>First 100 artifact records. Signed download links will come in a later pass.</p>
+          </div>
+          <div className="artifact-link-list">
+            <Link href={buildArtifactHref({ run_label: run.run_label })}>Open in artifact browser</Link>
+            {suspectNoopCount > 0 ? (
+              <Link href={buildArtifactHref({ run_label: run.run_label, quality_flag: "suspect_noop_zero_token" })}>
+                Suspect no-op artifacts
+              </Link>
+            ) : null}
+          </div>
         </div>
 
         <div className="artifact-list">

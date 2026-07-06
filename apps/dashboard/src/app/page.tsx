@@ -3,16 +3,17 @@ import { TermInfo } from "../components/TermInfo";
 import { AppShell } from "../components/AppShell";
 import { MetricCard } from "../components/MetricCard";
 import { SuiteHeatmap } from "../components/SuiteHeatmap";
-import { QualityPassRate, QualityBadge } from "../components/QualityContext";
+import { QualityPassRate, QualityBadge, buildSuspectNoopHref } from "../components/QualityContext";
 import {
-  getArmRunRows,
+  getValidSuiteArmRunRows,
   getEvalSuites,
   getOverview,
   getSuiteArmComparison,
   getSuiteTaskDifficulty,
   getSuiteHeatmapCells,
   getSuiteArmQualityRows,
-  getArmRunQualityByRunLabels
+  getArmRunQualityByRunLabels,
+  getInvalidArmRunRows
 } from "../lib/dashboard-data";
 import { formatRecordedCost, formatNumber, formatPercent, formatSeconds } from "../lib/format";
 
@@ -27,18 +28,19 @@ function runHealthLabel(status: string, trialCount: number, logicalMode: string)
 }
 
 export default async function DashboardPage() {
-  const [overview, suites, armRuns, fullSuiteRows, hardestFullEvals, heatmapCells, fullSuiteQualityRows] = await Promise.all([
+  const [overview, suites, fullArmRuns, fullSuiteRows, hardestFullEvals, heatmapCells, fullSuiteQualityRows, invalidRows] = await Promise.all([
     getOverview(),
     getEvalSuites(),
-    getArmRunRows(12),
+    getValidSuiteArmRunRows("phase3-full-20", 20),
     getSuiteArmComparison("phase3-full-20"),
     getSuiteTaskDifficulty("phase3-full-20", 8),
     getSuiteHeatmapCells("phase3-full-20"),
-    getSuiteArmQualityRows("phase3-full-20")
+    getSuiteArmQualityRows("phase3-full-20"),
+    getInvalidArmRunRows()
   ]);
 
   const fullSuite = suites.find((suite) => suite.suite_id === "phase3-full-20");
-  const fullArmRuns = armRuns.filter((row) => row.logical_mode === "full");
+  const invalidFullSuiteCount = invalidRows.filter((row) => row.suite_id === "phase3-full-20").length;
   const fullQualityByArm = new Map(fullSuiteQualityRows.map((row) => [row.arm_id, row]));
   const fullRunQualityRows = await getArmRunQualityByRunLabels(fullArmRuns.map((row) => row.run_label));
   const fullQualityByRun = new Map(fullRunQualityRows.map((row) => [row.run_label, row]));
@@ -49,9 +51,16 @@ export default async function DashboardPage() {
         <MetricCard label="Full-suite arms" value={formatNumber(fullSuite?.arm_run_count ?? 0)} detail="Imported into phase3-full-20" />
         <MetricCard label="Full-suite trials" value={formatNumber(fullSuite?.trial_count ?? 0)} detail="20 evals × 3 attempts × imported arms" />
         <MetricCard label="Full-suite pass rate" value={formatPercent(fullSuite?.pass_rate ?? null)} detail="Across imported full arms" />
-        <MetricCard label="All imported trials" value={formatNumber(overview.trial_count)} detail="Canary + smoke + full" />
-        <MetricCard label="All R2 artifacts" value={formatNumber(overview.artifact_count)} detail="Tracked evidence rows" />
+        <MetricCard label="Valid imported trials" value={formatNumber(overview.trial_count)} detail="Canary + smoke + full valid arm runs" />
+        <MetricCard label="Valid-run R2 artifacts" value={formatNumber(overview.artifact_count)} detail="Tracked evidence rows" />
         <MetricCard label="Recorded cost" value={formatRecordedCost(overview.cost_usd, overview.cost_row_count, overview.missing_cost_count)} detail="Known cost rows only" />
+      </section>
+
+      <section className="quality-context-panel">
+        <strong>Data provenance and validity:</strong> Primary comparison uses valid-only views.
+        Invalid/quarantined runs are preserved in the audit layer.
+        Current invalid/quarantined full-suite runs: {formatNumber(invalidFullSuiteCount)}.{" "}
+        <Link href="/trial-quality">Open trial quality audit</Link>.
       </section>
 
       <section className="panel">
@@ -76,32 +85,45 @@ export default async function DashboardPage() {
                 <th>Trials</th>
                 <th>Successes</th>
                 <th><span className="term-label">Pass rate <TermInfo term="Pass rate" /></span></th>
+                <th>Suspect no-op</th>
                 <th><span className="term-label">Median runtime <TermInfo term="Median runtime" /></span></th>
                 <th><span className="term-label">Recorded cost <TermInfo term="Recorded cost" /></span></th>
               </tr>
             </thead>
             <tbody>
-              {fullSuiteRows.map((row, index) => (
-                <tr key={row.arm_id}>
-                  <td>{index + 1}</td>
-                  <td className="mono">{row.arm_id}</td>
-                  <td>{formatNumber(row.task_count)}</td>
-                  <td>{formatNumber(row.trial_count)}</td>
-                  <td>{formatNumber(row.success_count)}</td>
-                  <td><QualityPassRate row={fullQualityByArm.get(row.arm_id) ?? {
-                    raw_pass_rate: row.pass_rate,
-                    trial_count: row.trial_count,
-                    success_count: row.success_count,
-                    qualified_pass_rate: row.pass_rate,
-                    qualified_trial_count: row.trial_count,
-                    qualified_success_count: row.success_count,
-                    suspect_noop_count: 0
-                  }} /></td>
-                  <td><QualityBadge count={fullQualityByArm.get(row.arm_id)?.suspect_noop_count ?? 0} /></td>
-                  <td>{formatSeconds(row.median_runtime_seconds)}</td>
-                  <td>{formatRecordedCost(row.trial_cost_usd, row.cost_row_count, row.missing_cost_count)}</td>
-                </tr>
-              ))}
+              {fullSuiteRows.map((row, index) => {
+                const quality = fullQualityByArm.get(row.arm_id);
+                const suspectNoopCount = quality?.suspect_noop_count ?? 0;
+                return (
+                  <tr key={row.arm_id}>
+                    <td>{index + 1}</td>
+                    <td className="mono">{row.arm_id}</td>
+                    <td>{formatNumber(row.task_count)}</td>
+                    <td>{formatNumber(row.trial_count)}</td>
+                    <td>{formatNumber(row.success_count)}</td>
+                    <td><QualityPassRate row={quality ?? {
+                      raw_pass_rate: row.pass_rate,
+                      trial_count: row.trial_count,
+                      success_count: row.success_count,
+                      qualified_pass_rate: row.pass_rate,
+                      qualified_trial_count: row.trial_count,
+                      qualified_success_count: row.success_count,
+                      suspect_noop_count: 0
+                    }} /></td>
+                    <td>
+                      {suspectNoopCount > 0 ? (
+                        <Link href={buildSuspectNoopHref({ suite_id: "phase3-full-20", arm_id: row.arm_id })}>
+                          <QualityBadge count={suspectNoopCount} />
+                        </Link>
+                      ) : (
+                        <QualityBadge count={suspectNoopCount} />
+                      )}
+                    </td>
+                    <td>{formatSeconds(row.median_runtime_seconds)}</td>
+                    <td>{formatRecordedCost(row.trial_cost_usd, row.cost_row_count, row.missing_cost_count)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -110,7 +132,7 @@ export default async function DashboardPage() {
       <SuiteHeatmap
         rows={heatmapCells}
         title="Full-suite pass/fail heatmap"
-        description="Rows are evals, columns are imported full-suite arms, and each cell shows successes / trials."
+        description="Rows are evals, columns are imported full-suite arms. Heatmap cells show successes/trials. Suspect no-op detail is available through Trial Quality drilldowns."
       />
 
       <section className="panel">
@@ -181,7 +203,18 @@ export default async function DashboardPage() {
                   qualified_success_count: row.success_count,
                   suspect_noop_count: 0
                 }} /></dd></div>
-                <div><dt>Suspect no-op</dt><dd><QualityBadge count={fullQualityByRun.get(row.run_label)?.suspect_noop_count ?? 0} /></dd></div>
+                <div>
+                  <dt>Suspect no-op</dt>
+                  <dd>
+                    {(fullQualityByRun.get(row.run_label)?.suspect_noop_count ?? 0) > 0 ? (
+                      <Link href={buildSuspectNoopHref({ run_label: row.run_label })}>
+                        <QualityBadge count={fullQualityByRun.get(row.run_label)?.suspect_noop_count ?? 0} />
+                      </Link>
+                    ) : (
+                      <QualityBadge count={fullQualityByRun.get(row.run_label)?.suspect_noop_count ?? 0} />
+                    )}
+                  </dd>
+                </div>
                 <div><dt><span className="term-label">Recorded cost <TermInfo term="Recorded cost" /></span></dt><dd>{formatRecordedCost(row.trial_cost_usd, row.cost_row_count, row.missing_cost_count)}</dd></div>
                 <div><dt>R2 artifacts</dt><dd>{formatNumber(row.r2_artifact_count)} / {formatNumber(row.artifact_count)}</dd></div>
               </dl>

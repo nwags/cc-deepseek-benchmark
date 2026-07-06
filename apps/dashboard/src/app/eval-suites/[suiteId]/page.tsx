@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { TermInfo } from "../../../components/TermInfo";
 import { AppShell } from "../../../components/AppShell";
 import { SuiteHeatmap } from "../../../components/SuiteHeatmap";
-import { QualityPassRate, QualityBadge } from "../../../components/QualityContext";
+import { QualityPassRate, QualityBadge, buildSuspectNoopHref } from "../../../components/QualityContext";
 import { getEvalSuites, getSuiteArmComparison, getSuiteTaskDifficulty, getSuiteHeatmapCells, getSuiteArmQualityRows, getSuiteQualityTotals } from "../../../lib/dashboard-data";
 import { formatRecordedCost, formatNumber, formatPercent, formatSeconds } from "../../../lib/format";
 
@@ -58,7 +58,7 @@ export default async function EvalSuiteDetailPage({
       <section className="panel">
         <div className="panel-heading">
           <h2>Arm comparison</h2>
-          <p>All imported arm runs attached to this suite.</p>
+          <p>This comparison uses valid-only suite views and excludes invalid/quarantined runs while preserving them in the audit layer.</p>
         </div>
         <div className="table-wrap">
           <table>
@@ -90,7 +90,15 @@ export default async function EvalSuiteDetailPage({
                     qualified_success_count: row.success_count,
                     suspect_noop_count: 0
                   }} /></td>
-                  <td><QualityBadge count={qualityByArm.get(row.arm_id)?.suspect_noop_count ?? 0} /></td>
+                  <td>
+                    {(qualityByArm.get(row.arm_id)?.suspect_noop_count ?? 0) > 0 ? (
+                      <Link href={buildSuspectNoopHref({ suite_id: decodedSuiteId, arm_id: row.arm_id })}>
+                        <QualityBadge count={qualityByArm.get(row.arm_id)?.suspect_noop_count ?? 0} />
+                      </Link>
+                    ) : (
+                      <QualityBadge count={qualityByArm.get(row.arm_id)?.suspect_noop_count ?? 0} />
+                    )}
+                  </td>
                   <td>{formatSeconds(row.median_runtime_seconds)}</td>
                   <td>{formatRecordedCost(row.trial_cost_usd, row.cost_row_count, row.missing_cost_count)}</td>
                 </tr>

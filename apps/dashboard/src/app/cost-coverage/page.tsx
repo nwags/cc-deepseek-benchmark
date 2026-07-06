@@ -27,7 +27,7 @@ const auditChecks = [
   "Review missing_cost_count before using any dashboard cost total.",
   "Separate infrastructure timeouts from model failures.",
   "Do not count missing-cost rows as zero-cost wins.",
-  "Preserve canary cost anomalies in reports and sponsor-facing summaries.",
+  "Preserve canary cost anomalies in reports and external summaries.",
   "Use phase-specific aggregates or imported dashboard views as source of truth."
 ];
 

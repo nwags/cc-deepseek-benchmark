@@ -14,8 +14,29 @@ export type QualityContextData = {
   normal_failed_count?: number | string | null;
 };
 
+export type SuspectNoopHrefFilters = {
+  suite_id?: string | null;
+  arm_id?: string | null;
+  run_label?: string | null;
+  task_id?: string | null;
+};
+
 function n(value: number | string | null | undefined) {
   return Number(value ?? 0);
+}
+
+export function buildSuspectNoopHref(filters: SuspectNoopHrefFilters = {}) {
+  const params = new URLSearchParams();
+  params.set("quality", "suspect_noop_zero_token");
+
+  for (const key of ["suite_id", "arm_id", "run_label", "task_id"] as const) {
+    const value = filters[key];
+    if (value) {
+      params.set(key, value);
+    }
+  }
+
+  return `/trial-quality?${params.toString()}#suspect-noop-trials`;
 }
 
 export function hasQualityCaveat(row: QualityContextData | null | undefined) {
@@ -42,7 +63,7 @@ export function QualityPassRate({
     <span className="quality-pass-rate">
       <span><span className="term-label">raw <TermInfo term="Raw pass rate" /></span> {compact ? formatPercent(row?.raw_pass_rate ?? null) : rawText}</span>
       <span className="quality-qualified"><span className="term-label">qualified <TermInfo term="Qualified pass rate" /></span> {compact ? formatPercent(row?.qualified_pass_rate ?? null) : qualifiedText}</span>
-      <Link className="quality-caveat-link" href="/trial-quality">
+      <Link className="quality-caveat-link" href={buildSuspectNoopHref()}>
         {formatNumber(suspect)} suspect no-op
       </Link>
     </span>

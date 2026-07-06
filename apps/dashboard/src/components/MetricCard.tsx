@@ -1,7 +1,9 @@
+import type { ReactNode } from "react";
+
 type MetricCardProps = {
   label: string;
-  value: string;
-  detail?: string;
+  value: ReactNode;
+  detail?: ReactNode;
 };
 
 export function MetricCard({ label, value, detail }: MetricCardProps) {

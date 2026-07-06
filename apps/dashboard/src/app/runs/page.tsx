@@ -1,12 +1,16 @@
 import Link from "next/link";
 import { TermInfo } from "../../components/TermInfo";
 import { AppShell } from "../../components/AppShell";
-import { QualityBadge, QualityPassRate } from "../../components/QualityContext";
+import { QualityBadge, QualityPassRate, buildSuspectNoopHref } from "../../components/QualityContext";
+import { InvalidReason, ValidityBadge } from "../../components/ValidityContext";
+import { buildArtifactHref } from "../../lib/links";
 import {
   ArmRunQualitySummaryRow,
   ArmRunSummaryRow,
+  InvalidArmRunRow,
   getArmRunQualityByRunLabels,
-  getArmRunRows
+  getArmRunRows,
+  getInvalidArmRunRowsByRunLabels
 } from "../../lib/dashboard-data";
 import { formatRecordedCost, formatNumber, formatSeconds } from "../../lib/format";
 
@@ -44,10 +48,12 @@ function fallbackQuality(row: ArmRunSummaryRow): ArmRunQualitySummaryRow {
 
 function RunsTable({
   rows,
-  qualityByRun
+  qualityByRun,
+  invalidByRun
 }: {
   rows: ArmRunSummaryRow[];
   qualityByRun: Map<string, ArmRunQualitySummaryRow>;
+  invalidByRun: Map<string, InvalidArmRunRow>;
 }) {
   return (
     <div className="table-wrap">
@@ -57,6 +63,7 @@ function RunsTable({
             <th>Run</th>
             <th>Suite</th>
             <th>Mode</th>
+            <th>Validity</th>
             <th>Health</th>
             <th>Trials</th>
             <th><span className="term-label">Raw / qualified pass <TermInfo term="Raw pass rate" /></span></th>
@@ -69,6 +76,7 @@ function RunsTable({
         <tbody>
           {rows.map((row) => {
             const quality = qualityByRun.get(row.run_label) ?? fallbackQuality(row);
+            const invalidRow = invalidByRun.get(row.run_label);
             return (
               <tr key={row.arm_run_id}>
                 <td>
@@ -77,13 +85,32 @@ function RunsTable({
                 </td>
                 <td className="mono">{row.suite_id ?? "—"}</td>
                 <td>{row.logical_mode}{row.storage_mode ? ` / ${row.storage_mode}` : ""}</td>
+                <td>
+                  <ValidityBadge row={invalidRow} />
+                  {invalidRow ? (
+                    <div className="muted">
+                      <InvalidReason row={invalidRow} includeProvider={false} />
+                    </div>
+                  ) : null}
+                </td>
                 <td><span className={`status status-${row.status}`}>{runHealthLabel(row)}</span></td>
                 <td>{formatNumber(row.trial_count)}</td>
                 <td><QualityPassRate row={quality} /></td>
-                <td><QualityBadge count={quality.suspect_noop_count} /></td>
+                <td>
+                  {quality.suspect_noop_count > 0 ? (
+                    <Link href={buildSuspectNoopHref({ run_label: row.run_label })}>
+                      <QualityBadge count={quality.suspect_noop_count} />
+                    </Link>
+                  ) : (
+                    <QualityBadge count={quality.suspect_noop_count} />
+                  )}
+                </td>
                 <td>{formatSeconds(row.median_runtime_seconds)}</td>
                 <td>{formatRecordedCost(row.trial_cost_usd, row.cost_row_count, row.missing_cost_count)}</td>
-                <td>{formatNumber(row.r2_artifact_count)} / {formatNumber(row.artifact_count)}</td>
+                <td>
+                  {formatNumber(row.r2_artifact_count)} / {formatNumber(row.artifact_count)}
+                  <div><Link href={buildArtifactHref({ run_label: row.run_label })}>Artifacts</Link></div>
+                </td>
               </tr>
             );
           })}
@@ -95,20 +122,29 @@ function RunsTable({
 
 export default async function RunsPage() {
   const rows = await getArmRunRows(200);
-  const qualityRows = await getArmRunQualityByRunLabels(rows.map((row) => row.run_label));
+  const runLabels = rows.map((row) => row.run_label);
+  const [qualityRows, invalidRows] = await Promise.all([
+    getArmRunQualityByRunLabels(runLabels),
+    getInvalidArmRunRowsByRunLabels(runLabels)
+  ]);
   const qualityByRun = new Map(qualityRows.map((row) => [row.run_label, row]));
+  const invalidByRun = new Map(invalidRows.map((row) => [row.run_label, row]));
 
   const fullRows = rows.filter((row) => row.logical_mode === "full");
   const diagnosticRows = rows.filter((row) => row.logical_mode !== "full");
 
   return (
     <AppShell title="Runs">
+      <section className="quality-context-panel">
+        Invalid/quarantined runs are retained for audit but excluded from valid-only comparison views.
+      </section>
+
       <section className="panel">
         <div className="panel-heading">
           <h2>Full-suite runs</h2>
           <p>Complete imported arm executions for the full benchmark suite.</p>
         </div>
-        <RunsTable rows={fullRows} qualityByRun={qualityByRun} />
+        <RunsTable rows={fullRows} qualityByRun={qualityByRun} invalidByRun={invalidByRun} />
       </section>
 
       <section className="panel">
@@ -116,7 +152,7 @@ export default async function RunsPage() {
           <h2>Diagnostic canary and smoke runs</h2>
           <p>Route validation, smoke tests, failed canaries, and historical diagnostic runs.</p>
         </div>
-        <RunsTable rows={diagnosticRows} qualityByRun={qualityByRun} />
+        <RunsTable rows={diagnosticRows} qualityByRun={qualityByRun} invalidByRun={invalidByRun} />
       </section>
     </AppShell>
   );
