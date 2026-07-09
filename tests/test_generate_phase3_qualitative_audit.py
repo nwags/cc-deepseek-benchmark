@@ -1,4 +1,6 @@
+import csv
 from decimal import Decimal
+from io import StringIO
 from pathlib import Path
 
 from scripts.generate_phase3_qualitative_audit import (
@@ -7,6 +9,7 @@ from scripts.generate_phase3_qualitative_audit import (
     build_arm_task_matrix,
     build_task_summary,
     filter_evidence_rows,
+    format_tsv_row,
     generated_paths,
 )
 
@@ -138,3 +141,11 @@ def test_build_generation_command_is_concrete_for_sonnet_focus():
         "--suite-id phase3-full-20 --focus-arm router-anthropic-sonnet"
     )
     assert "..." not in command
+
+
+def test_format_tsv_row_preserves_trailing_empty_fields_without_trailing_tabs():
+    line = format_tsv_row(["value", "", ""])
+
+    assert line == 'value\t""\t""\n'
+    assert not line.removesuffix("\n").endswith(("\t", " "))
+    assert next(csv.reader(StringIO(line), delimiter="\t")) == ["value", "", ""]

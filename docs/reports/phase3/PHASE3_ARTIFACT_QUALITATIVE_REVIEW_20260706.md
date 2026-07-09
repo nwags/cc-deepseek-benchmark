@@ -110,6 +110,43 @@ Review notes:
 - `terminal-bench-2.0:query-optimize`: trials=3, successes=1, exceptions=1, suspect_noops=0, normal_failures=1, priority=medium
 - `terminal-bench-2.0:build-cython-ext`: trials=3, successes=2, exceptions=1, suspect_noops=0, normal_failures=0, priority=medium
 
+## Automated First-Pass Exception Classification
+
+Source files:
+
+- `results/phase3/reporting/phase3_exception_classification_20260706.tsv`
+- `results/phase3/reporting/phase3_exception_classification_summary_20260706.tsv`
+
+This is deterministic, rule-based, evidence-assisted first-pass classification from exception artifacts and related same-trial artifacts when available. It now records matched signals and source artifacts for traceability. It is not final human judgment; the output should guide manual spot checks and root-cause review.
+
+Summary by category:
+
+| Primary category | Count | Manual-review flagged | Confidence floor | Matched signals |
+| --- | --- | --- | --- | --- |
+| nonzero_agent_exit | 15 | 0 | high | NonZeroAgentExitCodeError |
+| agent_timeout | 8 | 0 | high | AgentTimeoutError |
+
+Summary by category and runtime band:
+
+| Arm | Category | Runtime band | Count | Missing cost | Manual review | Confidence floor | Matched signals |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| router-anthropic-sonnet | agent_timeout | long_exception_over_1200s | 4 | 4 | 0 | high | AgentTimeoutError |
+| router-anthropic-sonnet | agent_timeout | mid_exception_90_to_1200s | 4 | 4 | 0 | high | AgentTimeoutError |
+| router-anthropic-sonnet | nonzero_agent_exit | fast_exception_under_90s | 12 | 12 | 0 | high | NonZeroAgentExitCodeError |
+| router-anthropic-sonnet | nonzero_agent_exit | long_exception_over_1200s | 1 | 0 | 0 | high | NonZeroAgentExitCodeError |
+| router-anthropic-sonnet | nonzero_agent_exit | mid_exception_90_to_1200s | 2 | 2 | 0 | high | NonZeroAgentExitCodeError |
+
+High-confidence direct categories observed: `agent_timeout`, `nonzero_agent_exit` (23 rows).
+
+Categories marked `needs_manual_review`: none (0 rows).
+
+Sonnet-specific observations:
+
+| Primary category | Count | Manual-review flagged | Confidence floor | Matched signals |
+| --- | --- | --- | --- | --- |
+| nonzero_agent_exit | 15 | 0 | high | NonZeroAgentExitCodeError |
+| agent_timeout | 8 | 0 | high | AgentTimeoutError |
+
 ## Open Questions and Recommended Actions
 
 - Confirm whether task text is available for each reviewed trial; if not, keep task text ingestion on the qualitative-review readiness checklist.

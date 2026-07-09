@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import io
 import os
 from collections import Counter, defaultdict
 from dataclasses import dataclass
@@ -354,19 +355,24 @@ def clean_tsv_value(value: Any) -> str:
     return str(value).replace("\t", " ").replace("\r", " ").replace("\n", " ")
 
 
+def format_tsv_row(values: Sequence[Any]) -> str:
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, delimiter="\t", lineterminator="\n")
+    writer.writerow([clean_tsv_value(value) for value in values])
+    line = buffer.getvalue().removesuffix("\n")
+    trailing_tabs = len(line) - len(line.rstrip("\t"))
+    if trailing_tabs:
+        stripped = line.rstrip("\t")
+        line = f"{stripped}\t" + "\t".join('""' for _ in range(trailing_tabs))
+    return f"{line}\n"
+
+
 def write_tsv(path: Path, rows: Iterable[dict[str, Any]], headers: Sequence[str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(
-            f,
-            fieldnames=list(headers),
-            delimiter="\t",
-            lineterminator="\n",
-            extrasaction="ignore",
-        )
-        writer.writeheader()
+    with path.open("w", encoding="utf-8") as f:
+        f.write(format_tsv_row(headers))
         for row in rows:
-            writer.writerow({header: clean_tsv_value(row.get(header)) for header in headers})
+            f.write(format_tsv_row([row.get(header) for header in headers]))
 
 
 def fetch_trial_rows(
