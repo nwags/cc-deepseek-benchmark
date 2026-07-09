@@ -185,6 +185,85 @@ Sonnet-specific observations:
 | nonzero_agent_exit | 15 | 0 | high | NonZeroAgentExitCodeError |
 | agent_timeout | 8 | 0 | high | AgentTimeoutError |
 
+## Automated First-Pass Normal Failure Classification
+
+Source files:
+
+- `results/phase3/reporting/phase3_normal_failure_classification_20260709.tsv`
+- `results/phase3/reporting/phase3_normal_failure_classification_summary_20260709.tsv`
+
+This is deterministic, rule-based, evidence-assisted first-pass classification from verifier stdout, CTRF, reward, result, log, transcript, and trajectory artifacts when available. It is not final human judgment and does not change scoring semantics.
+
+Summary by category:
+
+| Primary category | Count | Manual-review flagged | Confidence floor | Matched signals |
+| --- | --- | --- | --- | --- |
+| test_assertion_failure | 95 | 0 | high | =================================== FAILURES ========================... |
+| runtime_exception_in_solution | 22 | 0 | high | ValueError, AttributeError, Traceback (most recent call last) |
+| wrong_file_or_path | 20 | 0 | high | path = Path(\"/app/stolen_A1.npy\") assert stolen_path.exists(), f\"F..., path = \"/app/check_cert.py\" assert os.path.exists(script_path), \"P..., No such file or directory |
+| dependency_or_import_error | 8 | 0 | high | ModuleNotFoundError, ImportError |
+
+Summary by arm and category:
+
+| Arm | Category | Count | Manual review | Confidence floor | Matched signals |
+| --- | --- | --- | --- | --- | --- |
+| router-anthropic-opus | dependency_or_import_error | 1 | 0 | high | ModuleNotFoundError |
+| router-anthropic-opus | test_assertion_failure | 8 | 0 | high | =================================== FAILURES ========================... |
+| router-anthropic-opus | wrong_file_or_path | 5 | 0 | high | path = Path(\"/app/stolen_A1.npy\") assert stolen_path.exists(), f\"F...,path = \"/app/check_cert.py\" assert os.path.exists(script_path), \"P... |
+| router-anthropic-sonnet | test_assertion_failure | 9 | 0 | high | =================================== FAILURES ========================... |
+| router-deepseek-flash | dependency_or_import_error | 1 | 0 | high | ImportError |
+| router-deepseek-flash | runtime_exception_in_solution | 4 | 0 | high | ValueError |
+| router-deepseek-flash | test_assertion_failure | 5 | 0 | high | =================================== FAILURES ========================... |
+| router-deepseek-flash | wrong_file_or_path | 2 | 0 | high | path = Path(\"/app/stolen_A1.npy\") assert stolen_path.exists(), f\"F... |
+| router-deepseek-pro | dependency_or_import_error | 1 | 0 | high | ModuleNotFoundError |
+| router-deepseek-pro | runtime_exception_in_solution | 5 | 0 | high | AttributeError,ValueError |
+| router-deepseek-pro | test_assertion_failure | 8 | 0 | high | =================================== FAILURES ========================... |
+| router-deepseek-pro | wrong_file_or_path | 2 | 0 | high | path = Path(\"/app/stolen_A1.npy\") assert stolen_path.exists(), f\"F...,path = \"/app/check_cert.py\" assert os.path.exists(script_path), \"P... |
+| router-gemini-3.1-pro | runtime_exception_in_solution | 2 | 0 | high | ValueError |
+| router-gemini-3.1-pro | test_assertion_failure | 4 | 0 | high | =================================== FAILURES ========================... |
+| router-gemini-3.1-pro | wrong_file_or_path | 2 | 0 | high | path = Path(\"/app/stolen_A1.npy\") assert stolen_path.exists(), f\"F... |
+| router-gemini-flash | runtime_exception_in_solution | 1 | 0 | high | ValueError |
+| router-gemini-flash | test_assertion_failure | 5 | 0 | high | =================================== FAILURES ========================... |
+| router-gemini-flash | wrong_file_or_path | 2 | 0 | high | No such file or directory,FileNotFoundError |
+| router-glm-5.1 | dependency_or_import_error | 1 | 0 | high | ModuleNotFoundError |
+| router-glm-5.1 | test_assertion_failure | 8 | 0 | high | =================================== FAILURES ========================... |
+| router-glm-5.2 | test_assertion_failure | 6 | 0 | high | =================================== FAILURES ========================... |
+| router-gpt-5.4 | runtime_exception_in_solution | 3 | 0 | high | ValueError |
+| router-gpt-5.4 | test_assertion_failure | 9 | 0 | high | =================================== FAILURES ========================... |
+| router-gpt-5.4 | wrong_file_or_path | 3 | 0 | high | No such file or directory |
+| router-gpt-5.5 | runtime_exception_in_solution | 2 | 0 | high | AttributeError,ValueError |
+| router-gpt-5.5 | test_assertion_failure | 9 | 0 | high | =================================== FAILURES ========================... |
+| router-gpt-5.5 | wrong_file_or_path | 1 | 0 | high | path = Path(\"/app/stolen_A1.npy\") assert stolen_path.exists(), f\"F... |
+| router-grok-build-0.1 | dependency_or_import_error | 1 | 0 | high | ModuleNotFoundError |
+| router-grok-build-0.1 | test_assertion_failure | 9 | 0 | high | =================================== FAILURES ========================... |
+| router-grok-build-0.1 | wrong_file_or_path | 1 | 0 | high | path = \"/app/check_cert.py\" assert os.path.exists(script_path), \"P... |
+| router-kimi-k2.6 | dependency_or_import_error | 3 | 0 | high | ModuleNotFoundError |
+| router-kimi-k2.6 | runtime_exception_in_solution | 4 | 0 | high | AttributeError,Traceback (most recent call last),ValueError |
+| router-kimi-k2.6 | test_assertion_failure | 7 | 0 | high | =================================== FAILURES ========================... |
+| router-kimi-k2.6 | wrong_file_or_path | 2 | 0 | high | path = Path(\"/app/stolen_A1.npy\") assert stolen_path.exists(), f\"F... |
+| router-qwen-3.7-plus | runtime_exception_in_solution | 1 | 0 | high | AttributeError |
+| router-qwen-3.7-plus | test_assertion_failure | 8 | 0 | high | =================================== FAILURES ========================... |
+
+Rows marked `needs_manual_review`: 0 of 145.
+
+Comparison against exception classifications:
+
+Exception classifications for the same date cover 194 exception rows across `agent_timeout`, `model_loop_or_stall`, `nonzero_agent_exit`. Normal-failure classification covers verifier failures that did not raise a harness exception and should be reviewed as solution/verifier evidence, not scoring changes.
+
+Sonnet normal failures:
+
+| Primary category | Count | Manual-review flagged | Confidence floor | Matched signals |
+| --- | --- | --- | --- | --- |
+| test_assertion_failure | 9 | 0 | high | =================================== FAILURES ========================... |
+
+Gemini Flash normal failures:
+
+| Primary category | Count | Manual-review flagged | Confidence floor | Matched signals |
+| --- | --- | --- | --- | --- |
+| test_assertion_failure | 5 | 0 | high | =================================== FAILURES ========================... |
+| wrong_file_or_path | 2 | 0 | high | No such file or directory, FileNotFoundError |
+| runtime_exception_in_solution | 1 | 0 | high | ValueError |
+
 ## Open Questions and Recommended Actions
 
 - Confirm whether task text is available for each reviewed trial; if not, keep task text ingestion on the qualitative-review readiness checklist.
