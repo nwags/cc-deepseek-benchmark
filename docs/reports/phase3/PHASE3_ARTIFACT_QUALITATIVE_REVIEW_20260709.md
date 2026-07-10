@@ -264,6 +264,51 @@ Gemini Flash normal failures:
 | wrong_file_or_path | 2 | 0 | high | No such file or directory, FileNotFoundError |
 | runtime_exception_in_solution | 1 | 0 | high | ValueError |
 
+## Qualitative Findings and Interpretation
+
+Executive readout:
+
+- Phase 3 failures are not homogeneous. The artifact evidence separates harness-level exceptions, ordinary verifier failures, wrong-output/path failures, runtime exceptions in attempted solutions, and rare suspect no-op rows.
+- Exceptions are dominated by agent timeouts overall: `agent_timeout` accounts for 150 of 194 classified exceptions.
+- Sonnet is an exception-shape outlier because most Sonnet exceptions are `NonZeroAgentExitCodeError`: 15 `nonzero_agent_exit` rows versus 8 `agent_timeout` rows.
+- Normal verifier failures are mostly ordinary test assertion failures: `test_assertion_failure` accounts for 95 of 145 classified normal failures.
+- Wrong-file/path and runtime-exception categories expose task-specific failure patterns, especially `model-extraction-relu-logits` and `torch-pipeline-parallelism`-style tasks.
+- Suspect no-op rows remain rare, with 4 rows across 780 selected trials, and should be treated separately from exceptions.
+
+These classifications are deterministic first-pass labels based on artifact evidence. They are intended to structure follow-up review, not to change pass/fail scoring. Manual spot checks are still useful before drawing final sponsor-facing conclusions, especially for categories that imply provider, harness, or task-specific failure modes.
+
+Exact classification totals:
+
+- Exception classifications: `agent_timeout` 150; `nonzero_agent_exit` 36; `model_loop_or_stall` 8.
+- Normal failure classifications: `test_assertion_failure` 95; `runtime_exception_in_solution` 22; `wrong_file_or_path` 20; `dependency_or_import_error` 8.
+- Sonnet: 23 exceptions (`nonzero_agent_exit` 15, `agent_timeout` 8) and 9 normal failures (`test_assertion_failure` 9).
+- Gemini Flash: 41 exceptions (`agent_timeout` 38, `nonzero_agent_exit` 3) and 8 normal failures (`test_assertion_failure` 5, `wrong_file_or_path` 2, `runtime_exception_in_solution` 1).
+- GPT-5.5: 4 exceptions (`agent_timeout` 4) and 12 normal failures (`test_assertion_failure` 9, `runtime_exception_in_solution` 2, `wrong_file_or_path` 1).
+
+| arm_id | exceptions | dominant_exception_category | normal_failures | dominant_normal_failure_category | interpretation |
+| --- | ---: | --- | ---: | --- | --- |
+| router-anthropic-opus | 7 | `agent_timeout` (7/7) | 14 | `test_assertion_failure` (8/14) | Timeout-only exception profile; normal failures mix ordinary assertions with wrong-file/path evidence. |
+| router-anthropic-sonnet | 23 | `nonzero_agent_exit` (15/23) | 9 | `test_assertion_failure` (9/9) | Exception-shape outlier; most failures that reach verification are conventional assertion failures. |
+| router-deepseek-flash | 8 | `agent_timeout` (7/8) | 12 | `test_assertion_failure` (5/12) | Mostly timeout exceptions; normal failures are mixed across assertion, runtime, path, and import categories. |
+| router-deepseek-pro | 7 | `agent_timeout` (4/7) | 16 | `test_assertion_failure` (8/16) | Lower exception volume but split between timeout and loop/stall; normal failures include runtime and path issues. |
+| router-gemini-3.1-pro | 16 | `agent_timeout` (16/16) | 8 | `test_assertion_failure` (4/8) | Timeout-only exception profile; verifier failures split across assertion, runtime, and path evidence. |
+| router-gemini-flash | 41 | `agent_timeout` (38/41) | 8 | `test_assertion_failure` (5/8) | Highest exception burden in this set, dominated by timeouts, with rare suspect no-op rows handled separately. |
+| router-glm-5.1 | 16 | `agent_timeout` (10/16) | 9 | `test_assertion_failure` (8/9) | Exception profile mixes timeouts and nonzero exits; normal failures are almost entirely assertions. |
+| router-glm-5.2 | 19 | `agent_timeout` (17/19) | 6 | `test_assertion_failure` (6/6) | Timeout-heavy exception profile; normal failures are conventional assertion failures. |
+| router-gpt-5.4 | 7 | `agent_timeout` (4/7) | 15 | `test_assertion_failure` (9/15) | Lower exception count but heterogeneous exception categories; normal failures include runtime and path evidence. |
+| router-gpt-5.5 | 4 | `agent_timeout` (4/4) | 12 | `test_assertion_failure` (9/12) | Low exception count, all timeout-labeled; normal failures are mostly assertions with some runtime/path cases. |
+| router-grok-build-0.1 | 13 | `agent_timeout` (10/13) | 11 | `test_assertion_failure` (9/11) | Timeout-dominant exceptions with a small nonzero-exit tail; normal failures are mostly assertions. |
+| router-kimi-k2.6 | 14 | `agent_timeout` (8/14) | 16 | `test_assertion_failure` (7/16) | Mixed exception profile and the broadest normal-failure mix, including import, runtime, and path issues. |
+| router-qwen-3.7-plus | 19 | `agent_timeout` (17/19) | 9 | `test_assertion_failure` (8/9) | Timeout-heavy exceptions; normal verifier failures are mostly assertions. |
+
+Task-level observations:
+
+- `model-extraction-relu-logits`: 39 trials produced 1 success, 20 exceptions, 16 normal failures, and 2 suspect no-op rows. The normal-failure split is sharply task-specific: 15 `wrong_file_or_path` rows and 1 `dependency_or_import_error` row. Exceptions were also common, with 17 `agent_timeout` rows and 3 `nonzero_agent_exit` rows.
+- `schemelike-metacircular-eval`: 39 trials produced 15 successes, 24 exceptions, and 2 normal failures. The exception mix was timeout-heavy: 19 `agent_timeout` rows and 5 `nonzero_agent_exit` rows.
+- `mteb-retrieve`: 39 trials produced 5 successes, 1 exception, 1 suspect no-op row, and 32 normal failures. All 32 classified normal failures were `test_assertion_failure`, making this primarily an assertion-failure-heavy task rather than an exception-heavy one.
+- `torch-pipeline-parallelism`: 39 trials produced 7 successes, 18 exceptions, and 15 normal failures. The normal-failure evidence is concentrated in solution runtime errors: all 15 classified normal failures were `runtime_exception_in_solution`; exceptions were mostly `agent_timeout` (17) with 1 `nonzero_agent_exit`.
+- `query-optimize`: 39 trials produced 6 successes, 31 exceptions, and 4 normal failures. The exception evidence shows the clearest loop/stall and timeout pattern: 22 `agent_timeout`, 8 `model_loop_or_stall`, and 1 `nonzero_agent_exit`; the 4 normal failures were `test_assertion_failure`.
+
 ## Open Questions and Recommended Actions
 
 - Confirm whether task text is available for each reviewed trial; if not, keep task text ingestion on the qualitative-review readiness checklist.
