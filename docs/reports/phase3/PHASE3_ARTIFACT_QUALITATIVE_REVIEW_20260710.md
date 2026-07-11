@@ -2,9 +2,11 @@
 
 ## Purpose
 
-Prepare a reproducible evidence inventory for the Phase 3 qualitative investigation pass. This scaffold is focused on Sonnet exceptions and suspect no-op zero-token trials first, while preserving dashboard links into the artifact browser and trial evidence pages.
+Document the reproducible all-valid-arm qualitative classification snapshot for Phase 3 as of 20260710, while preserving dashboard links into the artifact browser and trial evidence pages.
 
-Do not run Haiku or Fable from this scaffold. Those runs remain gated on drilldown readiness and ingestion automation.
+Sonnet was the historical first focus for exception and normal-failure drilldown, but this report now covers every valid Phase 3 arm included in the all-arm classification pass.
+
+Haiku and Fable were previously gated on drilldown and qualitative readiness. The completed all-arm classification pass now satisfies the main qualitative-readiness gate. Remaining pre-run actions are to clean the tree, confirm run configs, run smoke/canary checks, and then run the full sweeps.
 
 ## Source Files Generated
 
@@ -43,11 +45,11 @@ uv run --with 'psycopg[binary]' python scripts/generate_phase3_qualitative_audit
 - Missing-cost rows in selected rows: 176.
 - Artifact references indexed: 6414 artifacts across 780 selected trials.
 
-## Sonnet Exception Review
+## Historical First Focus: Sonnet Exception Review
 
 ### `router-anthropic-sonnet/2026-06-27__01-30-11`
 
-Planned first focus counts:
+Historical first-focus counts:
 
 - Trials: 60.
 - Successes: 28.
@@ -73,9 +75,9 @@ Dashboard starting links:
 
 Review notes:
 
-- Pending: classify representative exception artifacts by root cause.
-- Pending: compare exception summaries against R2 preview contents.
-- Pending: check whether missing-cost rows line up with exception boundaries or ingestion gaps.
+- Sonnet was the initial drilldown target before the classification workflow expanded across all valid arms.
+- Its exception and normal-failure rows are now included in the completed all-arm classification snapshot below.
+- Continue manual spot checks against R2 previews before final sponsor-facing root-cause conclusions.
 
 ## Suspect No-op Review
 
@@ -85,8 +87,8 @@ Review notes:
 
 ## Gemini Flash Review
 
-- Pending after the Sonnet exception pass.
-- Use the exception and suspect no-op inventories to select representative Gemini Flash rows.
+- Gemini Flash is included in the completed all-valid-arm classification snapshot.
+- Use the exception and suspect no-op inventories to select representative Gemini Flash rows for manual spot checks.
 - Keep invalid/quarantined evidence labeled if `--include-invalid` is used for a follow-up pass.
 
 ## Invalid/Quarantined Run Review
@@ -273,4 +275,5 @@ Gemini Flash normal failures:
 - Confirm whether task text is available for each reviewed trial; if not, keep task text ingestion on the qualitative-review readiness checklist.
 - Decide whether any invalid/quarantined labels or reasons need refinement before final Phase 3 reporting.
 - Capture representative artifact links for each root-cause category before resuming paid full runs.
-- Do not run Haiku or Fable until drilldown review and ingestion automation are ready.
+- Next primary arms: `router-anthropic-haiku-sanitized` rerun, then `router-fable` validation/full run.
+- After each run, use `scripts/run_qualitative_reporting.py` to refresh the qualitative outputs.
