@@ -147,6 +147,44 @@ Sonnet-specific observations:
 | nonzero_agent_exit | 15 | 0 | high | NonZeroAgentExitCodeError |
 | agent_timeout | 8 | 0 | high | AgentTimeoutError |
 
+## Automated First-Pass Normal Failure Classification
+
+Source files:
+
+- `results/phase3/reporting/phase3_normal_failure_classification_20260706.tsv`
+- `results/phase3/reporting/phase3_normal_failure_classification_summary_20260706.tsv`
+
+This is deterministic, rule-based, evidence-assisted first-pass classification from verifier stdout, CTRF, reward, result, log, transcript, and trajectory artifacts when available. It is not final human judgment and does not change scoring semantics.
+
+Summary by category:
+
+| Primary category | Count | Manual-review flagged | Confidence floor | Matched signals |
+| --- | --- | --- | --- | --- |
+| test_assertion_failure | 9 | 0 | high | =================================== FAILURES ========================... |
+
+Summary by arm and category:
+
+| Arm | Category | Count | Manual review | Confidence floor | Matched signals |
+| --- | --- | --- | --- | --- | --- |
+| router-anthropic-sonnet | test_assertion_failure | 9 | 0 | high | =================================== FAILURES ========================... |
+
+Rows marked `needs_manual_review`: 0 of 9.
+
+Comparison against exception classifications:
+
+Exception classifications for the same date cover 23 exception rows across `agent_timeout`, `nonzero_agent_exit`. Normal-failure classification covers verifier failures that did not raise a harness exception and should be reviewed as solution/verifier evidence, not scoring changes.
+
+Sonnet normal failures:
+
+| Primary category | Count | Manual-review flagged | Confidence floor | Matched signals |
+| --- | --- | --- | --- | --- |
+| test_assertion_failure | 9 | 0 | high | =================================== FAILURES ========================... |
+
+Gemini Flash normal failures:
+
+| Primary category | Count | Manual-review flagged | Confidence floor | Matched signals |
+| --- | --- | --- | --- | --- |
+
 ## Open Questions and Recommended Actions
 
 - Confirm whether task text is available for each reviewed trial; if not, keep task text ingestion on the qualitative-review readiness checklist.

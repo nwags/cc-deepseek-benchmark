@@ -26,6 +26,7 @@ from scripts.classify_phase3_exception_artifacts import (
     adjusted_confidence,
     bool_from_text,
     dashboard_url,
+    excerpt_contains_signal,
     markdown_table,
     normalize_evidence_sources,
     redact_secrets,
@@ -72,6 +73,7 @@ CLASSIFICATION_HEADERS = [
     "evidence_artifact_type",
     "evidence_artifact_id",
     "evidence_excerpt",
+    "classification_reason",
     "trial_dashboard_path",
     "recommended_next_step",
     "notes",
@@ -88,16 +90,24 @@ SUMMARY_HEADERS = [
 ]
 
 CATEGORY_PRIORITY = {
-    "syntax_or_compile_error": 0,
-    "dependency_or_import_error": 1,
-    "wrong_file_or_path": 2,
-    "timeout_inside_verifier": 3,
-    "runtime_exception_in_solution": 4,
-    "test_assertion_failure": 5,
-    "missing_or_wrong_output": 6,
-    "no_meaningful_code_change": 7,
-    "partial_solution": 8,
-    "verifier_environment_issue": 9,
+    "verifier_environment_issue": 0,
+    "syntax_or_compile_error": 1,
+    "dependency_or_import_error": 2,
+    "wrong_file_or_path": 3,
+    "timeout_inside_verifier": 4,
+    "runtime_exception_in_solution": 5,
+    "test_assertion_failure": 6,
+    "missing_or_wrong_output": 7,
+    "no_meaningful_code_change": 8,
+    "partial_solution": 9,
+}
+
+ASSERTION_SECONDARY_PRIORITY = {
+    "performance_threshold_failure": 0,
+    "numerical_or_data_mismatch": 1,
+    "missing_expected_file_or_content": 2,
+    "behavior_mismatch": 3,
+    "output_mismatch": 4,
 }
 
 
@@ -112,11 +122,60 @@ class NormalFailureClassification:
     evidence_artifact_type: str
     evidence_artifact_id: str
     evidence_excerpt: str
+    classification_reason: str
     recommended_next_step: str
     notes: str
 
 
 RULES = (
+    Rule(
+        category="verifier_environment_issue",
+        confidence="high",
+        patterns=(
+            signal(
+                "pytest setup/fixture failure",
+                r"(?:ERROR at setup of|fixture ['\"]?\w+['\"]? not found|"
+                r"(?:fixture|pytest|verifier) setup (?:failed|failure|error))",
+            ),
+            signal(
+                "pytest collection error",
+                r"(?:ERROR collecting|error(?:s)? during collection|collection error(?:s)?|"
+                r"collected 0 items / \d+ errors?)",
+            ),
+            signal(
+                "verifier/test import error",
+                r"(?:ImportError while importing test module|"
+                r"(?:verifier|test harness|conftest|pytest setup)[\s\S]{0,160}"
+                r"\b(?:ImportError|ModuleNotFoundError)\b|"
+                r"\b(?:ImportError|ModuleNotFoundError)\b[\s\S]{0,160}"
+                r"(?:verifier setup|test harness|conftest))",
+            ),
+            signal(
+                "missing verifier/test dependency",
+                r"(?:verifier|pytest|test harness|conftest)[^\n]{0,120}"
+                r"(?:dependency|package)[^\n]{0,80}(?:missing|not installed|not found)",
+            ),
+            signal(
+                "permission denied in verifier setup",
+                r"(?:(?:verifier|pytest|test|setup)[^\n]{0,120}permission denied|"
+                r"permission denied[^\n]{0,120}(?:verifier|pytest|/tests|conftest|setup))",
+            ),
+            signal(
+                "missing verifier environment variable",
+                r"(?:(?:verifier|pytest|test|setup)[^\n]{0,120}"
+                r"(?:environment variable|env var)[^\n]{0,80}(?:missing|not set|required)|"
+                r"(?:environment variable|env var)[^\n]{0,80}(?:missing|not set|required)"
+                r"[^\n]{0,120}(?:verifier|pytest|test|setup))",
+            ),
+            signal("no tests collected", r"(?:no tests (?:ran|collected)|collected 0 items\b)"),
+            signal(
+                "pytest infrastructure exception",
+                r"(?:pytest internal error|INTERNALERROR>|PluggyTeardownRaisedWarning|"
+                r"_pytest\.[A-Za-z_.]+Error)",
+            ),
+        ),
+        recommended_next_step="Inspect verifier setup, collection, and test infrastructure independently of the candidate solution.",
+    ),
     Rule(
         category="syntax_or_compile_error",
         confidence="high",
@@ -190,6 +249,7 @@ RULES = (
             signal("pytest failure marker", r"[.F]*F[.F]* \[100%\]"),
             signal("assert comparison", r"\bassert\b.{0,120}(?:==|!=|<=|>=| is )"),
             signal("FAILURES", r"=+ FAILURES =+"),
+            signal("failed pytest test case", r"\bFAILED\s+\S+::test_[A-Za-z0-9_]+"),
         ),
         recommended_next_step="Inspect verifier stdout/CTRF to identify the expected behavior that still failed.",
     ),
@@ -232,19 +292,65 @@ RULES = (
         ),
         recommended_next_step="Inspect the diff/transcript to determine which requirements were attempted and which remain missing.",
     ),
+)
+
+ASSERTION_SECONDARY_RULES = (
     Rule(
-        category="verifier_environment_issue",
-        confidence="medium",
+        category="performance_threshold_failure",
+        confidence="high",
         patterns=(
-            signal("container", r"\bcontainer\b", direct=False),
-            signal("docker", r"\bdocker\b", direct=False),
-            signal("permission denied", r"permission denied"),
-            signal("read-only file system", r"read-only file system"),
-            signal("no space left", r"no space left"),
-            signal("resource temporarily unavailable", r"resource temporarily unavailable"),
-            signal("verifier environment", r"verifier environment"),
+            signal(
+                "test_compare_golden_vs_solution_runtime",
+                r"\btest_compare_golden_vs_solution_runtime\b",
+            ),
+            signal("performance threshold", r"\b(?:runtime|latency|elapsed)[^\n]{0,100}\bthreshold\b"),
         ),
-        recommended_next_step="Check whether the failure came from verifier/container conditions rather than solution logic.",
+        recommended_next_step="Compare candidate runtime against the verifier threshold and golden implementation.",
+    ),
+    Rule(
+        category="numerical_or_data_mismatch",
+        confidence="high",
+        patterns=(
+            signal("test_data_matches", r"\btest_data_matches\b"),
+            signal("numerical comparison", r"\b(?:allclose|array_equal|assert_array|assert_frame_equal)\b"),
+        ),
+        recommended_next_step="Compare the candidate data or numerical values with the expected result.",
+    ),
+    Rule(
+        category="missing_expected_file_or_content",
+        confidence="high",
+        patterns=(
+            signal("test_hello_html_exists", r"\btest_hello_html_exists\b"),
+            signal(
+                "missing expected file/content",
+                r"(?:expected|required)[^\n]{0,100}(?:file|path|content)[^\n]{0,80}"
+                r"(?:missing|not found|does not exist|absent)",
+            ),
+        ),
+        recommended_next_step="Verify the required file path and expected file content.",
+    ),
+    Rule(
+        category="behavior_mismatch",
+        confidence="high",
+        patterns=(
+            signal("test_fibonacci_polyglot", r"\btest_fibonacci_polyglot\b"),
+            signal(
+                "test_tasks_cancel_above_max_concurrent",
+                r"\btest_tasks_cancel_above_max_concurrent\b",
+            ),
+            signal("behavior mismatch", r"\bbehavior (?:mismatch|differs|incorrect)\b"),
+        ),
+        recommended_next_step="Inspect the candidate behavior exercised by the failed test case.",
+    ),
+    Rule(
+        category="output_mismatch",
+        confidence="high",
+        patterns=(
+            signal("test_password_match", r"\btest_password_match\b"),
+            signal("asserted value mismatch", r"\bassert\b[^\n]{0,160}(?:==|!=| is )"),
+            signal("expected/actual mismatch", r"\bexpected\b[^\n]{0,160}\bactual\b"),
+        ),
+        recommended_next_step="Compare the asserted output with the expected value.",
     ),
 )
 
@@ -276,15 +382,28 @@ def read_trial_evidence(
     return rows
 
 
-def rule_matches(evidence_sources: Sequence[EvidenceSource]) -> list[RuleMatch]:
+def matches_for_rules(
+    evidence_sources: Sequence[EvidenceSource],
+    *,
+    rules: Sequence[Rule],
+    category_priority: dict[str, int],
+) -> list[RuleMatch]:
     matches: list[RuleMatch] = []
     for source in evidence_sources:
-        for rule in RULES:
+        for rule in rules:
             earliest = None
             earliest_signal = None
             for pattern in rule.patterns:
                 match = pattern.pattern.search(source.text)
-                if match and (earliest is None or match.start() < earliest.start()):
+                if match and (
+                    earliest is None
+                    or (pattern.direct and earliest_signal is not None and not earliest_signal.direct)
+                    or (
+                        earliest_signal is not None
+                        and pattern.direct == earliest_signal.direct
+                        and match.start() < earliest.start()
+                    )
+                ):
                     earliest = match
                     earliest_signal = pattern
             if earliest and earliest_signal:
@@ -308,12 +427,28 @@ def rule_matches(evidence_sources: Sequence[EvidenceSource]) -> list[RuleMatch]:
         matches,
         key=lambda match: (
             not match.direct,
-            CATEGORY_PRIORITY.get(match.category, 99),
+            category_priority.get(match.category, 99),
             -CONFIDENCE_RANK[match.confidence],
             match.evidence_source_rank,
             match.start,
             match.category,
         ),
+    )
+
+
+def rule_matches(evidence_sources: Sequence[EvidenceSource]) -> list[RuleMatch]:
+    return matches_for_rules(
+        evidence_sources,
+        rules=RULES,
+        category_priority=CATEGORY_PRIORITY,
+    )
+
+
+def assertion_secondary_matches(evidence_sources: Sequence[EvidenceSource]) -> list[RuleMatch]:
+    return matches_for_rules(
+        evidence_sources,
+        rules=ASSERTION_SECONDARY_RULES,
+        category_priority=ASSERTION_SECONDARY_PRIORITY,
     )
 
 
@@ -340,26 +475,69 @@ def classify_normal_failure(
             evidence_artifact_type="",
             evidence_artifact_id="",
             evidence_excerpt=safe_excerpt(evidence_text),
+            classification_reason="No deterministic failure signal matched; manual review required.",
             recommended_next_step="Manually inspect verifier stdout, CTRF, result, log, and transcript artifacts.",
             notes="; ".join(note for note in notes if note),
         )
 
     primary = matches[0]
-    secondary = next((match for match in matches[1:] if match.category != primary.category), None)
-    needs_manual_review = primary.confidence == "low" or not primary.direct
+    secondary = None
+    secondary_category = ""
+    ambiguous_secondary = False
+    if primary.category == "test_assertion_failure":
+        assertion_matches = assertion_secondary_matches(evidence_sources)
+        if assertion_matches:
+            secondary = assertion_matches[0]
+            secondary_category = secondary.category
+            ambiguous_secondary = not secondary.direct
+        else:
+            secondary_category = "unknown_assertion_failure"
+            ambiguous_secondary = True
+    else:
+        secondary = next((match for match in matches[1:] if match.category != primary.category), None)
+        secondary_category = secondary.category if secondary else ""
+
+    excerpt = safe_excerpt(primary.source_text, start=primary.start, end=primary.end)
+    direct_signal_visible = primary.direct and excerpt_contains_signal(excerpt, primary.matched_signal)
+    confidence = primary.confidence
+    if confidence == "high" and not direct_signal_visible:
+        confidence = "medium"
+    if primary.category == "test_assertion_failure" and ambiguous_secondary and confidence == "high":
+        confidence = "medium"
+    needs_manual_review = confidence == "low" or not direct_signal_visible or ambiguous_secondary
     notes.append(f"matched_rule={primary.matched_pattern}")
+    notes.append(f"direct_signal_visible={str(direct_signal_visible).lower()}")
     if secondary:
         notes.append(f"secondary_rule={secondary.matched_pattern}")
+        notes.append(f"secondary_signal={secondary.matched_signal}")
+    elif primary.category == "test_assertion_failure":
+        notes.append("secondary_rule=no assertion subtype signal matched")
+
+    classification_reason = (
+        f"{confidence} confidence from "
+        f"{'direct visible' if direct_signal_visible else 'indirect or non-visible'} "
+        f"primary signal `{primary.matched_signal}` in "
+        f"{primary.evidence_artifact_type or 'unknown'} artifact"
+    )
+    if secondary:
+        classification_reason += (
+            f"; secondary `{secondary.category}` from "
+            f"{'direct' if secondary.direct else 'indirect'} signal `{secondary.matched_signal}`"
+        )
+    elif secondary_category:
+        classification_reason += f"; secondary `{secondary_category}` requires manual review"
+
     return NormalFailureClassification(
         primary_category=primary.category,
-        secondary_category=secondary.category if secondary else "",
-        confidence=primary.confidence,
+        secondary_category=secondary_category,
+        confidence=confidence,
         needs_manual_review=needs_manual_review,
         matched_signal=primary.matched_signal,
         matched_pattern=primary.matched_pattern,
         evidence_artifact_type=primary.evidence_artifact_type,
         evidence_artifact_id=primary.evidence_artifact_id,
-        evidence_excerpt=safe_excerpt(primary.source_text, start=primary.start, end=primary.end),
+        evidence_excerpt=excerpt,
+        classification_reason=classification_reason,
         recommended_next_step=primary.recommended_next_step,
         notes="; ".join(note for note in notes if note),
     )
@@ -482,6 +660,7 @@ def classification_row(
         "evidence_artifact_type": classification.evidence_artifact_type,
         "evidence_artifact_id": classification.evidence_artifact_id,
         "evidence_excerpt": classification.evidence_excerpt,
+        "classification_reason": classification.classification_reason,
         "trial_dashboard_path": dashboard_url(base_url, trial_path),
         "recommended_next_step": classification.recommended_next_step,
         "notes": "; ".join(note for note in notes if note),
@@ -731,6 +910,7 @@ def classify_targets(
                     evidence_artifact_type=classification.evidence_artifact_type,
                     evidence_artifact_id=classification.evidence_artifact_id,
                     evidence_excerpt=classification.evidence_excerpt,
+                    classification_reason=classification.classification_reason,
                     recommended_next_step=classification.recommended_next_step,
                     notes=(
                         f"{classification.notes}; "
