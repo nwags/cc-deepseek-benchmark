@@ -338,8 +338,17 @@ RULES = (
 
 SECRET_REDACTIONS = (
     (regex(r"Bearer\s+[A-Za-z0-9._~+/=-]{12,}"), "Bearer [REDACTED]"),
-    (regex(r"\bsk-[A-Za-z0-9_-]{12,}\b"), "sk-[REDACTED]"),
-    (regex(r"\b(?:api[_-]?key|token|secret|password)\s*[:=]\s*['\"]?[A-Za-z0-9._~+/=-]{12,}"), "[REDACTED_SECRET]"),
+    (regex(r"\b(?:sk|xai)-[A-Za-z0-9_-]{12,}\b"), "[REDACTED_API_KEY]"),
+    (regex(r"\b(?:AKIA|ASIA)[A-Z0-9]{16}\b"), "[REDACTED_ACCESS_KEY]"),
+    (regex(r"\bAIza[A-Za-z0-9_-]{20,}\b"), "[REDACTED_API_KEY]"),
+    (regex(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"), "[REDACTED_TOKEN]"),
+    (
+        regex(
+            r"['\"]?(?:api[_-]?key|access[_-]?token|auth[_-]?token|token|secret|password)['\"]?"
+            r"\s*[:=]\s*['\"]?[A-Za-z0-9._~+/=-]{12,}"
+        ),
+        "[REDACTED_SECRET]",
+    ),
 )
 
 
@@ -392,6 +401,13 @@ def safe_excerpt(text: str, *, start: int = 0, end: int = 0, limit: int = MAX_EX
     return cleaned[: max(limit - 3, 0)] + "..."
 
 
+def excerpt_contains_signal(excerpt: str, matched_signal: str) -> bool:
+    if not excerpt or not matched_signal:
+        return False
+    visible_signal = redact_secrets(normalize_whitespace(matched_signal))
+    return bool(visible_signal) and visible_signal.casefold() in excerpt.casefold()
+
+
 def adjusted_confidence(base_confidence: str, *, direct: bool) -> str:
     if direct:
         return base_confidence
@@ -432,7 +448,15 @@ def rule_matches(evidence_sources: Sequence[EvidenceSource]) -> list[RuleMatch]:
             earliest_signal: SignalPattern | None = None
             for pattern in rule.patterns:
                 match = pattern.pattern.search(source.text)
-                if match and (earliest is None or match.start() < earliest.start()):
+                if match and (
+                    earliest is None
+                    or (pattern.direct and earliest_signal is not None and not earliest_signal.direct)
+                    or (
+                        earliest_signal is not None
+                        and pattern.direct == earliest_signal.direct
+                        and match.start() < earliest.start()
+                    )
+                ):
                     earliest = match
                     earliest_signal = pattern
             if earliest and earliest_signal:
@@ -499,21 +523,28 @@ def classify_exception(
 
     primary = matches[0]
     secondary = next((match for match in matches[1:] if match.category != primary.category), None)
-    needs_manual_review = primary.confidence == "low" or not primary.direct
     excerpt = safe_excerpt(primary.source_text, start=primary.start, end=primary.end)
+    direct_signal_visible = primary.direct and excerpt_contains_signal(excerpt, primary.matched_signal)
+    confidence = primary.confidence
+    if confidence == "high" and not direct_signal_visible:
+        confidence = "medium"
+    needs_manual_review = confidence == "low" or not direct_signal_visible
     notes.append(f"matched_rule={primary.matched_pattern}")
+    notes.append(f"direct_signal_visible={str(direct_signal_visible).lower()}")
     if secondary:
         notes.append(f"secondary_rule={secondary.matched_pattern}")
+        notes.append(f"secondary_signal={secondary.matched_signal}")
     classification_reason = (
-        f"{primary.confidence} confidence from "
-        f"{'direct' if primary.direct else 'indirect'} signal `{primary.matched_signal}` "
+        f"{confidence} confidence from "
+        f"{'direct visible' if direct_signal_visible else 'indirect or non-visible'} "
+        f"signal `{primary.matched_signal}` "
         f"in {primary.evidence_artifact_type or 'unknown'} artifact"
     )
 
     return Classification(
         primary_category=primary.category,
         secondary_category=secondary.category if secondary else "",
-        confidence=primary.confidence,
+        confidence=confidence,
         needs_manual_review=needs_manual_review,
         matched_signal=primary.matched_signal,
         matched_pattern=primary.matched_pattern,

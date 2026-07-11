@@ -1,4 +1,5 @@
-from scripts.classify_phase3_exception_artifacts import classify_exception, runtime_band
+import scripts.classify_phase3_exception_artifacts as classifier
+from scripts.classify_phase3_exception_artifacts import EvidenceSource, classify_exception, runtime_band
 
 
 def classify(snippet: str):
@@ -41,6 +42,27 @@ def test_provider_rate_limit_classification():
     assert result.matched_signal
     assert result.matched_pattern
     assert "429" in result.evidence_excerpt
+
+
+def test_direct_match_records_artifact_provenance():
+    result = classify_exception(
+        target_row={"runtime_seconds": "45"},
+        evidence_by_type=[
+            EvidenceSource(
+                artifact_type="log",
+                artifact_id="artifact-123",
+                source_rank=2,
+                text="HTTP 403 unauthorized",
+            )
+        ],
+    )
+
+    assert result.primary_category == "auth_or_permission_error"
+    assert result.matched_signal
+    assert result.matched_pattern
+    assert result.evidence_artifact_type == "log"
+    assert result.evidence_artifact_id == "artifact-123"
+    assert result.evidence_source_rank == 2
 
 
 def test_connection_refused_classification():
@@ -93,6 +115,29 @@ def test_terminal_timeout_preferred_over_rate_limit_secondary():
     assert result.confidence == "high"
     assert result.needs_manual_review is False
     assert result.matched_signal == "AgentTimeoutError"
+
+
+def test_high_confidence_requires_signal_visible_in_excerpt(monkeypatch):
+    monkeypatch.setattr(classifier, "safe_excerpt", lambda *args, **kwargs: "unrelated excerpt")
+
+    result = classify("HTTP 429 RESOURCE_EXHAUSTED rate limit")
+
+    assert result.primary_category == "provider_rate_limit"
+    assert result.confidence == "medium"
+    assert result.needs_manual_review is True
+
+
+def test_evidence_excerpt_redacts_json_api_key_and_keeps_signal():
+    result = classify(
+        '{"api_key":"sk-example-secret-value-123456",'
+        '"error":"HTTP 429 RESOURCE_EXHAUSTED"}'
+    )
+
+    assert result.primary_category == "provider_rate_limit"
+    assert result.confidence == "high"
+    assert "RESOURCE_EXHAUSTED" in result.evidence_excerpt
+    assert "example-secret-value" not in result.evidence_excerpt
+    assert "REDACTED" in result.evidence_excerpt
 
 
 def test_runtime_bands_are_supporting_evidence():
