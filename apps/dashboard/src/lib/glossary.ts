@@ -143,7 +143,45 @@ export const glossaryEntries = [
     slug: "imported-with-trial-errors",
     shortDefinition: "Run imported, but some attempts failed.",
     definition: "Imported with trial errors means the run metadata and artifacts were imported, but one or more benchmark trials failed, errored, or did not produce complete cost/reward metadata."
-  }
+  },
+
+  {
+    term: "Adjusted known cost",
+    slug: "adjusted-known-cost",
+    shortDefinition: "Recorded cost plus reconstructed missing-cost estimates.",
+    definition: "Adjusted known cost is recorded cost plus missing-cost rows that could be reconstructed from configured pricing snapshots or same-arm empirical estimates. It is the preferred benchmark cost for sponsor-facing comparisons, while still preserving cost-source confidence."
+  },
+  {
+    term: "Known accounting gap",
+    slug: "known-accounting-gap",
+    shortDefinition: "The difference between adjusted known cost and recorded cost.",
+    definition: "Known accounting gap is adjusted known cost minus recorded cost. It quantifies how much the raw recorded-cost dashboard understated spend because some trials had usage or cost evidence that was not captured in cost_usd."
+  },
+  {
+    term: "Failure/incomplete spend",
+    slug: "failure-incomplete-spend",
+    shortDefinition: "Adjusted cost spent on trials that did not produce a passing result.",
+    definition: "Failure/incomplete spend is adjusted known cost for normal failures, exception failures, and unknown or incomplete outcomes. It is useful for quantifying money spent on non-passing benchmark attempts."
+  },
+  {
+    term: "Unclean spend share",
+    slug: "unclean-spend-share",
+    shortDefinition: "Share of adjusted spend not attributable to clean successes.",
+    definition: "Unclean spend share is the portion of adjusted known cost spent on failures, incomplete outcomes, and exception-with-success-signal rows. It is broader than failure/incomplete spend share because it treats exception-with-success-signal rows as operationally unclean even when reward is 1."
+  },
+  {
+    term: "Cost per clean success",
+    slug: "cost-per-clean-success",
+    shortDefinition: "Adjusted known cost divided by clean successes.",
+    definition: "Cost per clean success divides adjusted known cost by the number of trials with reward 1 and no exception marker. It is stricter than cost per any success because it excludes exception-with-success-signal rows from the denominator."
+  },
+  {
+    term: "Exception with success signal",
+    slug: "exception-with-success-signal",
+    shortDefinition: "A trial with reward 1 and an exception marker.",
+    definition: "Exception with success signal means the verifier reward was 1, but the trial also carried an exception marker. These rows are kept separate from clean successes because they may be correct by verifier outcome but operationally unclean."
+  },
+
 ] as const satisfies readonly GlossaryEntry[];
 
 export type GlossaryTerm = (typeof glossaryEntries)[number]["term"];
