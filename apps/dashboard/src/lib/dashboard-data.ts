@@ -1430,3 +1430,161 @@ export async function getRunLabelForArmRunId(armRunId: string): Promise<string |
 
   return rows[0]?.run_label ?? null;
 }
+
+
+export type AdjustedCostOverviewRow = {
+  suite_id: string;
+  trial_count: number;
+  success_count: number;
+  clean_success_count: number;
+  exception_success_signal_count: number;
+  failure_or_incomplete_count: number;
+  recorded_cost_usd: number;
+  adjusted_known_cost_usd: number;
+  known_accounting_gap_usd: number;
+  unresolved_cost_count: number;
+  adjusted_clean_success_cost_usd: number;
+  adjusted_exception_success_signal_cost_usd: number;
+  adjusted_failure_or_incomplete_cost_usd: number;
+  nonproductive_or_unclean_spend_share: number | null;
+  failure_or_incomplete_spend_share: number | null;
+};
+
+export type AdjustedCostArmRow = {
+  suite_id: string;
+  arm_id: string;
+  provider_family: string | null;
+  backend_model: string | null;
+  trial_count: number;
+  success_count: number;
+  clean_success_count: number;
+  raw_pass_rate: number | null;
+  recorded_cost_usd: number;
+  adjusted_known_cost_usd: number;
+  known_accounting_gap_usd: number;
+  unresolved_cost_count: number;
+  adjusted_failure_or_incomplete_cost_usd: number;
+  nonproductive_or_unclean_spend_share: number | null;
+  failure_or_incomplete_spend_share: number | null;
+  adjusted_cost_per_clean_success: number | null;
+  adjusted_cost_per_any_success: number | null;
+  cost_sources_present: string | null;
+  cost_confidence_present: string | null;
+};
+
+export type AdjustedOutcomeCostRow = {
+  suite_id: string;
+  outcome_bucket: string;
+  trial_count: number;
+  recorded_cost_usd: number;
+  adjusted_known_cost_usd: number;
+  known_accounting_gap_usd: number;
+};
+
+export async function getAdjustedCostOverview(suiteId: string): Promise<AdjustedCostOverviewRow> {
+  const rows = await queryRows<AdjustedCostOverviewRow>(
+    `
+      select
+        $1::text as suite_id,
+        count(*)::int as trial_count,
+        (count(*) filter (where outcome_bucket in ('clean_success', 'exception_with_success_signal')))::int as success_count,
+        (count(*) filter (where outcome_bucket = 'clean_success'))::int as clean_success_count,
+        (count(*) filter (where outcome_bucket = 'exception_with_success_signal'))::int as exception_success_signal_count,
+        (count(*) filter (where outcome_bucket not in ('clean_success', 'exception_with_success_signal')))::int as failure_or_incomplete_count,
+        coalesce(sum(recorded_cost_usd), 0::numeric)::float8 as recorded_cost_usd,
+        coalesce(sum(adjusted_cost_usd), 0::numeric)::float8 as adjusted_known_cost_usd,
+        (
+          coalesce(sum(adjusted_cost_usd), 0::numeric)
+          - coalesce(sum(recorded_cost_usd), 0::numeric)
+        )::float8 as known_accounting_gap_usd,
+        (count(*) filter (where adjusted_cost_usd is null))::int as unresolved_cost_count,
+        coalesce(sum(adjusted_cost_usd) filter (where outcome_bucket = 'clean_success'), 0::numeric)::float8
+          as adjusted_clean_success_cost_usd,
+        coalesce(sum(adjusted_cost_usd) filter (where outcome_bucket = 'exception_with_success_signal'), 0::numeric)::float8
+          as adjusted_exception_success_signal_cost_usd,
+        coalesce(sum(adjusted_cost_usd) filter (
+          where outcome_bucket not in ('clean_success', 'exception_with_success_signal')
+        ), 0::numeric)::float8 as adjusted_failure_or_incomplete_cost_usd,
+        case
+          when coalesce(sum(adjusted_cost_usd), 0::numeric) = 0 then null
+          else (
+            coalesce(sum(adjusted_cost_usd) filter (where outcome_bucket <> 'clean_success'), 0::numeric)
+            / sum(adjusted_cost_usd)
+          )::float8
+        end as nonproductive_or_unclean_spend_share,
+        case
+          when coalesce(sum(adjusted_cost_usd), 0::numeric) = 0 then null
+          else (
+            coalesce(sum(adjusted_cost_usd) filter (
+              where outcome_bucket not in ('clean_success', 'exception_with_success_signal')
+            ), 0::numeric) / sum(adjusted_cost_usd)
+          )::float8
+        end as failure_or_incomplete_spend_share
+      from benchmark.v_trial_adjusted_cost_coverage
+      where suite_id = $1
+    `,
+    [suiteId]
+  );
+
+  return rows[0];
+}
+
+export async function getAdjustedCostArmRows(suiteId: string): Promise<AdjustedCostArmRow[]> {
+  return queryRows<AdjustedCostArmRow>(
+    `
+      select
+        f.suite_id,
+        f.arm_id,
+        a.provider_family,
+        a.backend_model,
+        f.trial_count::int,
+        f.success_count::int,
+        f.clean_success_count::int,
+        f.raw_pass_rate::float8,
+        f.recorded_cost_usd::float8,
+        f.adjusted_known_cost_usd::float8,
+        f.known_accounting_gap_usd::float8,
+        f.unresolved_cost_count::int,
+        f.adjusted_failure_or_incomplete_cost_usd::float8,
+        f.nonproductive_or_unclean_spend_share::float8,
+        f.failure_or_incomplete_spend_share::float8,
+        f.adjusted_cost_per_clean_success::float8,
+        f.adjusted_cost_per_any_success::float8,
+        f.cost_sources_present,
+        f.cost_confidence_present
+      from benchmark.v_suite_adjusted_cost_frontier f
+      left join benchmark.benchmark_arms a
+        on a.arm_id = f.arm_id
+      where f.suite_id = $1
+      order by f.adjusted_known_cost_usd asc nulls last, f.arm_id
+    `,
+    [suiteId]
+  );
+}
+
+export async function getAdjustedOutcomeCostRows(suiteId: string): Promise<AdjustedOutcomeCostRow[]> {
+  return queryRows<AdjustedOutcomeCostRow>(
+    `
+      select
+        suite_id,
+        outcome_bucket,
+        sum(trial_count)::int as trial_count,
+        coalesce(sum(recorded_cost_usd), 0::numeric)::float8 as recorded_cost_usd,
+        coalesce(sum(adjusted_known_cost_usd), 0::numeric)::float8 as adjusted_known_cost_usd,
+        coalesce(sum(known_accounting_gap_usd), 0::numeric)::float8 as known_accounting_gap_usd
+      from benchmark.v_arm_outcome_cost_breakdown
+      where suite_id = $1
+      group by suite_id, outcome_bucket
+      order by
+        case outcome_bucket
+          when 'clean_success' then 1
+          when 'exception_with_success_signal' then 2
+          when 'normal_failure' then 3
+          when 'exception_failure' then 4
+          else 9
+        end,
+        outcome_bucket
+    `,
+    [suiteId]
+  );
+}
