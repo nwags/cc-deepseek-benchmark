@@ -28,7 +28,7 @@ const readinessRows = [
   },
   {
     area: "NVIDIA NIM",
-    requiredFor: "Retired from active Phase 3 plan",
+    requiredFor: "Retired from active benchmark plan",
     evidence: "Do not probe unless official paid/quota-approved access is later approved"
   }
 ];
@@ -52,7 +52,7 @@ const statusRows = [
   {
     route: "hosted NVIDIA NIM",
     status: "retired",
-    note: "Removed from active Phase 3 planning; do not use free-tier/account-circumvention patterns."
+    note: "Removed from active benchmark planning; do not use free-tier/account-circumvention patterns."
   },
   {
     route: "local open-weight serving",

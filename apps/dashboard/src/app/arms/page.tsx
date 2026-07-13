@@ -8,7 +8,7 @@ export default async function ArmsPage() {
   const arms = await getArmRows();
 
   return (
-    <AppShell title="Arms" description="Model/backend arm comparison across imported Phase 3 runs.">
+    <AppShell title="Arms" description="Model/backend arm comparison across imported benchmark runs.">
       <section className="panel">
         <div className="panel-heading">
           <h2>Arm comparison</h2>

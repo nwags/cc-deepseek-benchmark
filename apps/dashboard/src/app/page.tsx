@@ -46,7 +46,7 @@ export default async function DashboardPage() {
   const fullQualityByRun = new Map(fullRunQualityRows.map((row) => [row.run_label, row]));
 
   return (
-    <AppShell title="Phase 3 Router Dashboard">
+    <AppShell title="Coding Agent Benchmark Dashboard">
       <section className="metric-grid">
         <MetricCard label="Full-suite arms" value={formatNumber(fullSuite?.arm_run_count ?? 0)} detail="Imported into phase3-full-20" />
         <MetricCard label="Full-suite trials" value={formatNumber(fullSuite?.trial_count ?? 0)} detail="20 evals × 3 attempts × imported arms" />

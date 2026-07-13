@@ -60,7 +60,7 @@ export default async function CostCoveragePage() {
   return (
     <AppShell
       title="Cost Coverage"
-      description="Adjusted cost coverage, accounting gaps, and nonproductive spend for the valid Phase 3 full suite."
+      description="Adjusted cost coverage, accounting gaps, and nonproductive spend for the valid full benchmark suite."
     >
       <section className="metric-grid">
         <MetricCard

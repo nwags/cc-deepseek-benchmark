@@ -71,7 +71,7 @@ export default async function TrialEvidencePage({
   return (
     <AppShell
       title="Trial evidence"
-      description="Task attempt evidence, quality status, and related artifacts for one imported Phase 3 trial."
+      description="Task attempt evidence, quality status, and related artifacts for one imported benchmark trial."
     >
       <section className="panel">
         <div className="panel-heading">

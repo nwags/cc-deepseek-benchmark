@@ -121,7 +121,7 @@ export default async function ArtifactsPage({
   return (
     <AppShell
       title="Artifacts"
-      description="Audit browser for Phase 3 result files, logs, trajectories, and verifier evidence. This provenance view includes all imported runs."
+      description="Audit browser for result files, logs, trajectories, and verifier evidence. This provenance view includes all imported runs."
     >
       <section className="quality-context-panel">
         Artifact rows are audit evidence and may include invalid/quarantined runs. Signed download links are not exposed from this page.

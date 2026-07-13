@@ -8,8 +8,8 @@ const navItems = [
   { href: "/eval-suites", label: "Eval Suites" },
   { href: "/evals", label: "Evals" },
   { href: "/runs", label: "Runs" },
-  { href: "/arms", label: "Legacy Arms" },
-  { href: "/tasks", label: "Legacy Tasks" },
+  { href: "/arms", label: "Arms" },
+  { href: "/tasks", label: "Tasks" },
   { href: "/artifacts", label: "Artifacts" },
   { href: "/runners", label: "Runners" },
   { href: "/planner", label: "Planner" },
@@ -33,10 +33,10 @@ export function AppShell({
     <main className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-mark">P3</div>
+          <div className="brand-mark">CAB</div>
           <div>
-            <div className="brand-title">Router Bench</div>
-            <div className="brand-subtitle">Phase 3</div>
+            <div className="brand-title">Benchmark Dashboard</div>
+            <div className="brand-subtitle">Coding agents</div>
           </div>
         </div>
 

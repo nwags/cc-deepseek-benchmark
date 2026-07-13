@@ -12,7 +12,7 @@ export default function GlossaryPage() {
       <section className="panel">
         <div className="panel-heading">
           <h2>Dashboard terms</h2>
-          <p>Use this page as the shared language layer for interpreting Phase 3 results.</p>
+          <p>Use this page as the shared language layer for interpreting benchmark results.</p>
         </div>
         <div className="glossary-list">
           {glossaryEntries.map((entry) => (

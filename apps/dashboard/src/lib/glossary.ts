@@ -28,7 +28,7 @@ export const glossaryEntries = [
     term: "Eval suite",
     slug: "eval-suite",
     shortDefinition: "A named group of evals.",
-    definition: "An eval suite is a named collection of Terminal-Bench evals. Phase 3 currently uses canary, smoke, and full suites to separate route validation from full benchmark comparisons."
+    definition: "An eval suite is a named collection of Terminal-Bench evals. Current benchmark imports use canary, smoke, and full suites to separate route validation from full benchmark comparisons."
   },
   {
     term: "Trial",
@@ -117,8 +117,8 @@ export const glossaryEntries = [
   {
     term: "Full sweep",
     slug: "full-sweep",
-    shortDefinition: "The main Phase 3 benchmark suite.",
-    definition: "A full sweep is the primary Phase 3 benchmark execution: the selected full suite of 20 Terminal-Bench tasks, usually with 3 attempts per task for each arm."
+    shortDefinition: "The main full benchmark suite.",
+    definition: "A full sweep is the primary benchmark execution: the selected full suite of Terminal-Bench tasks, usually with 3 attempts per task for each arm."
   },
   {
     term: "Logical mode",

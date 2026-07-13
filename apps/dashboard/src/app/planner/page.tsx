@@ -74,7 +74,7 @@ export default function PlannerPage() {
   return (
     <AppShell
       title="Planner"
-      description="Read-only planner that generates reviewable Phase 3 GitHub Actions dispatch commands."
+      description="Read-only planner that generates reviewable GitHub Actions dispatch commands."
     >
       <RunPlanBuilder arms={arms} taskSets={taskSets} />
 

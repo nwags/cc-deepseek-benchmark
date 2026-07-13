@@ -1,4 +1,4 @@
-"Shared run-plan validation logic for the Phase 3 dashboard.";
+"Shared run-plan validation logic for the benchmark dashboard.";
 
 export type RunMode = "canary" | "smoke" | "full";
 export type ProviderFamily =
@@ -113,7 +113,7 @@ export function validateRunPlan(input: RunPlanValidationInput): RunPlanValidatio
     findings.push({
       severity: "warning",
       title: "Harbor concurrency above current safe setting",
-      detail: `n_concurrent=${harborConcurrency}; current Phase 3 safe setting is n_concurrent=1 per runner job.`,
+      detail: `n_concurrent=${harborConcurrency}; current safe setting is n_concurrent=1 per runner job.`,
     });
   }
 

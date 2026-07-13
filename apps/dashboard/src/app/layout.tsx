@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Phase 3 Router Benchmark Dashboard",
-  description: "Claude Code backend benchmark dashboard for Phase 3 router experiments"
+  title: "Coding Agent Benchmark Dashboard",
+  description: "Claude Code backend benchmark dashboard for model and route experiments"
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

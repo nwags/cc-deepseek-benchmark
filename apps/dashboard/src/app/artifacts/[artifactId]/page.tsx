@@ -71,7 +71,7 @@ export default async function ArtifactDetailPage({
   return (
     <AppShell
       title="Artifact detail"
-      description="Read-only Phase 3 artifact evidence preview. Content is fetched server-side from R2 when configured."
+      description="Read-only artifact evidence preview. Content is fetched server-side from R2 when configured."
     >
       <section className="panel">
         <div className="panel-heading">

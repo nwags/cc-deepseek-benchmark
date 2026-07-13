@@ -10,7 +10,7 @@ const executionFlow = [
     detail: "Benchmark questions define which models, providers, and tasks need to be compared."
   },
   {
-    title: "Phase 3 model-arm plan",
+    title: "Model-arm plan",
     detail: "The arm plan turns sponsor questions into concrete model routes and benchmark suites."
   },
   {

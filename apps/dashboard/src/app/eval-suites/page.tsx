@@ -11,7 +11,7 @@ export default async function EvalSuitesPage() {
   return (
     <AppShell
       title="Eval Suites"
-      description="Terminal-Bench suite groupings for canary, smoke, and full Phase 3 comparisons."
+      description="Terminal-Bench suite groupings for canary, smoke, and full benchmark comparisons."
     >
       <section className="panel">
         <div className="panel-heading">

@@ -16,7 +16,7 @@ export default async function EvalsPage() {
       <section className="panel">
         <div className="panel-heading">
           <h2>Eval comparison index</h2>
-          <p>Terminal-Bench tasks with imported Phase 3 trial rows.</p>
+          <p>Terminal-Bench tasks with imported benchmark trial rows.</p>
         </div>
         <div className="table-wrap">
           <table>

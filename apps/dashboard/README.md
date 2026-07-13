@@ -1,6 +1,6 @@
-# Phase 3 Dashboard
+# Benchmark Dashboard
 
-Polished read-only dashboard for the Phase 3 Claude Code backend benchmark.
+Polished read-only dashboard for Claude Code backend benchmark results.
 
 ## Local setup
 
@@ -30,7 +30,7 @@ Large artifacts remain in Cloudflare R2. This first dashboard scaffold displays 
 <!-- phase3-2026-06-12-alignment:start -->
 ## 2026-06-12 dashboard usage alignment
 
-The dashboard should be used as the Phase 3 operating console:
+The dashboard should be used as the benchmark operating console:
 
 - Overview: current status, cost coverage, and blockers.
 - Runs: imported run roots and run detail debugging.

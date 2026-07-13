@@ -80,7 +80,7 @@ export default async function TrialQualityPage({
 
   return (
     <AppShell
-      eyebrow="Phase 3 interpretation layer"
+      eyebrow="Benchmark interpretation layer"
       title="Trial quality"
       description="Raw benchmark outcomes remain the source of truth. This page adds diagnostic flags so no-op exits, exceptions, and normal failures are not interpreted as the same kind of model behavior."
     >
@@ -198,7 +198,7 @@ export default async function TrialQualityPage({
         <article className="metric-card">
           <span className="metric-label">Suspect no-op trials</span>
           <strong>{totalSuspect}</strong>
-          <span className="metric-subtitle">Phase 3 imported rows</span>
+          <span className="metric-subtitle">Imported benchmark rows</span>
         </article>
         <article className="metric-card">
           <span className="metric-label">Affected arm runs</span>

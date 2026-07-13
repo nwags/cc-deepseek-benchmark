@@ -39,7 +39,7 @@ const runTypes: Array<{
   {
     value: "full-sweep",
     label: "full-sweep",
-    purpose: "Large multi-task benchmark battery; final Phase 3 comparison after approval."
+    purpose: "Large multi-task benchmark battery; final comparison after approval."
   },
   {
     value: "ad-hoc",
@@ -134,7 +134,7 @@ export function PlannerCommandBuilder({
         : "# Selected task set for review: none",
       ...(isAdHoc
         ? [
-            "# Ad-hoc note: task_id/task_file/ad_hoc_label are now supported by the Phase 3 dispatch workflow.",
+            "# Ad-hoc note: task_id/task_file/ad_hoc_label are supported by the benchmark dispatch workflow.",
             "# Ad-hoc results are non-scored unless explicitly promoted in a reviewed follow-up."
           ]
         : []),
