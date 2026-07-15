@@ -71,3 +71,13 @@ Because the full Terminal-Bench suite uses three attempts per task, the chart us
 - Frontier chart: `../../../results/phase3/reporting/phase3_adjusted_cost_frontier_20260713.svg`
 - Sponsor summary table: `results/phase3/reporting/phase3_sponsor_summary_table_20260713.tsv`
 - Token/outcome breakdown: `results/phase3/reporting/phase3_token_outcome_breakdown_20260713.tsv`
+
+
+## Follow-up validation artifacts
+
+Additional closeout artifacts were added after the initial sponsor summary:
+
+- `PHASE3_CROSS_PHASE_COMPARISON_20260714.md` adds Phase 1 and Phase 2 to the Phase 3 comparison using an adjusted-cost layer for all phases.
+- `PHASE3_CROSS_PHASE_TASK_AUDIT_20260714.md` verifies that Phase 1, Phase 2, and Phase 3 use the same 20-task suite and that every scored arm has 20 tasks × 3 attempts.
+- `PHASE3_CLOSEOUT_INDEX_20260714.md` lists the final report, chart, cost accounting, and cross-phase artifacts.
+
