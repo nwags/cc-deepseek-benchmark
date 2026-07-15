@@ -20,7 +20,10 @@ def main() -> None:
         for ref in refs:
             path = ROOT / ref
             exists = path.exists()
-            size = path.stat().st_size if exists else 0
+            if path.resolve() == OUT.resolve():
+                size = 0
+            else:
+                size = path.stat().st_size if exists else 0
             handle.write(f"{ref}\t{str(exists).lower()}\t{size}\n")
             if not exists:
                 missing.append(ref)
