@@ -6,6 +6,10 @@ Phase 1 and Phase 2 source aggregates remain frozen. Their adjusted-cost coverag
 
 The comparison is apples-to-apples at the benchmark-unit level: 20 tasks × 3 attempts per arm. The routing path remains explicit because Phase 3 used LiteLLM/router infrastructure.
 
+## Task-suite comparability basis
+
+Task-suite comparability is checked in `PHASE3_CROSS_PHASE_TASK_AUDIT_20260714.md` and the accompanying task-membership TSV. The intended scored-arm unit is 20 tasks × 3 attempts = 60 trials per arm. The cost/performance comparison should be read together with that audit.
+
 ## Cost accounting basis
 
 Phase 1 and Phase 2 recorded costs remain the frozen historical headline values. The adjusted-cost columns in this report are retrospective derived reporting artifacts.
