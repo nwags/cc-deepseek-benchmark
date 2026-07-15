@@ -20,6 +20,14 @@ def write_tsv(path: Path, rows: list[dict], cols: list[str]):
             writer.writerow({col: row.get(col, "") for col in cols})
 
 
+def normalize_task_id(task_id: str) -> str:
+    text = str(task_id or "").strip()
+    for prefix in ("terminal-bench-2.0:", "terminal-bench:"):
+        if text.startswith(prefix):
+            return text[len(prefix):]
+    return text
+
+
 def phase_rows_from_combined(phase: str, path: Path) -> list[dict]:
     rows = read_table(path, ",")
     out = []
@@ -27,7 +35,7 @@ def phase_rows_from_combined(phase: str, path: Path) -> list[dict]:
         out.append({
             "phase": phase,
             "arm_id": row["arm_dir"],
-            "task_id": row.get("task_name") or row.get("task_path") or "",
+            "task_id": normalize_task_id(row.get("task_name") or row.get("task_path") or ""),
             "trial_name": row.get("trial_name", ""),
             "success": row.get("success", ""),
             "source_file": str(path),
@@ -39,7 +47,7 @@ def phase3_rows(path: Path) -> list[dict]:
     rows = read_table(path, "\t")
     out = []
     for row in rows:
-        task = row.get("task_id") or row.get("task_name") or row.get("eval_id") or ""
+        task = normalize_task_id(row.get("task_id") or row.get("task_name") or row.get("eval_id") or "")
         arm = row.get("arm_id") or row.get("arm") or ""
         trial = row.get("trial_id") or row.get("trial_name") or row.get("result_path") or ""
         out.append({
