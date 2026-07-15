@@ -49,3 +49,11 @@ The Phase 3 full-suite comparison is valid-only and contains 15 valid arms × 60
 The task-suite audit confirms that Phase 1, Phase 2, and Phase 3 use the same 20-task suite and that every scored arm has 20 tasks × 3 attempts = 60 trials.
 
 The cross-phase comparison should therefore be read as task-suite-equivalent and cost-accounting-adjusted, while still keeping routing path explicit: Phase 1/2 direct paths versus Phase 3 LiteLLM/router paths.
+
+## Closeout integrity audit
+
+- `scripts/audit_phase3_closeout_artifacts.py`
+- `results/phase3/reporting/phase3_closeout_artifact_audit_20260715.tsv`
+
+The closeout artifact audit verifies that the files referenced by this index exist in the repository.
+
