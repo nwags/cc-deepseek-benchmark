@@ -56,4 +56,3 @@ The cross-phase comparison should therefore be read as task-suite-equivalent and
 - `results/phase3/reporting/phase3_closeout_artifact_audit_20260715.tsv`
 
 The closeout artifact audit verifies that the files referenced by this index exist in the repository.
-
