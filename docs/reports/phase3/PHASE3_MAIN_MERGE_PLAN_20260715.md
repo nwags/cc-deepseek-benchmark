@@ -52,6 +52,18 @@ Only use this if main has not diverged and the intent is to make Phase 3 the dir
 
 Use this if Phase 1 should remain the default branch for now. In this case, tag phase3 as a release candidate and avoid changing main.
 
+## Dry-run merge result
+
+A temporary worktree dry-run merge from origin/main to origin/phase3 was performed on 2026-07-15.
+
+Result:
+
+- one expected conflict: .github/workflows/phase3-arm-dispatch.yml
+- conflict resolved during dry-run by taking the origin/phase3 version
+- remaining unmerged file count after resolution: 0
+- cached dry-run merge shortstat: 8227 files changed, 1744860 insertions, 28 deletions
+- compact evidence file: results/phase3/reporting/phase3_main_dryrun_merge_summary_20260715.txt
+
 ## Recommendation
 
 Do not update main until explicitly approved. The next safe action is a dry-run merge in a temporary worktree to check for conflicts and produce a final merge-readiness note.
