@@ -545,7 +545,7 @@ def main() -> None:
         "",
     ])
     ROUTER_MD.parent.mkdir(parents=True, exist_ok=True)
-    ROUTER_MD.write_text("\n".join(router_lines) + "\n")
+    ROUTER_MD.write_text("\n".join(line.rstrip() for line in router_lines).rstrip() + "\n")
 
     total_trials = sum(i(row, "trial_count") for row in sponsor)
     total_success = sum(i(row, "success_count") for row in sponsor)
@@ -679,7 +679,7 @@ def main() -> None:
     ])
 
     COMPREHENSIVE_MD.parent.mkdir(parents=True, exist_ok=True)
-    COMPREHENSIVE_MD.write_text("\n".join(comp_lines) + "\n")
+    COMPREHENSIVE_MD.write_text("\n".join(line.rstrip() for line in comp_lines).rstrip() + "\n")
 
     print("wrote")
     for path in [TAXONOMY_OUT, ROUTER_TSV, ROUTER_MD, TASK_FAMILY_MATRIX, ARM_BEHAVIOR, COMPREHENSIVE_MD]:

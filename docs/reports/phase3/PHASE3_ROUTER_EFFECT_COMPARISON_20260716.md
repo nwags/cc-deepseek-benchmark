@@ -26,4 +26,3 @@ This is an observational comparison, not causal proof. Routing path changed alon
 - For Phase 3 router arms, median runtime is computed from trial-level runtime fields because the cross-phase adjusted summary does not carry router median wall-clock values.
 - The Haiku comparison is especially confounded because the Phase 3 arm is the sanitized router path.
 - Source table: results/phase3/reporting/router_effect_comparison_20260716.tsv
-

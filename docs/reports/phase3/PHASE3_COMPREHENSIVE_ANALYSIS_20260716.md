@@ -116,4 +116,3 @@ Examples of generated behavior tags:
 - The Phase 3 Haiku sanitized arm includes an Anthropic sanitizer path and should not be treated as a pure router-only comparison.
 - Task-family taxonomy is heuristic and reviewable.
 - Visible token sums are derived from imported token fields and are best used for relative behavioral profiling, not provider billing reconciliation.
-
