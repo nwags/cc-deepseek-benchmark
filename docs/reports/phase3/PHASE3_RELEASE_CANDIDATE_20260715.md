@@ -15,6 +15,8 @@ This note is a merge-readiness artifact only. It does not modify `main`. The fro
 
 ## New closeout artifacts
 
+- `docs/reports/phase3/PHASE3_COMPREHENSIVE_ANALYSIS_20260716.md`
+- `docs/reports/phase3/PHASE3_ROUTER_EFFECT_COMPARISON_20260716.md`
 - `docs/reports/phase3/PHASE3_CLOSEOUT_INDEX_20260714.md`
 - `docs/reports/phase3/PHASE3_CROSS_PHASE_COMPARISON_20260714.md`
 - `docs/reports/phase3/PHASE3_CROSS_PHASE_TASK_AUDIT_20260714.md`
@@ -22,6 +24,10 @@ This note is a merge-readiness artifact only. It does not modify `main`. The fro
 - `docs/reports/phase3/PHASE3_SPONSOR_SUMMARY_20260713.md`
 - `docs/reports/phase3/PHASE3_BENCHMARK_ANALYSIS_20260713.md`
 - `docs/reports/phase3/PHASE3_DATABRICKS_COMPARISON_20260713.md`
+- `configs/tasks/phase3_task_taxonomy.tsv`
+- `results/phase3/reporting/router_effect_comparison_20260716.tsv`
+- `results/phase3/reporting/phase3_task_family_arm_matrix_20260716.tsv`
+- `results/phase3/reporting/phase3_arm_behavior_profile_20260716.tsv`
 
 ## Key validation claims
 
@@ -31,6 +37,7 @@ This note is a merge-readiness artifact only. It does not modify `main`. The fro
 - Task-suite audit confirms Phase 1, Phase 2, and Phase 3 use the same 20 tasks.
 - Every scored arm across Phase 1, Phase 2, and Phase 3 has 20 tasks x 3 attempts = 60 trials.
 - Phase 3 routing path remains explicitly labeled as LiteLLM/router-mediated.
+- Comprehensive analysis now includes router-associated comparison, task-family performance, cost efficiency, wastage, and arm behavior profiles.
 
 ## Required pre-merge checks
 
@@ -39,7 +46,8 @@ Run from the repo root:
     python -m py_compile \
       scripts/generate_cross_phase_adjusted_comparison.py \
       scripts/generate_cross_phase_task_audit.py \
-      scripts/generate_phase3_frontier_html.py
+      scripts/generate_phase3_frontier_html.py \
+      scripts/generate_phase3_comprehensive_analysis.py
 
     bash scripts/check.sh
     uv run pytest -q tests
@@ -58,6 +66,10 @@ Expected result:
 
 ## Recent pushed closeout commits
 
+    323e195a Fix Phase 3 comprehensive analysis EOF whitespace
+    6214849c Add Phase 3 comprehensive analysis
+    d2aca6ca Document Phase 3 main dry-run merge
+    d8e2788b Add Phase 3 main merge plan
     aa6c61c2 Fix sponsor summary EOF whitespace
     77c2e85b Add Phase 3 closeout index
     c4e28c88 Add Phase 3 frontier and report artifacts
