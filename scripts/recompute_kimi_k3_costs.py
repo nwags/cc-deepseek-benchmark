@@ -55,7 +55,7 @@ def iter_objects(value: Any, path: str = "$") -> Iterable[tuple[str, dict[str, A
 
 def file_role(path: Path) -> str:
     parts = path.parts
-    if any("__" in part and part.startswith("modernize-scientific-stack") for part in parts):
+    if any("__" in part for part in parts):
         return "trial_result"
     if path.name == "result.json":
         return "run_result"
