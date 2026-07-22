@@ -1,0 +1,135 @@
+name: Phase 3 Remote DB and R2 Doctor
+
+on:
+  push:
+    branches:
+      - phase3
+    paths:
+      - ".github/workflows/phase3-remote-db-r2-doctor.yml"
+      - "scripts/ingest_phase3_run_metadata.py"
+      - "configs/remote/**"
+      - "db/migrations/phase3/**"
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  doctor:
+    runs-on: [self-hosted, Linux, X64, phase3]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create ignored secret env files
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
+          R2_PREFIX: ${{ secrets.R2_PREFIX }}
+          R2_REGION: ${{ secrets.R2_REGION }}
+        run: |
+          set -euxo pipefail
+          mkdir -p .secrets
+          chmod 700 .secrets
+
+          cat > .secrets/supabase.env <<SUPABASE_EOF
+          SUPABASE_DB_URL='${SUPABASE_DB_URL}'
+          SUPABASE_EOF
+
+          cat > .secrets/r2.env <<R2_EOF
+          R2_ACCOUNT_ID='${R2_ACCOUNT_ID}'
+          R2_ACCESS_KEY_ID='${R2_ACCESS_KEY_ID}'
+          R2_SECRET_ACCESS_KEY='${R2_SECRET_ACCESS_KEY}'
+          R2_BUCKET='${R2_BUCKET}'
+          R2_ENDPOINT_URL='${R2_ENDPOINT_URL}'
+          R2_PREFIX='${R2_PREFIX}'
+          R2_REGION='${R2_REGION:-auto}'
+          R2_EOF
+
+          chmod 600 .secrets/*.env
+
+      - name: Check Supabase connection
+        run: |
+          set -euxo pipefail
+          set -a
+          . .secrets/supabase.env
+          set +a
+
+          uv run --with 'psycopg[binary]' python - <<'PY'
+          import os
+          import psycopg
+
+          with psycopg.connect(os.environ["SUPABASE_DB_URL"]) as conn:
+              with conn.cursor() as cur:
+                  cur.execute("select current_database(), current_user")
+                  print(cur.fetchone())
+                  cur.execute("""
+                      select count(*)
+                      from information_schema.tables
+                      where table_schema = 'benchmark'
+                  """)
+                  print("benchmark tables:", cur.fetchone()[0])
+          PY
+
+      - name: Check R2 connectivity
+        run: |
+          set -euxo pipefail
+          set -a
+          . .secrets/r2.env
+          set +a
+
+          uv run --with boto3 python - <<'PY'
+          import os
+          import boto3
+
+          client = boto3.client(
+              "s3",
+              endpoint_url=os.environ["R2_ENDPOINT_URL"],
+              aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
+              aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],
+              region_name=os.environ.get("R2_REGION", "auto"),
+          )
+
+          bucket = os.environ["R2_BUCKET"]
+          prefix = os.environ.get("R2_PREFIX", "terminal-bench/model-backends").strip("/")
+          key = f"{prefix}/_remote_doctor/github-runner-r2-test.txt"
+          body = b"github runner r2 ok\n"
+
+          client.put_object(Bucket=bucket, Key=key, Body=body)
+          obj = client.get_object(Bucket=bucket, Key=key)
+          print(obj["Body"].read().decode().strip())
+          client.delete_object(Bucket=bucket, Key=key)
+          print("deleted:", key)
+          PY
+
+      - name: Build one local ingestion manifest without upload or DB insert
+        run: |
+          set -euxo pipefail
+
+          uv run python scripts/ingest_phase3_run_metadata.py \
+            --run-dir results/phase3/canary/arm-router-glm-5.1/2026-06-04__12-40-42 \
+            --manifest-out /tmp/phase3-remote-doctor-ingest-manifest.json
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = Path("/tmp/phase3-remote-doctor-ingest-manifest.json")
+          m = json.loads(p.read_text())
+          run = m.get("run", {})
+          print("run keys:", sorted(run.keys()))
+          print("phase:", run.get("phase", m.get("phase", "unknown")))
+          print("mode:", run.get("mode", m.get("mode", "unknown")))
+          print("arm_id:", run.get("arm_id", m.get("arm_id", "unknown")))
+          print("trials:", len(m.get("trials", [])))
+          print("artifacts:", len(m.get("artifacts", [])))
+          PY
+
+      - name: Final repo checks
+        run: |
+          set -euxo pipefail
+          make check
+          make secret-scan

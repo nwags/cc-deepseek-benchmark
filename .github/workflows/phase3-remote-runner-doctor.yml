@@ -1,0 +1,56 @@
+name: Phase 3 Remote Runner Doctor
+
+on:
+  push:
+    branches:
+      - phase3
+    paths:
+      - ".github/workflows/phase3-remote-runner-doctor.yml"
+      - "scripts/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "Makefile"
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  doctor:
+    runs-on: [self-hosted, Linux, X64, phase3]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Inspect host
+        run: |
+          set -euxo pipefail
+          hostname
+          whoami
+          uname -a
+          df -h
+          free -h
+          nproc
+
+      - name: Check tools
+        run: |
+          set -euxo pipefail
+          python --version
+          git --version
+          docker --version
+          docker run --rm hello-world
+          uv --version
+          node --version
+          npm --version
+          claude --version
+
+      - name: Check Docker-to-host LiteLLM firewall path
+        run: |
+          ./scripts/check_phase3_docker_host_firewall.sh
+
+      - name: Check repo
+        run: |
+          set -euxo pipefail
+          git branch --show-current || true
+          make check
+          make secret-scan
