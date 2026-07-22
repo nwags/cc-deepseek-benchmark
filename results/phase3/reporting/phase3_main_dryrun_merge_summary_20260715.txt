@@ -1,0 +1,183 @@
+Phase 3 main dry-run merge compact summary
+2026-07-15T22:56:25-04:00
+
+Dry-run worktree:
+/tmp/cc-phase3-main-dryrun
+
+Base head before merge:
+9f7d1b82
+
+Remaining unmerged files:
+
+Unmerged file count:
+0
+
+Cached shortstat:
+ 8227 files changed, 1744860 insertions(+), 28 deletions(-)
+
+Top-level path summary:
+   3991 results/phase2/raw
+   2493 results/phase1/raw
+    493 results/phase3/canary
+    443 results/phase2/smoke
+    409 results/phase3/smoke
+     65 results/phase3/reporting
+     48 docs/reports/phase3
+     42 apps/dashboard/src
+     17 results/phase2/canary
+      8 results/phase3/supplemental
+      8 db/migrations/phase3
+      6 results/phase3/supabase
+      6 results/phase1/supplemental
+      5 results/phase3/provider_usage
+      5 docs/reports/phase1
+      4 figures/phase3/deck_assets
+      4 docs/plans/phase3
+      3 docs/reports/phase2
+      3 docs/plans/phase2
+      3 docs/plans/phase1
+      2 results/phase3/rescue
+      2 results/phase3/dashboard
+      1 uv.lock
+      1 tests/test_run_qualitative_reporting.py
+      1 tests/test_harbor_ad_hoc.py
+      1 tests/test_generate_phase3_qualitative_audit.py
+      1 tests/test_frozen_aggregates.py
+      1 tests/test_eval_quality_audit.py
+      1 tests/test_costs.py
+      1 tests/test_configs.py
+      1 tests/test_classify_phase3_normal_failures.py
+      1 tests/test_classify_phase3_exception_artifacts.py
+      1 tests/test_audit_tool_usage.py
+      1 tests/test_arm_runtime_services.py
+      1 tests/test_anthropic_sanitizer_proxy.py
+      1 tests/conftest.py
+      1 scripts/summarize_trials.py
+      1 scripts/summarize_remaining_provider_artifacts.py
+      1 scripts/stop_litellm_proxy.sh
+      1 scripts/stop_arm_runtime_services.sh
+      1 scripts/stop_anthropic_sanitizer_proxy.sh
+      1 scripts/start_litellm_proxy.sh
+      1 scripts/secret_scan.sh
+      1 scripts/run_qualitative_reporting.py
+      1 scripts/run_arm.sh
+      1 scripts/reconcile_openai_family_usage.py
+      1 scripts/reconcile_gemini_family_usage.py
+      1 scripts/reconcile_deepseek_family_usage.py
+      1 scripts/old-scripts/run-phase2-arm-deepseek-pro.sh
+      1 scripts/old-scripts/run-phase2-arm-deepseek-flash.sh
+      1 scripts/old-scripts/run-phase2-arm-anthropic-sonnet.sh
+      1 scripts/old-scripts/run-phase2-arm-anthropic-opus.sh
+      1 scripts/old-scripts/run-phase2-arm-anthropic-opusplan.sh
+      1 scripts/old-scripts/run-phase2-arm-anthropic-haiku.sh
+      1 scripts/old-scripts/run-phase2-arm-anthropic-default.sh
+      1 scripts/old-scripts/run-oracle-subset.sh
+      1 scripts/old-scripts/run-arm-c.sh
+      1 scripts/old-scripts/run-arm-b.sh
+      1 scripts/old-scripts/run-arm-a.sh
+      1 scripts/old-scripts/aggregate.py
+      1 scripts/old-scripts/aggregate_phase2.py
+      1 scripts/lib/trajectories.py
+      1 scripts/lib/reports.py
+      1 scripts/lib/__init__.py
+      1 scripts/lib/harbor.py
+      1 scripts/lib/costs.py
+      1 scripts/lib/arms.py
+      1 scripts/__init__.py
+      1 scripts/ingest_phase3_run_metadata.py
+      1 scripts/ingest_phase3_cost_coverage.py
+      1 scripts/generate_phase3_sponsor_summary.py
+      1 scripts/generate_phase3_qualitative_audit.py
+      1 scripts/generate_phase3_frontier_html.py
+      1 scripts/generate_phase3_cost_coverage.py
+      1 scripts/generate_phase3_benchmark_analysis_report.py
+      1 scripts/generate_figures.py
+      1 scripts/generate_cross_phase_task_audit.py
+      1 scripts/generate_cross_phase_adjusted_comparison.py
+      1 scripts/extract_phase3_canary_evidence.py
+      1 scripts/eval_wave.py
+
+Expected conflict resolution:
+Resolved .github/workflows/phase3-arm-dispatch.yml by taking origin/phase3 version during dry-run merge.
+
+Resolved workflow first 80 lines:
+name: Phase 3 Arm Dispatch
+
+on:
+  workflow_dispatch:
+    inputs:
+      arm_id:
+        description: "Configured arm id, e.g. router-anthropic-fable-5"
+        required: true
+        default: "router-anthropic-fable-5"
+      mode:
+        description: "Run mode"
+        required: true
+        type: choice
+        options:
+          - canary
+          - smoke
+          - full
+        default: canary
+      dry_run:
+        description: "Print Harbor command without running paid benchmark"
+        required: true
+        type: boolean
+        default: true
+      confirm_paid_run:
+        description: "Must be true when dry_run is false"
+        required: true
+        type: boolean
+        default: false
+      n_attempts:
+        description: "Optional override; blank uses phase defaults"
+        required: false
+        default: ""
+      n_concurrent:
+        description: "Optional override; blank uses safe mode defaults"
+        required: false
+        default: ""
+      task_id:
+        description: "Optional ad-hoc Terminal-Bench task id; mutually exclusive with task_file"
+        required: false
+        default: ""
+      task_file:
+        description: "Optional ad-hoc task file path; mutually exclusive with task_id"
+        required: false
+        default: ""
+      ad_hoc_label:
+        description: "Optional label for ad-hoc diagnostics"
+        required: false
+        default: ""
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase3-arm-${{ inputs.arm_id }}-${{ inputs.mode }}
+  cancel-in-progress: false
+
+jobs:
+  run-arm:
+    runs-on: [self-hosted, Linux, X64, phase3]
+    timeout-minutes: 2880
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate dispatch inputs
+        env:
+          ARM_ID: ${{ inputs.arm_id }}
+          MODE: ${{ inputs.mode }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          CONFIRM_PAID_RUN: ${{ inputs.confirm_paid_run }}
+          TASK_ID: ${{ inputs.task_id }}
+          TASK_FILE: ${{ inputs.task_file }}
+          AD_HOC_LABEL: ${{ inputs.ad_hoc_label }}
+        run: |
+          set -euo pipefail
+
+          echo "arm_id=${ARM_ID}"

@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cost vs. pass rate frontier</title>
+  <style>
+    :root {
+      --text: #172033;
+      --muted: #5f6b7a;
+      --border: #e5e7eb;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --grid: #e8edf4;
+      --axis: #9aa7b5;
+      --other: #64748b;
+      --frontier: #ef4444;
+    }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .page {
+      max-width: 1220px;
+      margin: 0 auto;
+      padding: 34px 30px 44px;
+    }
+    .header {
+      max-width: 980px;
+      margin-bottom: 20px;
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: 32px;
+      line-height: 1.1;
+      letter-spacing: -0.025em;
+    }
+    .subtitle, .note, .footer {
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .subtitle {
+      margin: 0;
+      font-size: 15px;
+    }
+    .note {
+      margin: 10px 0 0;
+      font-size: 13px;
+    }
+    .chart-card {
+      position: relative;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+      padding: 18px;
+    }
+    .legend {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      margin: 0 0 8px 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      display: inline-block;
+      background: var(--other);
+    }
+    .swatch.frontier {
+      border-radius: 2px;
+      transform: rotate(45deg);
+      background: var(--frontier);
+    }
+    .chart {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .grid {
+      stroke: var(--grid);
+      stroke-width: 1;
+    }
+    .axis {
+      stroke: var(--axis);
+      stroke-width: 1.2;
+    }
+    .tick {
+      fill: var(--muted);
+      font-size: 13px;
+    }
+    .axis-label {
+      fill: var(--text);
+      font-size: 15px;
+      font-weight: 650;
+    }
+    .frontier-line {
+      fill: none;
+      stroke: var(--frontier);
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .point {
+      cursor: pointer;
+      stroke: #ffffff;
+      stroke-width: 2.5;
+      transition: r 120ms ease, opacity 120ms ease;
+    }
+    .point:hover, .point:focus {
+      r: 10;
+      opacity: 1;
+      outline: none;
+    }
+    .other-point {
+      fill: var(--other);
+      opacity: 0.78;
+    }
+    .frontier-point {
+      fill: var(--frontier);
+      opacity: 0.95;
+    }
+    .tooltip {
+      position: fixed;
+      z-index: 20;
+      max-width: 360px;
+      pointer-events: none;
+      background: #111827;
+      color: white;
+      border-radius: 12px;
+      padding: 12px 14px;
+      box-shadow: 0 18px 42px rgba(15, 23, 42, 0.28);
+      font-size: 13px;
+      line-height: 1.45;
+      opacity: 0;
+      transform: translate(12px, 12px);
+      transition: opacity 90ms ease;
+    }
+    .tooltip.visible {
+      opacity: 1;
+    }
+    .footer {
+      margin: 14px 0 0;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="header">
+      <h1>Cost vs. pass rate frontier</h1>
+      <p class="subtitle">
+        Each point is one model/backend arm. The Y-axis is overall pass rate. The X-axis is cost per benchmark attempt.
+      </p>
+      <p class="note">
+        Cost uses adjusted known cost: recorded cost plus reconstructed missing-cost rows where usage/pricing evidence exists.
+        This avoids undercounting failed or errored attempts that consumed tokens.
+      </p>
+    </header>
+
+    <section class="chart-card">
+      <div class="legend">
+        <span class="legend-item"><span class="swatch"></span>Other arms</span>
+        <span class="legend-item"><span class="swatch frontier"></span>Pareto frontier</span>
+      </div>
+      <svg class="chart" viewBox="0 0 1120 650" role="img" aria-label="Cost versus pass rate frontier">
+<rect x="0" y="0" width="1120" height="650" rx="14" fill="#ffffff"/>
+<line class="grid" x1="164.0" y1="48" x2="164.0" y2="572"/>
+<text class="tick" x="164.0" y="606" text-anchor="middle">$0.5</text>
+<line class="grid" x1="328.0" y1="48" x2="328.0" y2="572"/>
+<text class="tick" x="328.0" y="606" text-anchor="middle">$1.0</text>
+<line class="grid" x1="492.0" y1="48" x2="492.0" y2="572"/>
+<text class="tick" x="492.0" y="606" text-anchor="middle">$1.5</text>
+<line class="grid" x1="655.9" y1="48" x2="655.9" y2="572"/>
+<text class="tick" x="655.9" y="606" text-anchor="middle">$2.0</text>
+<line class="grid" x1="819.9" y1="48" x2="819.9" y2="572"/>
+<text class="tick" x="819.9" y="606" text-anchor="middle">$2.5</text>
+<line class="grid" x1="983.9" y1="48" x2="983.9" y2="572"/>
+<text class="tick" x="983.9" y="606" text-anchor="middle">$3.0</text>
+<line class="grid" x1="82" y1="554.2" x2="1086" y2="554.2"/>
+<text class="tick" x="64" y="558.2" text-anchor="end">20%</text>
+<line class="grid" x1="82" y1="465.4" x2="1086" y2="465.4"/>
+<text class="tick" x="64" y="469.4" text-anchor="end">30%</text>
+<line class="grid" x1="82" y1="376.6" x2="1086" y2="376.6"/>
+<text class="tick" x="64" y="380.6" text-anchor="end">40%</text>
+<line class="grid" x1="82" y1="287.8" x2="1086" y2="287.8"/>
+<text class="tick" x="64" y="291.8" text-anchor="end">50%</text>
+<line class="grid" x1="82" y1="199.0" x2="1086" y2="199.0"/>
+<text class="tick" x="64" y="203.0" text-anchor="end">60%</text>
+<line class="grid" x1="82" y1="110.2" x2="1086" y2="110.2"/>
+<text class="tick" x="64" y="114.2" text-anchor="end">70%</text>
+<line class="axis" x1="82" y1="572" x2="1086" y2="572"/>
+<line class="axis" x1="82" y1="48" x2="82" y2="572"/>
+<text class="axis-label" x="560.0" y="624" text-anchor="middle">Cost per benchmark attempt (USD)</text>
+<text class="axis-label" x="24" y="325.0" text-anchor="middle" transform="rotate(-90 24 325.0)">Pass rate</text>
+<polyline class="frontier-line" points="111.0,199.0 138.4,169.4 206.0,154.6 310.5,139.8 1005.6,80.6"/>
+<circle class="point frontier-point" cx="1005.6" cy="80.6" r="8" tabindex="0" data-tooltip="&lt;strong&gt;router-gpt-5.5&lt;/strong&gt;&lt;br&gt;Model: gpt-5.5&lt;br&gt;Provider: openai&lt;br&gt;Pass rate: 73.3% (44/60)&lt;br&gt;Cost / attempt: $3.07&lt;br&gt;Adjusted total cost: $183.96&lt;br&gt;Cost / clean success: $4.38&lt;br&gt;Failure/incomplete spend: $41.64 (22.6%)&lt;br&gt;Unclean spend: $47.93 (26.1%)&lt;br&gt;Known accounting gap: $15.25&lt;br&gt;Unresolved cost rows: 2&lt;br&gt;Cost confidence: mixed"><title>router-gpt-5.5</title></circle>
+<circle class="point frontier-point" cx="310.5" cy="139.8" r="8" tabindex="0" data-tooltip="&lt;strong&gt;router-deepseek-flash&lt;/strong&gt;&lt;br&gt;Model: deepseek-v4-flash&lt;br&gt;Provider: deepseek&lt;br&gt;Pass rate: 66.7% (40/60)&lt;br&gt;Cost / attempt: $0.95&lt;br&gt;Adjusted total cost: $56.80&lt;br&gt;Cost / clean success: $1.42&lt;br&gt;Failure/incomplete spend: $13.88 (24.4%)&lt;br&gt;Unclean spend: $13.88 (24.4%)&lt;br&gt;Known accounting gap: $0.44&lt;br&gt;Unresolved cost rows: 0&lt;br&gt;Cost confidence: medium"><title>router-deepseek-flash</title></circle>
+<circle class="point frontier-point" cx="206.0" cy="154.6" r="8" tabindex="0" data-tooltip="&lt;strong&gt;router-anthropic-fable-5&lt;/strong&gt;&lt;br&gt;Model: claude-fable-5&lt;br&gt;Provider: anthropic&lt;br&gt;Pass rate: 65.0% (39/60)&lt;br&gt;Cost / attempt: $0.63&lt;br&gt;Adjusted total cost: $37.69&lt;br&gt;Cost / clean success: $1.02&lt;br&gt;Failure/incomplete spend: $7.33 (19.4%)&lt;br&gt;Unclean spend: $17.38 (46.1%)&lt;br&gt;Known accounting gap: $12.04&lt;br&gt;Unresolved cost rows: 0&lt;br&gt;Cost confidence: medium"><title>router-anthropic-fable-5</title></circle>
+<circle class="point other-point" cx="352.5" cy="154.6" r="7" tabindex="0" data-tooltip="&lt;strong&gt;router-anthropic-opus&lt;/strong&gt;&lt;br&gt;Model: claude-opus-4-7&lt;br&gt;Provider: anthropic&lt;br&gt;Pass rate: 65.0% (39/60)&lt;br&gt;Cost / attempt: $1.07&lt;br&gt;Adjusted total cost: $64.49&lt;br&gt;Cost / clean success: $1.65&lt;br&gt;Failure/incomplete spend: $30.74 (47.7%)&lt;br&gt;Unclean spend: $30.74 (47.7%)&lt;br&gt;Known accounting gap: $24.16&lt;br&gt;Unresolved cost rows: 2&lt;br&gt;Cost confidence: mixed"><title>router-anthropic-opus</title></circle>
+<circle class="point other-point" cx="1003.8" cy="154.6" r="7" tabindex="0" data-tooltip="&lt;strong&gt;router-gpt-5.4&lt;/strong&gt;&lt;br&gt;Model: gpt-5.4&lt;br&gt;Provider: openai&lt;br&gt;Pass rate: 65.0% (39/60)&lt;br&gt;Cost / attempt: $3.06&lt;br&gt;Adjusted total cost: $183.65&lt;br&gt;Cost / clean success: $4.83&lt;br&gt;Failure/incomplete spend: $34.49 (18.8%)&lt;br&gt;Unclean spend: $39.60 (21.6%)&lt;br&gt;Known accounting gap: $10.55&lt;br&gt;Unresolved cost rows: 0&lt;br&gt;Cost confidence: low"><title>router-gpt-5.4</title></circle>
+<circle class="point frontier-point" cx="138.4" cy="169.4" r="8" tabindex="0" data-tooltip="&lt;strong&gt;router-glm-5.2&lt;/strong&gt;&lt;br&gt;Model: glm-5.2&lt;br&gt;Provider: zai-glm&lt;br&gt;Pass rate: 63.3% (38/60)&lt;br&gt;Cost / attempt: $0.42&lt;br&gt;Adjusted total cost: $25.32&lt;br&gt;Cost / clean success: $0.72&lt;br&gt;Failure/incomplete spend: $6.87 (27.1%)&lt;br&gt;Unclean spend: $8.23 (32.5%)&lt;br&gt;Known accounting gap: $4.77&lt;br&gt;Unresolved cost rows: 0&lt;br&gt;Cost confidence: medium"><title>router-glm-5.2</title></circle>
+<circle class="point other-point" cx="254.0" cy="169.4" r="7" tabindex="0" data-tooltip="&lt;strong&gt;router-gemini-3.1-pro&lt;/strong&gt;&lt;br&gt;Model: gemini-3.1-pro-preview&lt;br&gt;Provider: google-gemini&lt;br&gt;Pass rate: 63.3% (38/60)&lt;br&gt;Cost / attempt: $0.77&lt;br&gt;Adjusted total cost: $46.47&lt;br&gt;Cost / clean success: $1.29&lt;br&gt;Failure/incomplete spend: $13.82 (29.7%)&lt;br&gt;Unclean spend: $14.46 (31.1%)&lt;br&gt;Known accounting gap: $8.37&lt;br&gt;Unresolved cost rows: 0&lt;br&gt;Cost confidence: low"><title>router-gemini-3.1-pro</title></circle>
+<circle class="point other-point" cx="275.7" cy="184.2" r="7" tabindex="0" data-tooltip="&lt;strong&gt;router-deepseek-pro&lt;/strong&gt;&lt;br&gt;Model: deepseek-v4-pro&lt;br&gt;Provider: deepseek&lt;br&gt;Pass rate: 61.7% (37/60)&lt;br&gt;Cost / attempt: $0.84&lt;br&gt;Adjusted total cost: $50.44&lt;br&gt;Cost / clean success: $1.36&lt;br&gt;Failure/incomplete spend: $12.29 (24.4%)&lt;br&gt;Unclean spend: $12.29 (24.4%)&lt;br&gt;Known accounting gap: $0.24&lt;br&gt;Unresolved cost rows: 0&lt;br&gt;Cost confidence: medium"><title>router-deepseek-pro</title></circle>
+<circle class="point frontier-point" cx="111.0" cy="199.0" r="8" tabindex="0" data-tooltip="&lt;strong&gt;router-glm-5.1&lt;/strong&gt;&lt;br&gt;Model: glm-5.1&lt;br&gt;Provider: zai-glm&lt;br&gt;Pass rate: 60.0% (36/60)&lt;br&gt;Cost / attempt: $0.34&lt;br&gt;Adjusted total cost: $20.30&lt;br&gt;Cost / clean success: $0.58&lt;br&gt;Failure/incomplete spend: $3.94 (19.4%)&lt;br&gt;Unclean spend: $4.10 (20.2%)&lt;br&gt;Known accounting gap: $1.64&lt;br&gt;Unresolved cost rows: 5&lt;br&gt;Cost confidence: mixed"><title>router-glm-5.1</title></circle>
+<circle class="point other-point" cx="290.6" cy="199.0" r="7" tabindex="0" data-tooltip="&lt;strong&gt;router-grok-build-0.1&lt;/strong&gt;&lt;br&gt;Model: grok-build-0.1&lt;br&gt;Provider: xai&lt;br&gt;Pass rate: 60.0% (36/60)&lt;br&gt;Cost / attempt: $0.89&lt;br&gt;Adjusted total cost: $53.15&lt;br&gt;Cost / clean success: $1.48&lt;br&gt;Failure/incomplete spend: $29.83 (56.1%)&lt;br&gt;Unclean spend: $29.83 (56.1%)&lt;br&gt;Known accounting gap: $15.00&lt;br&gt;Unresolved cost rows: 1&lt;br&gt;Cost confidence: mixed"><title>router-grok-build-0.1</title></circle>
+<circle class="point other-point" cx="191.0" cy="243.4" r="7" tabindex="0" data-tooltip="&lt;strong&gt;router-qwen-3.7-plus&lt;/strong&gt;&lt;br&gt;Model: qwen3.7-plus&lt;br&gt;Provider: dashscope-qwen&lt;br&gt;Pass rate: 55.0% (33/60)&lt;br&gt;Cost / attempt: $0.58&lt;br&gt;Adjusted total cost: $34.94&lt;br&gt;Cost / clean success: $1.09&lt;br&gt;Failure/incomplete spend: $16.47 (47.1%)&lt;br&gt;Unclean spend: $19.16 (54.8%)&lt;br&gt;Known accounting gap: $14.51&lt;br&gt;Unresolved cost rows: 1&lt;br&gt;Cost confidence: mixed"><title>router-qwen-3.7-plus</title></circle>
+<circle class="point other-point" cx="192.0" cy="287.8" r="7" tabindex="0" data-tooltip="&lt;strong&gt;router-kimi-k2.6&lt;/strong&gt;&lt;br&gt;Model: kimi-k2.6&lt;br&gt;Provider: moonshot-kimi&lt;br&gt;Pass rate: 50.0% (30/60)&lt;br&gt;Cost / attempt: $0.59&lt;br&gt;Adjusted total cost: $35.13&lt;br&gt;Cost / clean success: $1.17&lt;br&gt;Failure/incomplete spend: $22.07 (62.8%)&lt;br&gt;Unclean spend: $22.07 (62.8%)&lt;br&gt;Known accounting gap: $9.15&lt;br&gt;Unresolved cost rows: 0&lt;br&gt;Cost confidence: low"><title>router-kimi-k2.6</title></circle>
+<circle class="point other-point" cx="288.6" cy="317.4" r="7" tabindex="0" data-tooltip="&lt;strong&gt;router-anthropic-sonnet&lt;/strong&gt;&lt;br&gt;Model: claude-sonnet-4-6&lt;br&gt;Provider: anthropic&lt;br&gt;Pass rate: 46.7% (28/60)&lt;br&gt;Cost / attempt: $0.88&lt;br&gt;Adjusted total cost: $52.79&lt;br&gt;Cost / clean success: $1.89&lt;br&gt;Failure/incomplete spend: $23.32 (44.2%)&lt;br&gt;Unclean spend: $23.32 (44.2%)&lt;br&gt;Known accounting gap: $15.40&lt;br&gt;Unresolved cost rows: 14&lt;br&gt;Cost confidence: mixed"><title>router-anthropic-sonnet</title></circle>
+<circle class="point other-point" cx="456.5" cy="361.8" r="7" tabindex="0" data-tooltip="&lt;strong&gt;router-anthropic-haiku-sanitized&lt;/strong&gt;&lt;br&gt;Model: claude-haiku-4-5-20251001&lt;br&gt;Provider: anthropic&lt;br&gt;Pass rate: 41.7% (25/60)&lt;br&gt;Cost / attempt: $1.39&lt;br&gt;Adjusted total cost: $83.51&lt;br&gt;Cost / clean success: $3.34&lt;br&gt;Failure/incomplete spend: $54.82 (65.6%)&lt;br&gt;Unclean spend: $54.82 (65.6%)&lt;br&gt;Known accounting gap: $0.00&lt;br&gt;Unresolved cost rows: 0&lt;br&gt;Cost confidence: high"><title>router-anthropic-haiku-sanitized</title></circle>
+<circle class="point other-point" cx="238.0" cy="539.4" r="7" tabindex="0" data-tooltip="&lt;strong&gt;router-gemini-flash&lt;/strong&gt;&lt;br&gt;Model: gemini-3.5-flash&lt;br&gt;Provider: google-gemini&lt;br&gt;Pass rate: 21.7% (13/60)&lt;br&gt;Cost / attempt: $0.73&lt;br&gt;Adjusted total cost: $43.53&lt;br&gt;Cost / clean success: $4.84&lt;br&gt;Failure/incomplete spend: $24.26 (55.7%)&lt;br&gt;Unclean spend: $26.47 (60.8%)&lt;br&gt;Known accounting gap: $19.87&lt;br&gt;Unresolved cost rows: 4&lt;br&gt;Cost confidence: mixed"><title>router-gemini-flash</title></circle>
+</svg>
+    </section>
+
+    <p class="footer">
+      Hover over a point for model, provider, pass rate, adjusted total cost, cost per clean success, unclean spend, and cost-confidence details.
+    </p>
+  </main>
+
+  <div class="tooltip" id="tooltip"></div>
+  <script>
+    const tooltip = document.getElementById("tooltip");
+    const points = document.querySelectorAll("[data-tooltip]");
+
+    function showTooltip(event) {
+      tooltip.innerHTML = event.currentTarget.dataset.tooltip;
+      tooltip.classList.add("visible");
+      moveTooltip(event);
+    }
+
+    function moveTooltip(event) {
+      const pad = 18;
+      let x = event.clientX + 16;
+      let y = event.clientY + 16;
+      const box = tooltip.getBoundingClientRect();
+
+      if (x + box.width + pad > window.innerWidth) {
+        x = event.clientX - box.width - 16;
+      }
+      if (y + box.height + pad > window.innerHeight) {
+        y = event.clientY - box.height - 16;
+      }
+
+      tooltip.style.left = `${Math.max(pad, x)}px`;
+      tooltip.style.top = `${Math.max(pad, y)}px`;
+    }
+
+    function hideTooltip() {
+      tooltip.classList.remove("visible");
+    }
+
+    points.forEach((point) => {
+      point.addEventListener("mouseenter", showTooltip);
+      point.addEventListener("mousemove", moveTooltip);
+      point.addEventListener("mouseleave", hideTooltip);
+      point.addEventListener("focus", showTooltip);
+      point.addEventListener("blur", hideTooltip);
+    });
+  </script>
+</body>
+</html>

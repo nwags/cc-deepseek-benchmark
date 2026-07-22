@@ -1,0 +1,115 @@
+table_schema,table_name,view_definition
+benchmark,v_dashboard_arms," SELECT a.arm_id,
+    a.display_name,
+    a.provider_family,
+    a.backend_model,
+    a.router_model,
+    a.agent_harness,
+    a.config_path,
+    a.active,
+    count(DISTINCT r.id) AS run_count,
+    count(t.id) AS trial_count,
+    count(t.id) FILTER (WHERE (COALESCE(t.reward, (0)::numeric) >= (1)::numeric)) AS success_count,
+        CASE
+            WHEN (count(t.id) = 0) THEN NULL::numeric
+            ELSE ((count(t.id) FILTER (WHERE (COALESCE(t.reward, (0)::numeric) >= (1)::numeric)))::numeric / (count(t.id))::numeric)
+        END AS pass_rate,
+    sum(t.cost_usd) AS trial_cost_usd,
+    count(t.cost_usd) AS cost_row_count,
+    count(t.id) FILTER (WHERE (t.cost_usd IS NULL)) AS missing_cost_count,
+    avg(t.runtime_seconds) AS avg_runtime_seconds,
+    percentile_cont((0.5)::double precision) WITHIN GROUP (ORDER BY ((t.runtime_seconds)::double precision)) AS median_runtime_seconds
+   FROM ((benchmark.benchmark_arms a
+     LEFT JOIN benchmark.benchmark_trials t ON ((t.arm_id = a.arm_id)))
+     LEFT JOIN benchmark.benchmark_runs r ON ((r.id = t.run_id)))
+  GROUP BY a.arm_id, a.display_name, a.provider_family, a.backend_model, a.router_model, a.agent_harness, a.config_path, a.active;"
+benchmark,v_dashboard_runs," SELECT r.id AS run_id,
+    r.phase,
+    r.mode,
+    r.run_label,
+    r.git_commit,
+    r.branch,
+    r.runner_name,
+    r.runner_provider,
+    r.runner_region,
+    r.started_at,
+    r.finished_at,
+    r.status,
+    r.created_at,
+    r.raw_metadata,
+    COALESCE(ts.trial_count, (0)::bigint) AS trial_count,
+    COALESCE(ts.success_count, (0)::bigint) AS success_count,
+    COALESCE(ts.failure_count, (0)::bigint) AS failure_count,
+        CASE
+            WHEN (COALESCE(ts.trial_count, (0)::bigint) = 0) THEN NULL::numeric
+            ELSE ((ts.success_count)::numeric / (ts.trial_count)::numeric)
+        END AS pass_rate,
+    ts.avg_runtime_seconds,
+    ts.median_runtime_seconds,
+    COALESCE(ts.trial_cost_usd, (0)::numeric) AS trial_cost_usd,
+    COALESCE(ts.cost_row_count, (0)::bigint) AS cost_row_count,
+    COALESCE(ts.missing_cost_count, (0)::bigint) AS missing_cost_count,
+    COALESCE(ts.input_tokens, (0)::numeric) AS input_tokens,
+    COALESCE(ts.cache_tokens, (0)::numeric) AS cache_tokens,
+    COALESCE(ts.output_tokens, (0)::numeric) AS output_tokens,
+    COALESCE(art.artifact_count, (0)::bigint) AS artifact_count,
+    COALESCE(art.artifact_size_bytes, (0)::numeric) AS artifact_size_bytes,
+    COALESCE(art.r2_artifact_count, (0)::bigint) AS r2_artifact_count,
+    COALESCE(aud.audit_count, (0)::bigint) AS audit_count,
+    COALESCE(aud.audit_pass_count, (0)::bigint) AS audit_pass_count,
+    COALESCE(aud.audit_nonpass_count, (0)::bigint) AS audit_nonpass_count,
+    COALESCE(aud.websearch_events, (0)::bigint) AS websearch_events,
+    COALESCE(aud.webfetch_events, (0)::bigint) AS webfetch_events,
+    COALESCE(aud.forbidden_tools_available, (0)::bigint) AS forbidden_tools_available
+   FROM (((benchmark.benchmark_runs r
+     LEFT JOIN benchmark.v_run_trial_summary ts ON ((ts.run_id = r.id)))
+     LEFT JOIN benchmark.v_run_artifact_summary art ON ((art.run_id = r.id)))
+     LEFT JOIN benchmark.v_run_audit_summary aud ON ((aud.run_id = r.id)));"
+benchmark,v_dashboard_tasks," SELECT task.task_id,
+    task.benchmark,
+    task.benchmark_version,
+    task.task_name,
+    task.active,
+    count(t.id) AS trial_count,
+    count(t.id) FILTER (WHERE (COALESCE(t.reward, (0)::numeric) >= (1)::numeric)) AS success_count,
+        CASE
+            WHEN (count(t.id) = 0) THEN NULL::numeric
+            ELSE ((count(t.id) FILTER (WHERE (COALESCE(t.reward, (0)::numeric) >= (1)::numeric)))::numeric / (count(t.id))::numeric)
+        END AS pass_rate,
+    avg(t.runtime_seconds) AS avg_runtime_seconds,
+    percentile_cont((0.5)::double precision) WITHIN GROUP (ORDER BY ((t.runtime_seconds)::double precision)) AS median_runtime_seconds,
+    sum(t.cost_usd) AS trial_cost_usd,
+    count(t.cost_usd) AS cost_row_count,
+    count(t.id) FILTER (WHERE (t.cost_usd IS NULL)) AS missing_cost_count
+   FROM (benchmark.benchmark_tasks task
+     LEFT JOIN benchmark.benchmark_trials t ON ((t.task_id = task.task_id)))
+  GROUP BY task.task_id, task.benchmark, task.benchmark_version, task.task_name, task.active;"
+benchmark,v_run_artifact_summary," SELECT run_id,
+    count(*) AS artifact_count,
+    sum(size_bytes) AS artifact_size_bytes,
+    count(*) FILTER (WHERE (r2_uri IS NOT NULL)) AS r2_artifact_count
+   FROM benchmark.benchmark_artifacts
+  GROUP BY run_id;"
+benchmark,v_run_audit_summary," SELECT run_id,
+    count(*) AS audit_count,
+    count(*) FILTER (WHERE (audit_status = 'pass'::text)) AS audit_pass_count,
+    count(*) FILTER (WHERE (audit_status <> 'pass'::text)) AS audit_nonpass_count,
+    sum(websearch_events) AS websearch_events,
+    sum(webfetch_events) AS webfetch_events,
+    sum(forbidden_tools_available) AS forbidden_tools_available
+   FROM benchmark.contamination_audits
+  GROUP BY run_id;"
+benchmark,v_run_trial_summary," SELECT run_id,
+    count(*) AS trial_count,
+    count(*) FILTER (WHERE (COALESCE(reward, (0)::numeric) >= (1)::numeric)) AS success_count,
+    count(*) FILTER (WHERE (COALESCE(reward, (0)::numeric) < (1)::numeric)) AS failure_count,
+    avg(runtime_seconds) AS avg_runtime_seconds,
+    percentile_cont((0.5)::double precision) WITHIN GROUP (ORDER BY ((runtime_seconds)::double precision)) AS median_runtime_seconds,
+    sum(cost_usd) AS trial_cost_usd,
+    count(cost_usd) AS cost_row_count,
+    count(*) FILTER (WHERE (cost_usd IS NULL)) AS missing_cost_count,
+    sum(input_tokens) AS input_tokens,
+    sum(cache_tokens) AS cache_tokens,
+    sum(output_tokens) AS output_tokens
+   FROM benchmark.benchmark_trials
+  GROUP BY run_id;"
