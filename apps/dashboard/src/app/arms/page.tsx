@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { AppShell } from "../../components/AppShell";
 import { getArmRows } from "../../lib/dashboard-data";
+import { buildArtifactHref } from "../../lib/links";
 import { formatRecordedCost, formatCurrency, formatNumber, formatPercent, formatSeconds } from "../../lib/format";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +20,7 @@ export default async function ArmsPage() {
           <table>
             <thead>
               <tr>
-                <th>Arm</th>
+                <th className="sticky-id-column">Arm</th>
                 <th>Runs</th>
                 <th>Trials</th>
                 <th>Successes</th>
@@ -30,7 +32,14 @@ export default async function ArmsPage() {
             <tbody>
               {arms.map((row) => (
                 <tr key={row.arm_id}>
-                  <td className="mono">{row.arm_id}</td>
+                  <td className="sticky-id-column">
+                    <div className="mono">{row.arm_id}</div>
+                    <div className="row-action-links">
+                      <Link href={`/trial-quality?arm_id=${encodeURIComponent(row.arm_id)}`}>Trial quality</Link>
+                      <Link href={buildArtifactHref({ arm_id: row.arm_id })}>Artifacts</Link>
+                      <Link href="/runs">Runs</Link>
+                    </div>
+                  </td>
                   <td>{formatNumber(row.run_count)}</td>
                   <td>{formatNumber(row.trial_count)}</td>
                   <td>{formatNumber(row.success_count)}</td>

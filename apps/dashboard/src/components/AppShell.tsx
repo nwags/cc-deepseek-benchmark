@@ -5,6 +5,7 @@ const navItems = [
   { href: "/architecture", label: "Architecture" },
   { href: "/glossary", label: "Glossary" },
   { href: "/trial-quality", label: "Trial Quality" },
+  { href: "/cross-phase", label: "Cross-phase" },
   { href: "/eval-suites", label: "Eval Suites" },
   { href: "/evals", label: "Evals" },
   { href: "/runs", label: "Runs" },

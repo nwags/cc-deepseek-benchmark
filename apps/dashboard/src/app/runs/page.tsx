@@ -60,7 +60,7 @@ function RunsTable({
       <table>
         <thead>
           <tr>
-            <th>Run</th>
+            <th className="sticky-id-column">Run</th>
             <th>Suite</th>
             <th>Mode</th>
             <th>Validity</th>
@@ -79,9 +79,14 @@ function RunsTable({
             const invalidRow = invalidByRun.get(row.run_label);
             return (
               <tr key={row.arm_run_id}>
-                <td>
+                <td className="sticky-id-column">
                   <Link href={`/runs/${encodeURIComponent(row.run_label)}`}>{row.arm_id}</Link>
                   <div className="mono">{row.run_label}</div>
+                  <div className="row-action-links">
+                    <Link href={`/runs/${encodeURIComponent(row.run_label)}`}>Run detail</Link>
+                    <Link href={`/trial-quality?run_label=${encodeURIComponent(row.run_label)}`}>Trial quality</Link>
+                    <Link href={buildArtifactHref({ run_label: row.run_label })}>Artifacts</Link>
+                  </div>
                 </td>
                 <td className="mono">{row.suite_id ?? "—"}</td>
                 <td>{row.logical_mode}{row.storage_mode ? ` / ${row.storage_mode}` : ""}</td>

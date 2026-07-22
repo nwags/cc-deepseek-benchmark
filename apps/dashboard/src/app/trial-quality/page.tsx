@@ -223,8 +223,8 @@ export default async function TrialQualityPage({
           <table>
             <thead>
               <tr>
+                <th className="sticky-id-column">Arm run</th>
                 <th>Mode</th>
-                <th>Arm run</th>
                 <th>Validity</th>
                 <th>Raw pass</th>
                 <th>Qualified pass</th>
@@ -240,11 +240,15 @@ export default async function TrialQualityPage({
                 const invalidRow = invalidByRun.get(row.run_label);
                 return (
                   <tr key={row.run_label}>
-                    <td>{modeLabel(row.logical_mode, row.storage_mode)}</td>
-                    <td>
+                    <td className="sticky-id-column">
                       <Link href={`/runs/${encodeURIComponent(row.run_label)}`}>{row.run_label}</Link>
                       {row.suite_id ? <div className="muted">{row.suite_id}</div> : null}
+                      <div className="row-action-links">
+                        <Link href={`/runs/${encodeURIComponent(row.run_label)}`}>Run detail</Link>
+                        <Link href={buildArtifactHref({ run_label: row.run_label })}>Artifacts</Link>
+                      </div>
                     </td>
+                    <td>{modeLabel(row.logical_mode, row.storage_mode)}</td>
                     <td>
                       <ValidityBadge row={invalidRow} />
                       {invalidRow ? (

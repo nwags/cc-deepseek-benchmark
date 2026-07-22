@@ -205,7 +205,7 @@ export default async function ArtifactsPage({
             <table>
               <thead>
                 <tr>
-                  <th>Artifact</th>
+                  <th className="sticky-id-column">Artifact</th>
                   <th>Context</th>
                   <th>Quality</th>
                   <th>Size</th>
@@ -218,9 +218,14 @@ export default async function ArtifactsPage({
                   const invalidRow = invalidByRun.get(row.run_label);
                   return (
                     <tr key={row.artifact_id}>
-                      <td>
+                      <td className="sticky-id-column">
                         <div className="mono" title={row.artifact_path}>{compactPath(row.artifact_path)}</div>
                         <div className="muted">{row.artifact_type ?? "unknown"} · {row.created_at ?? "unknown date"}</div>
+                        <div className="row-action-links">
+                          <Link href={`/artifacts/${row.artifact_id}`}>View artifact</Link>
+                          {row.trial_id ? <Link href={`/trials/${row.trial_id}`}>Trial evidence</Link> : null}
+                          <Link href={`/runs/${encodeURIComponent(row.run_label)}`}>Run detail</Link>
+                        </div>
                       </td>
                       <td>
                         <Link href={`/runs/${encodeURIComponent(row.run_label)}`}>{row.run_label}</Link>
