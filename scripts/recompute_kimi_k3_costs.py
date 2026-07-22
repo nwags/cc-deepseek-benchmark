@@ -54,12 +54,14 @@ def iter_objects(value: Any, path: str = "$") -> Iterable[tuple[str, dict[str, A
 
 
 def file_role(path: Path) -> str:
-    parts = path.parts
-    if any("__" in part for part in parts):
+    if path.name != "result.json":
+        return "unknown"
+
+    parent = path.parent.name
+    if "__" in parent and not parent.startswith("2026-"):
         return "trial_result"
-    if path.name == "result.json":
-        return "run_result"
-    return "unknown"
+
+    return "run_result"
 
 
 def main() -> int:
@@ -136,13 +138,13 @@ def main() -> int:
                     "n_input_tokens": n_input,
                     "n_cache_tokens": n_cache,
                     "n_output_tokens": n_output,
-                    "observed_cost_usd": "" if observed is None else f"{observed:.12f}",
+                    "observed_cost_usd": "NA" if observed is None else f"{observed:.12f}",
                     "official_k3_if_input_includes_cache_usd": f"{official_if_input_includes_cache:.12f}",
                     "official_k3_if_input_excludes_cache_usd": f"{official_if_input_excludes_cache:.12f}",
-                    "delta_observed_vs_includes_cache_usd": ""
+                    "delta_observed_vs_includes_cache_usd": "NA"
                     if observed is None
                     else f"{observed - official_if_input_includes_cache:.12f}",
-                    "delta_observed_vs_excludes_cache_usd": ""
+                    "delta_observed_vs_excludes_cache_usd": "NA"
                     if observed is None
                     else f"{observed - official_if_input_excludes_cache:.12f}",
                 }
