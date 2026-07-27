@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "../../../components/AppShell";
+import { ArtifactTypeLabel, ArtifactTypesReference } from "../../../components/ArtifactTypeInfo";
 import { QualityBadge, buildSuspectNoopHref } from "../../../components/QualityContext";
 import { InvalidReason, ValidityBadge } from "../../../components/ValidityContext";
 import {
@@ -76,7 +77,7 @@ export default async function ArtifactDetailPage({
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <h2 className="mono">{artifact.artifact_type ?? "artifact"}</h2>
+            <h2><ArtifactTypeLabel artifactType={artifact.artifact_type ?? "artifact"} /></h2>
             <p>
               <Link href={buildArtifactHref({ run_label: artifact.run_label, task_id: artifact.task_id })}>
                 Back to filtered artifacts
@@ -119,6 +120,8 @@ export default async function ArtifactDetailPage({
           </div>
         </section>
       ) : null}
+
+      <ArtifactTypesReference />
 
       <section className="panel">
         <div className="panel-heading">
@@ -174,7 +177,7 @@ export default async function ArtifactDetailPage({
         {taskInstruction.text ? (
           <pre className="content-preview content-preview-compact">{taskInstruction.text}</pre>
         ) : (
-          <div className="placeholder-body">Task text is not ingested yet.</div>
+          <div className="placeholder-body">No task instruction text is available in this dashboard context.</div>
         )}
       </section>
 
@@ -212,7 +215,7 @@ export default async function ArtifactDetailPage({
                 {relatedArtifacts.map((row) => (
                   <tr key={row.artifact_id}>
                     <td>
-                      <div>{row.artifact_type ?? "unknown"}</div>
+                      <div><ArtifactTypeLabel artifactType={row.artifact_type} /></div>
                       <div className="mono" title={row.local_path ?? row.r2_uri ?? row.artifact_id}>
                         {compactPath(row.local_path ?? row.r2_uri ?? row.artifact_id)}
                       </div>

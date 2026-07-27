@@ -454,7 +454,7 @@ export async function previewArtifactContent(
 
 export async function getTaskInstructionPreview(taskId: string | null | undefined): Promise<TaskInstructionPreview> {
   if (!taskId) {
-    return { available: false, text: null, path: null, message: "Task text is not ingested yet." };
+    return { available: false, text: null, path: null, message: "No task id is attached, so task instructions cannot be resolved." };
   }
 
   if (!TASK_TEXT_PREVIEW_ENABLED) {
@@ -462,13 +462,13 @@ export async function getTaskInstructionPreview(taskId: string | null | undefine
       available: false,
       text: null,
       path: null,
-      message: "Task text is not ingested yet. Optional local task text preview is disabled."
+      message: "Task instructions are not stored in the dashboard database. Enable local preview with DASHBOARD_ENABLE_LOCAL_TASK_TEXT_PREVIEW=1 and DASHBOARD_TASK_TEXT_CACHE_DIR pointing at the Terminal-Bench task directory."
     };
   }
 
   const slug = taskId.includes(":") ? taskId.split(":").at(-1) : taskId;
   if (!slug || !/^[a-zA-Z0-9._-]+$/.test(slug)) {
-    return { available: false, text: null, path: null, message: "Task text is not ingested yet." };
+    return { available: false, text: null, path: null, message: "Task id could not be mapped to a safe local task directory." };
   }
 
   const root = taskTextCacheRoot();
@@ -484,6 +484,6 @@ export async function getTaskInstructionPreview(taskId: string | null | undefine
       message: "Loaded from local task text cache."
     };
   } catch {
-    return { available: false, text: null, path: null, message: "Task text is not ingested yet." };
+    return { available: false, text: null, path: null, message: "No local instruction.md was found for this task. Set DASHBOARD_TASK_TEXT_CACHE_DIR to the Terminal-Bench task directory or ingest task instructions." };
   }
 }
