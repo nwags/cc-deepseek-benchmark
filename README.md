@@ -5,10 +5,10 @@ Benchmarking Claude Code model/provider backends on Terminal-Bench 2.0 using Har
 Current active branch:
 
 ```text
-phase3
+main
 ```
 
-This branch starts the Phase 3 repository refactor and router-mediated provider expansion. Phase 1 and Phase 2 are treated as frozen benchmark baselines.
+`main` is active again after the Phase 3 closeout merge. Phase 1 and Phase 2 remain frozen benchmark baselines. Phase 3 and post-Phase-3 addendum outputs are preserved under phase-specific result and report paths.
 
 ## Project question
 
@@ -49,33 +49,37 @@ harbor run --dataset terminal-bench@2.0
 - Harbor: 0.6.6
 - Dataset: terminal-bench@2.0
 
-## Current branch: Phase 3
+## Current branch: main after Phase 3 closeout
 
-The current `phase3` branch is for:
+The active development branch is `main`. Use short-lived feature branches for dashboard cleanup, manual verification, addendum ingestion, and follow-on benchmark work.
+
+Phase 3 introduced:
 
 * repo housekeeping and collaboration-oriented refactoring
 * config-driven phase/arm execution
 * router-mediated Claude Code provider expansion
-* future Gemini, OpenAI, and xAI/Grok experiments through a router/gateway
-* preserving Phase 1 and Phase 2 results while making future phases easier to delegate
+* Gemini, OpenAI, xAI/Grok, Kimi, Qwen, GLM, and Anthropic router arms
+* dashboard, Supabase, R2, cost coverage, and qualitative audit scaffolding
 
-Phase 3 results should be written under:
+Phase 3 results remain under:
 
 ```text
 results/phase3/
 ```
 
-Phase 3 reports should be written under:
+Phase 3 reports remain under:
 
 ```text
 docs/reports/phase3/
 ```
 
-Phase 3 plans should be written under:
+Phase 3 plans remain under:
 
 ```text
 docs/plans/phase3/
 ```
+
+Post-Phase-3 addendum arms, such as Kimi K3, may also use the Phase-3-compatible router harness and reporting structure. Dashboard visibility depends on whether the run artifacts have been ingested into the dashboard database/R2 layer.
 
 ## Phase 1: frozen baseline
 
@@ -283,7 +287,7 @@ For example, a report under `docs/reports/phase2/` should reference a Phase 2 fi
 
 ## Configuration
 
-Phase 3 is migrating the repo toward config-driven runs.
+The repo uses config-driven run definitions introduced during Phase 3.
 
 Configuration directories:
 
@@ -373,7 +377,7 @@ Do not rerun a full benchmark sweep just to regenerate tables.
 
 ## Run a benchmark arm
 
-The intended Phase 3 command shape is:
+The config-driven benchmark command shape is:
 
 ```bash
 ./scripts/run_arm.sh <phase> <arm>
@@ -484,8 +488,9 @@ docs/runbooks/REPO_MAP.md
 ## Notes for contributors
 
 * Phase 1 and Phase 2 are frozen.
-* Phase 3 is active.
+* `main` is active again after the Phase 3 closeout merge.
 * Keep outputs phase-specific.
+* Treat Kimi K3 as a post-Phase-3 addendum unless a later phase explicitly supersedes it.
 * Keep secrets out of Git.
 * Do not conflate smoke/canary runs with scored sweeps.
 * Prefer config-driven additions over one-off scripts.

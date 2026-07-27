@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "../../../components/AppShell";
+import { ArtifactTypeLabel } from "../../../components/ArtifactTypeInfo";
 import { InvalidReason, ValidityBadge } from "../../../components/ValidityContext";
 import { buildSuspectNoopHref } from "../../../components/QualityContext";
 import {
@@ -166,7 +167,7 @@ export default async function TrialEvidencePage({
                 {artifacts.map((artifact) => (
                   <tr key={artifact.artifact_id}>
                     <td>
-                      <div>{artifact.artifact_type ?? "unknown"}</div>
+                      <div><ArtifactTypeLabel artifactType={artifact.artifact_type} /></div>
                       <div className="mono" title={artifact.local_path ?? artifact.r2_uri ?? artifact.artifact_id}>
                         {compactPath(artifact.local_path ?? artifact.r2_uri ?? artifact.artifact_id)}
                       </div>
@@ -193,7 +194,7 @@ export default async function TrialEvidencePage({
         {taskInstruction.text ? (
           <pre className="content-preview content-preview-compact">{taskInstruction.text}</pre>
         ) : (
-          <div className="placeholder-body">Task text is not ingested yet.</div>
+          <div className="placeholder-body">No task instruction text is available in this dashboard context.</div>
         )}
       </section>
     </AppShell>

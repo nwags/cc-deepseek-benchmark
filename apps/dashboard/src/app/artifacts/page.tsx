@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AppShell } from "../../components/AppShell";
+import { ArtifactTypeLabel, ArtifactTypesReference } from "../../components/ArtifactTypeInfo";
 import { ValidityBadge } from "../../components/ValidityContext";
 import { buildSuspectNoopHref } from "../../components/QualityContext";
 import {
@@ -188,6 +189,8 @@ export default async function ArtifactsPage({
         </section>
       ) : null}
 
+      <ArtifactTypesReference />
+
       <section className="panel">
         <div className="panel-heading">
           <div>
@@ -220,7 +223,7 @@ export default async function ArtifactsPage({
                     <tr key={row.artifact_id}>
                       <td className="sticky-id-column">
                         <div className="mono" title={row.artifact_path}>{compactPath(row.artifact_path)}</div>
-                        <div className="muted">{row.artifact_type ?? "unknown"} · {row.created_at ?? "unknown date"}</div>
+                        <div className="muted"><ArtifactTypeLabel artifactType={row.artifact_type} /> · {row.created_at ?? "unknown date"}</div>
                         <div className="row-action-links">
                           <Link href={`/artifacts/${row.artifact_id}`}>View artifact</Link>
                           {row.trial_id ? <Link href={`/trials/${row.trial_id}`}>Trial evidence</Link> : null}
