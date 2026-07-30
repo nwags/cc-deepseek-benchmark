@@ -13,6 +13,21 @@ python -m py_compile scripts/generate_phase3_qualitative_audit.py
 python -m py_compile scripts/classify_phase3_exception_artifacts.py
 python -m py_compile scripts/classify_phase3_normal_failures.py
 python -m py_compile scripts/run_qualitative_reporting.py
+python -m py_compile scripts/ingest_phase3_run_metadata.py
+python -m py_compile scripts/run_arm_live.py
+python -m py_compile scripts/publish_phase3_run.py
+python -m py_compile scripts/apply_live_supervision_migration.py
+python -m py_compile scripts/verify_live_supervision_postgres.py
+python -m py_compile scripts/lib/live_events.py
+python -m py_compile scripts/lib/live_db.py
+python -m py_compile scripts/lib/canonical_publication.py
+python -m py_compile scripts/lib/live_artifacts.py
+python -m py_compile scripts/lib/live_supervision.py
+python -m py_compile scripts/lib/live_verification.py
+python -m py_compile scripts/lib/path_safety.py
+python -m py_compile scripts/lib/phase3_freeze.py
+python -m py_compile scripts/lib/publication_fingerprint.py
+python -m py_compile scripts/lib/publication_eligibility.py
 
 bash -n scripts/run_arm.sh
 bash -n scripts/check.sh

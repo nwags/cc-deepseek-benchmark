@@ -47,6 +47,41 @@ on:
         description: "Optional label for ad-hoc diagnostics"
         required: false
         default: ""
+      supervise_live:
+        description: "Publish observable live state while the benchmark runs"
+        required: true
+        type: boolean
+        default: true
+      publish_results:
+        description: "Publish finalized results; disabled after Phase 3 closeout"
+        required: true
+        type: boolean
+        default: false
+      progressive_artifacts:
+        description: "Upload stable completed-trial artifacts while running"
+        required: true
+        type: boolean
+        default: false
+      authorize_phase3_repair:
+        description: "Authorize canonical repair publication into a closed Phase 3 suite"
+        required: true
+        type: boolean
+        default: false
+      runner_label:
+        description: "Optional benchmark runner pool, VPS, or specific slot"
+        required: true
+        type: choice
+        options:
+          - cc-bench
+          - cc-bench-vps1
+          - cc-bench-vps2
+          - cc-bench-slot-1
+          - cc-bench-slot-2
+          - cc-bench-slot-3
+          - cc-bench-slot-4
+          - cc-bench-slot-5
+          - cc-bench-slot-6
+        default: cc-bench
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
@@ -57,7 +92,11 @@ permissions:
 
 jobs:
   run-arm:
-    runs-on: [self-hosted, Linux, X64, phase3]
+    runs-on:
+      - self-hosted
+      - Linux
+      - X64
+      - ${{ inputs.runner_label }}
     timeout-minutes: 2880
 
     steps:
@@ -80,6 +119,10 @@ jobs:
           TASK_ID: ${{ inputs.task_id }}
           TASK_FILE: ${{ inputs.task_file }}
           AD_HOC_LABEL: ${{ inputs.ad_hoc_label }}
+          SUPERVISE_LIVE: ${{ inputs.supervise_live }}
+          PUBLISH_RESULTS: ${{ inputs.publish_results }}
+          PROGRESSIVE_ARTIFACTS: ${{ inputs.progressive_artifacts }}
+          AUTHORIZE_PHASE3_REPAIR: ${{ inputs.authorize_phase3_repair }}
         run: |
           set -euo pipefail
 
@@ -90,6 +133,10 @@ jobs:
           echo "task_id=${TASK_ID}"
           echo "task_file=${TASK_FILE}"
           echo "ad_hoc_label=${AD_HOC_LABEL}"
+          echo "supervise_live=${SUPERVISE_LIVE}"
+          echo "publish_results=${PUBLISH_RESULTS}"
+          echo "progressive_artifacts=${PROGRESSIVE_ARTIFACTS}"
+          echo "authorize_phase3_repair=${AUTHORIZE_PHASE3_REPAIR}"
 
           if [[ -n "$TASK_ID" && -n "$TASK_FILE" ]]; then
             echo "Refusing ambiguous ad-hoc request: task_id and task_file are mutually exclusive."
@@ -105,7 +152,53 @@ jobs:
             exit 2
           fi
 
+          if [[ "$DRY_RUN" != "true" && "$PROGRESSIVE_ARTIFACTS" == "true" && "$SUPERVISE_LIVE" != "true" ]]; then
+            echo "progressive_artifacts requires supervise_live for a paid run."
+            exit 2
+          fi
+
+          if [[ "$DRY_RUN" != "true" && "$PROGRESSIVE_ARTIFACTS" == "true" && "$PUBLISH_RESULTS" != "true" ]]; then
+            echo "progressive_artifacts requires publish_results for a paid run."
+            exit 2
+          fi
+
+          if [[ "$DRY_RUN" != "true" && "$PUBLISH_RESULTS" == "true" && -z "$TASK_ID" && -z "$TASK_FILE" && -z "$AD_HOC_LABEL" && "$AUTHORIZE_PHASE3_REPAIR" != "true" ]]; then
+            echo "Canonical publication into completed Phase 3 suites requires authorize_phase3_repair."
+            exit 2
+          fi
+
           test -f "configs/arms/${ARM_ID}.yaml"
+
+      - name: Validate live publication secrets
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          SUPERVISE_LIVE: ${{ inputs.supervise_live }}
+          PUBLISH_RESULTS: ${{ inputs.publish_results }}
+          PROGRESSIVE_ARTIFACTS: ${{ inputs.progressive_artifacts }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_REGION: ${{ secrets.R2_REGION }}
+        run: |
+          set -euo pipefail
+
+          missing=()
+          if [[ "$SUPERVISE_LIVE" == "true" || ( "$DRY_RUN" != "true" && "$PUBLISH_RESULTS" == "true" ) ]]; then
+            [[ -n "$SUPABASE_DB_URL" ]] || missing+=(SUPABASE_DB_URL)
+          fi
+
+          if [[ "$DRY_RUN" != "true" && "$PUBLISH_RESULTS" == "true" ]]; then
+            for name in R2_BUCKET R2_ENDPOINT_URL R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_REGION; do
+              [[ -n "${!name}" ]] || missing+=("$name")
+            done
+          fi
+
+          if (( ${#missing[@]} )); then
+            printf 'Missing required GitHub Actions secrets: %s\n' "${missing[*]}"
+            exit 2
+          fi
 
       - name: Check repo
         run: |
@@ -229,7 +322,119 @@ jobs:
           set -euxo pipefail
           ./scripts/ensure_arm_runtime_services.sh "${{ inputs.arm_id }}"
 
+      - name: Prepare live execution context
+        id: live-context
+        env:
+          ARM_ID: ${{ inputs.arm_id }}
+          MODE: ${{ inputs.mode }}
+          N_ATTEMPTS: ${{ inputs.n_attempts }}
+          TASK_ID: ${{ inputs.task_id }}
+          TASK_FILE: ${{ inputs.task_file }}
+          AD_HOC_LABEL: ${{ inputs.ad_hoc_label }}
+          SUPERVISE_LIVE: ${{ inputs.supervise_live }}
+        run: |
+          set -euo pipefail
+
+          live_run_id="$(
+            python - <<'PY'
+          import os
+          from scripts.lib.live_events import deterministic_live_run_id
+
+          print(
+              deterministic_live_run_id(
+                  github_run_id=os.environ["GITHUB_RUN_ID"],
+                  github_run_attempt=os.environ["GITHUB_RUN_ATTEMPT"],
+                  runner_name=os.environ["RUNNER_NAME"],
+                  arm_id=os.environ["ARM_ID"],
+                  mode=os.environ["MODE"],
+              )
+          )
+          PY
+          )"
+          echo "live_run_id=${live_run_id}" >> "$GITHUB_OUTPUT"
+
+          expected_trial_count="$(
+            python - <<'PY'
+          import os
+
+          from scripts.lib.arms import load_phase
+          from scripts.lib.harbor import is_ad_hoc_run, resolve_task_selection
+
+          phase = load_phase("phase3-router")
+          mode = os.environ["MODE"]
+          task_id = os.environ.get("TASK_ID") or None
+          task_file = os.environ.get("TASK_FILE") or None
+          ad_hoc_label = os.environ.get("AD_HOC_LABEL") or None
+          tasks, _source = resolve_task_selection(phase, mode, task_id, task_file)
+          ad_hoc = is_ad_hoc_run(task_id, task_file, ad_hoc_label)
+          attempts = (
+              int(os.environ["N_ATTEMPTS"])
+              if os.environ.get("N_ATTEMPTS")
+              else (1 if mode in {"canary", "smoke"} or ad_hoc else int(phase.get("n_attempts", 3)))
+          )
+          print(len(tasks) * attempts)
+          PY
+          )"
+          echo "expected_trial_count=${expected_trial_count}" >> "$GITHUB_OUTPUT"
+
+          LIVE_RUN_ID="$live_run_id" EXPECTED_TRIAL_COUNT="$expected_trial_count" python - <<'PY'
+          import json
+          import os
+          import time
+          from pathlib import Path
+
+          from scripts.lib.live_artifacts import normalize_watch_roots, snapshot_run_dirs
+          from scripts.lib.live_events import workspace_metadata
+          from scripts.lib.path_safety import (
+              ensure_workspace_directory,
+              ensure_workspace_output_path,
+              resolved_workspace,
+          )
+
+          workspace = resolved_workspace(Path(os.environ["GITHUB_WORKSPACE"]))
+          arm_id = os.environ["ARM_ID"]
+          mode = os.environ["MODE"]
+          storage_mode = "raw" if mode == "full" else mode
+          roots = normalize_watch_roots(
+              [
+                  workspace / "results" / "phase3" / storage_mode / f"arm-{arm_id}",
+                  workspace / "results" / "phase3" / "ad-hoc",
+              ],
+              workspace,
+          )
+          publish_dir = ensure_workspace_directory(
+              workspace / ".run" / "publish",
+              workspace=workspace,
+              create=True,
+              label="publication context directory",
+          )
+          context = {
+              "live_run_id": os.environ["LIVE_RUN_ID"],
+              "arm_id": arm_id,
+              "phase": "phase3",
+              "mode": mode,
+              "expected_trial_count": int(os.environ["EXPECTED_TRIAL_COUNT"]),
+              "github_run_id": os.environ["GITHUB_RUN_ID"],
+              "github_run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
+              "github_job": os.environ["GITHUB_JOB"],
+              "runner_name": os.environ["RUNNER_NAME"],
+              **workspace_metadata(workspace),
+              "watch_roots": [path.relative_to(workspace).as_posix() for path in roots],
+              "baseline_run_dirs": list(snapshot_run_dirs(roots, workspace=workspace)),
+              "started_after_epoch": time.time(),
+          }
+          path = ensure_workspace_output_path(
+              publish_dir
+              / f"{os.environ['LIVE_RUN_ID']}.discovery-context.json",
+              workspace=workspace,
+              label="publication discovery context",
+          )
+          path.write_text(json.dumps(context, indent=2, sort_keys=True) + "\n")
+          PY
+
       - name: Run configured arm
+        id: benchmark
+        continue-on-error: true
         env:
           ARM_ID: ${{ inputs.arm_id }}
           MODE: ${{ inputs.mode }}
@@ -239,8 +444,21 @@ jobs:
           TASK_ID: ${{ inputs.task_id }}
           TASK_FILE: ${{ inputs.task_file }}
           AD_HOC_LABEL: ${{ inputs.ad_hoc_label }}
+          SUPERVISE_LIVE: ${{ inputs.supervise_live }}
+          PUBLISH_RESULTS: ${{ inputs.publish_results }}
+          PROGRESSIVE_ARTIFACTS: ${{ inputs.progressive_artifacts }}
+          LIVE_RUN_ID: ${{ steps.live-context.outputs.live_run_id }}
+          EXPECTED_TRIAL_COUNT: ${{ steps.live-context.outputs.expected_trial_count }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_REGION: ${{ secrets.R2_REGION }}
+          R2_PREFIX: ${{ secrets.R2_PREFIX }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
         run: |
-          set -euxo pipefail
+          set -euo pipefail
 
           cmd=(./scripts/run_arm.sh phase3-router "$ARM_ID" --mode "$MODE")
 
@@ -268,7 +486,140 @@ jobs:
             cmd+=(--dry-run)
           fi
 
-          "${cmd[@]}"
+          launch=("${cmd[@]}")
+          if [[ "$SUPERVISE_LIVE" == "true" ]]; then
+            supervisor=(
+              uv run --with boto3 --with 'psycopg[binary]'
+              python scripts/run_arm_live.py
+              --arm-id "$ARM_ID"
+              --phase phase3
+              --mode "$MODE"
+              --live-run-id "$LIVE_RUN_ID"
+              --github-run-id "$GITHUB_RUN_ID"
+              --github-run-attempt "$GITHUB_RUN_ATTEMPT"
+              --github-job "$GITHUB_JOB"
+              --runner-name "$RUNNER_NAME"
+              --workspace "$GITHUB_WORKSPACE"
+              --live-dir .run/live
+              --expected-trial-count "$EXPECTED_TRIAL_COUNT"
+              --database-events
+            )
+
+            if [[ "$DRY_RUN" == "true" ]]; then
+              supervisor+=(--dry-run-metadata --no-scored --no-progressive-artifacts)
+            elif [[ -n "$TASK_ID" || -n "$TASK_FILE" || -n "$AD_HOC_LABEL" ]]; then
+              supervisor+=(--run-kind ad-hoc --no-scored)
+            else
+              supervisor+=(--run-kind "$MODE" --scored)
+            fi
+
+            if [[ "$DRY_RUN" != "true" && "$PUBLISH_RESULTS" == "true" ]]; then
+              supervisor+=(--canonical-publication-expected)
+              if [[ "$PROGRESSIVE_ARTIFACTS" == "true" ]]; then
+                supervisor+=(--progressive-artifacts)
+              fi
+            fi
+
+            launch=("${supervisor[@]}" -- "${cmd[@]}")
+          fi
+
+          set +e
+          "${launch[@]}"
+          benchmark_exit_code=$?
+          set -e
+          echo "benchmark_exit_code=${benchmark_exit_code}" >> "$GITHUB_OUTPUT"
+          exit "$benchmark_exit_code"
+
+      - name: Publish final canonical run
+        id: publication
+        if: ${{ always() && inputs.publish_results }}
+        env:
+          ARM_ID: ${{ inputs.arm_id }}
+          MODE: ${{ inputs.mode }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          TASK_ID: ${{ inputs.task_id }}
+          TASK_FILE: ${{ inputs.task_file }}
+          AD_HOC_LABEL: ${{ inputs.ad_hoc_label }}
+          SUPERVISE_LIVE: ${{ inputs.supervise_live }}
+          AUTHORIZE_PHASE3_REPAIR: ${{ inputs.authorize_phase3_repair }}
+          LIVE_RUN_ID: ${{ steps.live-context.outputs.live_run_id }}
+          EXPECTED_TRIAL_COUNT: ${{ steps.live-context.outputs.expected_trial_count }}
+          BENCHMARK_EXIT_CODE: ${{ steps.benchmark.outputs.benchmark_exit_code }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_REGION: ${{ secrets.R2_REGION }}
+          R2_PREFIX: ${{ secrets.R2_PREFIX }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+
+          publish_mode="$MODE"
+          if [[ -n "$TASK_ID" || -n "$TASK_FILE" || -n "$AD_HOC_LABEL" ]]; then
+            publish_mode="ad-hoc"
+          fi
+          benchmark_status="failed"
+          if [[ "${BENCHMARK_EXIT_CODE:-1}" == "0" ]]; then
+            benchmark_status="completed"
+          elif [[ "${BENCHMARK_EXIT_CODE:-1}" == "130" || "${BENCHMARK_EXIT_CODE:-1}" == "143" ]]; then
+            benchmark_status="interrupted"
+          fi
+
+          cmd=(
+            uv run --with boto3 --with 'psycopg[binary]'
+            python scripts/publish_phase3_run.py
+            --arm-id "$ARM_ID"
+            --mode "$publish_mode"
+            --phase phase3
+            --github-run-id "$GITHUB_RUN_ID"
+            --github-run-attempt "$GITHUB_RUN_ATTEMPT"
+            --github-job "$GITHUB_JOB"
+            --runner-name "$RUNNER_NAME"
+            --benchmark-status "$benchmark_status"
+            --workspace "$GITHUB_WORKSPACE"
+            --discovery-context ".run/publish/${LIVE_RUN_ID}.discovery-context.json"
+            --expected-trial-count "$EXPECTED_TRIAL_COUNT"
+          )
+          if [[ "$SUPERVISE_LIVE" == "true" ]]; then
+            cmd+=(--live-run-id "$LIVE_RUN_ID")
+          fi
+          if [[ "$AUTHORIZE_PHASE3_REPAIR" == "true" ]]; then
+            cmd+=(--authorize-phase3-repair)
+          fi
+          if [[ "$DRY_RUN" == "true" ]]; then
+            cmd+=(--dry-run)
+          fi
+
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          from scripts.lib.path_safety import (
+              ensure_workspace_directory,
+              ensure_workspace_output_path,
+          )
+
+          workspace = Path(os.environ["GITHUB_WORKSPACE"])
+          publish_dir = ensure_workspace_directory(
+              workspace / ".run" / "publish",
+              workspace=workspace,
+              create=True,
+              label="publication directory",
+          )
+          ensure_workspace_output_path(
+              publish_dir / f"{os.environ['LIVE_RUN_ID']}.log",
+              workspace=workspace,
+              label="publication log",
+          )
+          PY
+          set +e
+          "${cmd[@]}" 2>&1 | tee ".run/publish/${LIVE_RUN_ID}.log"
+          publication_exit_code=${PIPESTATUS[0]}
+          set -e
+          echo "publication_exit_code=${publication_exit_code}" >> "$GITHUB_OUTPUT"
+          exit 0
 
       - name: List generated run files
         if: ${{ always() && inputs.dry_run == false }}
@@ -302,9 +653,47 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+      - name: Upload live supervision evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-${{ inputs.arm_id }}-${{ inputs.mode }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .run/live/*.ndjson
+            .run/live/latest.json
+            .run/live/*.context.json
+            .run/live/*.database-spool.ndjson
+            .run/publish/*.json
+            .run/publish/*.log
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Show LiteLLM log on failure
-        if: ${{ failure() }}
+        if: ${{ always() && steps.benchmark.outcome == 'failure' }}
         run: |
           set +e
           tail -160 .run/litellm/litellm.log || true
           tail -160 .run/anthropic-sanitizer/sanitizer.log || true
+
+      - name: Enforce benchmark and publication outcomes
+        if: ${{ always() }}
+        env:
+          BENCHMARK_EXIT_CODE: ${{ steps.benchmark.outputs.benchmark_exit_code }}
+          PUBLICATION_EXIT_CODE: ${{ steps.publication.outputs.publication_exit_code }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          PUBLISH_RESULTS: ${{ inputs.publish_results }}
+        run: |
+          set -euo pipefail
+
+          benchmark_exit_code="${BENCHMARK_EXIT_CODE:-1}"
+          publication_exit_code="${PUBLICATION_EXIT_CODE:-0}"
+          echo "benchmark_outcome_exit_code=${benchmark_exit_code}"
+          echo "canonical_publication_exit_code=${publication_exit_code}"
+
+          if [[ "$benchmark_exit_code" != "0" ]]; then
+            exit "$benchmark_exit_code"
+          fi
+
+          if [[ "$DRY_RUN" != "true" && "$PUBLISH_RESULTS" == "true" && "$publication_exit_code" != "0" ]]; then
+            exit "$publication_exit_code"
+          fi
