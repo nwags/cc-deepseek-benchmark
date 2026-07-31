@@ -239,3 +239,115 @@ def test_paid_runs_receive_only_the_selected_provider_secret() -> None:
 
             assert conditional in paid_step
             assert unconditional not in paid_step
+
+
+def test_v2_scopes_infrastructure_secrets_to_required_modes() -> None:
+    text = (
+        WORKFLOW_DIR / "phase3-arm-dispatch-v2.yml"
+    ).read_text()
+
+    validation_step = text.split(
+        "- name: Validate live publication secrets",
+        1,
+    )[1].split(
+        "- name: Check repo",
+        1,
+    )[0]
+
+    benchmark_step = text.split(
+        "- name: Run configured arm",
+        1,
+    )[1].split(
+        "- name: Publish final canonical run",
+        1,
+    )[0]
+
+    publication_step = text.split(
+        "- name: Publish final canonical run",
+        1,
+    )[1].split(
+        "- name: List generated run files",
+        1,
+    )[0]
+
+    assert (
+        "SUPABASE_DB_URL: "
+        "${{ (inputs.supervise_live || "
+        "(inputs.dry_run == false && inputs.publish_results)) "
+        "&& secrets.SUPABASE_DB_URL || '' }}"
+        in validation_step
+    )
+
+    assert (
+        "SUPABASE_DB_URL: "
+        "${{ inputs.supervise_live "
+        "&& secrets.SUPABASE_DB_URL || '' }}"
+        in benchmark_step
+    )
+
+    assert (
+        "SUPABASE_DB_URL: "
+        "${{ inputs.dry_run == false "
+        "&& secrets.SUPABASE_DB_URL || '' }}"
+        in publication_step
+    )
+
+    validation_r2 = (
+        "R2_BUCKET",
+        "R2_ENDPOINT_URL",
+        "R2_ACCESS_KEY_ID",
+        "R2_SECRET_ACCESS_KEY",
+        "R2_REGION",
+    )
+
+    for name in validation_r2:
+        expected = (
+            f"{name}: "
+            "${{ (inputs.dry_run == false "
+            "&& inputs.publish_results) "
+            f"&& secrets.{name} || '' }}"
+        )
+        assert expected in validation_step
+
+    runtime_r2 = validation_r2 + (
+        "R2_PREFIX",
+        "R2_ACCOUNT_ID",
+    )
+
+    for name in runtime_r2:
+        benchmark_expected = (
+            f"{name}: "
+            "${{ (inputs.dry_run == false "
+            "&& inputs.supervise_live "
+            "&& inputs.publish_results "
+            "&& inputs.progressive_artifacts) "
+            f"&& secrets.{name} || '' }}"
+        )
+        publication_expected = (
+            f"{name}: "
+            "${{ inputs.dry_run == false "
+            f"&& secrets.{name} || '' }}"
+        )
+
+        assert benchmark_expected in benchmark_step
+        assert publication_expected in publication_step
+
+    infrastructure_names = (
+        "SUPABASE_DB_URL",
+        "R2_BUCKET",
+        "R2_ENDPOINT_URL",
+        "R2_ACCESS_KEY_ID",
+        "R2_SECRET_ACCESS_KEY",
+        "R2_REGION",
+        "R2_PREFIX",
+        "R2_ACCOUNT_ID",
+    )
+
+    for name in infrastructure_names:
+        unconditional = (
+            f"{name}: "
+            + "${{ secrets."
+            + name
+            + " }}"
+        )
+        assert unconditional not in text
