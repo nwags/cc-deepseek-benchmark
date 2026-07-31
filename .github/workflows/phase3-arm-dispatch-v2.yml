@@ -206,82 +206,176 @@ jobs:
           make check
           make secret-scan
 
-      - name: Create runtime secret env files
+      - name: Create dry-run placeholder env files
+        if: ${{ inputs.dry_run }}
         env:
           ARM_ID: ${{ inputs.arm_id }}
-          DRY_RUN: ${{ inputs.dry_run }}
-          LITELLM_MASTER_KEY: ${{ secrets.LITELLM_MASTER_KEY }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
-          MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
-          DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
-          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
         run: |
           set -euo pipefail
 
-          python - <<'PY'
+          python - <<'PY_DRY_RUN_FILES'
+          from pathlib import Path
+          import os
+
+          arm_id = os.environ["ARM_ID"]
+
+          provider_requirements = {
+              "router-anthropic": (
+                  "ANTHROPIC_API_KEY",
+                  "anthropic.env",
+              ),
+              "router-deepseek": (
+                  "DEEPSEEK_API_KEY",
+                  "deepseek.env",
+              ),
+              "router-gpt": (
+                  "OPENAI_API_KEY",
+                  "openai.env",
+              ),
+              "router-gemini": (
+                  "GEMINI_API_KEY",
+                  "gemini.env",
+              ),
+              "router-grok": (
+                  "XAI_API_KEY",
+                  "xai.env",
+              ),
+              "router-kimi": (
+                  "MOONSHOT_API_KEY",
+                  "kimi.env",
+              ),
+              "router-qwen": (
+                  "DASHSCOPE_API_KEY",
+                  "dashscope.env",
+              ),
+              "router-glm": (
+                  "ZAI_API_KEY",
+                  "zai.env",
+              ),
+          }
+
+          selected = next(
+              (
+                  details
+                  for prefix, details in provider_requirements.items()
+                  if arm_id.startswith(prefix)
+              ),
+              None,
+          )
+
+          if selected is None:
+              raise SystemExit(
+                  f"No provider credential mapping for dry-run arm: {arm_id}"
+              )
+
+          provider_key, provider_file = selected
+
+          secrets_dir = Path(".secrets")
+          secrets_dir.mkdir(exist_ok=True)
+          secrets_dir.chmod(0o700)
+
+          files = {
+              "litellm.env": (
+                  "LITELLM_MASTER_KEY="
+                  "dry-run-placeholder-litellm-master-key\n"
+              ),
+              provider_file: (
+                  f"{provider_key}="
+                  f"dry-run-placeholder-{provider_key.lower()}\n"
+              ),
+          }
+
+          for filename, content in files.items():
+              destination = secrets_dir / filename
+              destination.write_text(content, encoding="utf-8")
+              destination.chmod(0o600)
+
+          print("created dry-run placeholder env files:")
+          print("  .secrets/litellm.env")
+          print(f"  .secrets/{provider_file}")
+          PY_DRY_RUN_FILES
+
+      - name: Create paid runtime secret env files
+        if: ${{ inputs.dry_run == false }}
+        env:
+          ARM_ID: ${{ inputs.arm_id }}
+          LITELLM_MASTER_KEY: ${{ secrets.LITELLM_MASTER_KEY }}
+          ANTHROPIC_API_KEY: ${{ startsWith(inputs.arm_id, 'router-anthropic') && secrets.ANTHROPIC_API_KEY || '' }}
+          DEEPSEEK_API_KEY: ${{ startsWith(inputs.arm_id, 'router-deepseek') && secrets.DEEPSEEK_API_KEY || '' }}
+          OPENAI_API_KEY: ${{ startsWith(inputs.arm_id, 'router-gpt') && secrets.OPENAI_API_KEY || '' }}
+          GEMINI_API_KEY: ${{ startsWith(inputs.arm_id, 'router-gemini') && secrets.GEMINI_API_KEY || '' }}
+          XAI_API_KEY: ${{ startsWith(inputs.arm_id, 'router-grok') && secrets.XAI_API_KEY || '' }}
+          MOONSHOT_API_KEY: ${{ startsWith(inputs.arm_id, 'router-kimi') && secrets.MOONSHOT_API_KEY || '' }}
+          DASHSCOPE_API_KEY: ${{ startsWith(inputs.arm_id, 'router-qwen') && secrets.DASHSCOPE_API_KEY || '' }}
+          ZAI_API_KEY: ${{ startsWith(inputs.arm_id, 'router-glm') && secrets.ZAI_API_KEY || '' }}
+        run: |
+          set -euo pipefail
+
+          python - <<'PY_SECRET_FILES'
           import os
           import shlex
           from pathlib import Path
 
           arm_id = os.environ["ARM_ID"]
-          dry_run = os.environ["DRY_RUN"] == "true"
 
           provider_requirements = {
-              "router-anthropic": "ANTHROPIC_API_KEY",
-              "router-deepseek": "DEEPSEEK_API_KEY",
-              "router-gpt": "OPENAI_API_KEY",
-              "router-gemini": "GEMINI_API_KEY",
-              "router-grok": "XAI_API_KEY",
-              "router-kimi": "MOONSHOT_API_KEY",
-              "router-qwen": "DASHSCOPE_API_KEY",
-              "router-glm": "ZAI_API_KEY",
+              "router-anthropic": ("ANTHROPIC_API_KEY", "anthropic.env"),
+              "router-deepseek": ("DEEPSEEK_API_KEY", "deepseek.env"),
+              "router-gpt": ("OPENAI_API_KEY", "openai.env"),
+              "router-gemini": ("GEMINI_API_KEY", "gemini.env"),
+              "router-grok": ("XAI_API_KEY", "xai.env"),
+              "router-kimi": ("MOONSHOT_API_KEY", "kimi.env"),
+              "router-qwen": ("DASHSCOPE_API_KEY", "dashscope.env"),
+              "router-glm": ("ZAI_API_KEY", "zai.env"),
           }
 
-          required = ["LITELLM_MASTER_KEY"]
-          for prefix, key in provider_requirements.items():
-              if arm_id.startswith(prefix):
-                  required.append(key)
-                  break
+          selected = next(
+              (
+                  details
+                  for prefix, details in provider_requirements.items()
+                  if arm_id.startswith(prefix)
+              ),
+              None,
+          )
 
+          if selected is None:
+              raise SystemExit(
+                  f"No provider credential mapping for paid arm: {arm_id}"
+              )
+
+          provider_key, provider_file = selected
+          required = ("LITELLM_MASTER_KEY", provider_key)
           missing = [key for key in required if not os.environ.get(key)]
-          if missing and not dry_run:
-              raise SystemExit(f"Missing required GitHub Actions secrets for paid run: {', '.join(missing)}")
 
-          secrets = Path(".secrets")
-          secrets.mkdir(exist_ok=True)
-          secrets.chmod(0o700)
+          if missing:
+              raise SystemExit(
+                  "Missing required GitHub Actions secrets for paid run: "
+                  + ", ".join(missing)
+              )
 
-          def write_env(path: str, keys: list[str], placeholders: bool = False) -> None:
-              p = secrets / path
-              lines = []
-              for key in keys:
-                  value = os.environ.get(key)
-                  if not value and placeholders:
-                      value = f"dry-run-placeholder-{key.lower()}"
-                  if value:
-                      lines.append(f"{key}={shlex.quote(value)}")
-              if lines:
-                  p.write_text("\n".join(lines) + "\n")
-                  p.chmod(0o600)
+          secrets_dir = Path(".secrets")
+          secrets_dir.mkdir(exist_ok=True)
+          secrets_dir.chmod(0o700)
 
-          write_env("litellm.env", ["LITELLM_MASTER_KEY"], placeholders=dry_run)
-          write_env("anthropic.env", ["ANTHROPIC_API_KEY"])
-          write_env("deepseek.env", ["DEEPSEEK_API_KEY"])
-          write_env("openai.env", ["OPENAI_API_KEY"])
-          write_env("gemini.env", ["GEMINI_API_KEY"])
-          write_env("xai.env", ["XAI_API_KEY"])
-          write_env("kimi.env", ["MOONSHOT_API_KEY"])
-          write_env("dashscope.env", ["DASHSCOPE_API_KEY"])
-          write_env("zai.env", ["ZAI_API_KEY"])
+          def write_env(path: str, keys: tuple[str, ...]) -> None:
+              lines = [
+                  f"{key}={shlex.quote(os.environ[key])}"
+                  for key in keys
+              ]
+              destination = secrets_dir / path
+              destination.write_text(
+                  "\n".join(lines) + "\n",
+                  encoding="utf-8",
+              )
+              destination.chmod(0o600)
 
-          print("created secret env files:")
-          for p in sorted(secrets.glob("*.env")):
-              print(f"  {p}")
-          PY
+          write_env("litellm.env", ("LITELLM_MASTER_KEY",))
+          write_env(provider_file, (provider_key,))
+
+          print("created paid runtime secret env files:")
+          print("  .secrets/litellm.env")
+          print(f"  .secrets/{provider_file}")
+          PY_SECRET_FILES
 
       - name: Create runtime LiteLLM config
         env:

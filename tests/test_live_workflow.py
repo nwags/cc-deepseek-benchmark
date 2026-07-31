@@ -147,3 +147,95 @@ def test_remote_db_r2_doctor_never_enables_xtrace() -> None:
     ).read_text()
     assert "set -euxo pipefail" not in text
     assert "set -x" not in text
+
+
+def test_dry_runs_use_only_synthetic_selected_provider_secrets() -> None:
+    workflow_names = (
+        "phase3-arm-dispatch-v2.yml",
+        "phase3-arm-dispatch.yml",
+    )
+    provider_mappings = {
+        "ANTHROPIC_API_KEY": "anthropic.env",
+        "DEEPSEEK_API_KEY": "deepseek.env",
+        "OPENAI_API_KEY": "openai.env",
+        "GEMINI_API_KEY": "gemini.env",
+        "XAI_API_KEY": "xai.env",
+        "MOONSHOT_API_KEY": "kimi.env",
+        "DASHSCOPE_API_KEY": "dashscope.env",
+        "ZAI_API_KEY": "zai.env",
+    }
+
+    for name in workflow_names:
+        workflow_text = (WORKFLOW_DIR / name).read_text()
+
+        dry_step = workflow_text.split(
+            "- name: Create dry-run placeholder env files",
+            1,
+        )[1].split(
+            "- name: Create paid runtime secret env files",
+            1,
+        )[0]
+
+        assert "if: ${{ inputs.dry_run }}" in dry_step
+        assert "ARM_ID: ${{ inputs.arm_id }}" in dry_step
+        assert "${{ secrets." not in dry_step
+        assert "dry-run-placeholder-litellm-master-key" in dry_step
+        assert "write_text(content, encoding=\"utf-8\")" in dry_step
+        assert "provider_file: (" in dry_step
+
+        for secret_name, provider_file in provider_mappings.items():
+            assert secret_name in dry_step
+            assert provider_file in dry_step
+            assert (
+                f"dry-run-placeholder-{{provider_key.lower()}}"
+                in dry_step
+            )
+
+
+def test_paid_runs_receive_only_the_selected_provider_secret() -> None:
+    workflow_names = (
+        "phase3-arm-dispatch-v2.yml",
+        "phase3-arm-dispatch.yml",
+    )
+    provider_mappings = {
+        "ANTHROPIC_API_KEY": "router-anthropic",
+        "DEEPSEEK_API_KEY": "router-deepseek",
+        "OPENAI_API_KEY": "router-gpt",
+        "GEMINI_API_KEY": "router-gemini",
+        "XAI_API_KEY": "router-grok",
+        "MOONSHOT_API_KEY": "router-kimi",
+        "DASHSCOPE_API_KEY": "router-qwen",
+        "ZAI_API_KEY": "router-glm",
+    }
+
+    for name in workflow_names:
+        text = (WORKFLOW_DIR / name).read_text()
+
+        paid_step = text.split(
+            "- name: Create paid runtime secret env files",
+            1,
+        )[1].split(
+            "- name: Create runtime LiteLLM config",
+            1,
+        )[0]
+
+        assert "if: ${{ inputs.dry_run == false }}" in paid_step
+
+        for secret_name, arm_prefix in provider_mappings.items():
+            conditional = (
+                secret_name
+                + ": ${{ startsWith(inputs.arm_id, '"
+                + arm_prefix
+                + "') && secrets."
+                + secret_name
+                + " || '' }}"
+            )
+            unconditional = (
+                secret_name
+                + ": ${{ secrets."
+                + secret_name
+                + " }}"
+            )
+
+            assert conditional in paid_step
+            assert unconditional not in paid_step

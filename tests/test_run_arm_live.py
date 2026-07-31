@@ -132,10 +132,23 @@ def test_sigterm_is_forwarded_and_recorded_as_interrupted(tmp_path: Path) -> Non
         cwd=REPO_ROOT,
     )
     event_path = live_dir / "live-signal-test.ndjson"
+    children_path = Path(
+        f"/proc/{process.pid}/task/{process.pid}/children"
+    )
     deadline = time.time() + 5
-    while time.time() < deadline and not event_path.exists():
+    child_pids = ""
+
+    while time.time() < deadline:
+        if event_path.exists() and children_path.exists():
+            child_pids = children_path.read_text(
+                encoding="utf-8"
+            ).strip()
+            if child_pids:
+                break
         time.sleep(0.05)
+
     assert event_path.exists()
+    assert child_pids, "wrapped child process did not become ready"
 
     process.send_signal(signal.SIGTERM)
     assert process.wait(timeout=8) == 143
