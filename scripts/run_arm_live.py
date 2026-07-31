@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import os
 import queue
+import re
 import signal
 import subprocess
 import sys
@@ -152,6 +153,16 @@ def _default_watch_roots(workspace: Path, phase: str, arm_id: str, mode: str) ->
         workspace / "results" / phase_dir / storage_mode / f"arm-{arm_id}",
         workspace / "results" / phase_dir / "ad-hoc",
     ]
+
+
+WARNING_OUTPUT_PATTERN = re.compile(
+    r"(^|[^a-z])(warning|warn|error|exception|fatal)([^a-z]|$)",
+    re.IGNORECASE,
+)
+
+
+def _looks_like_warning(line: str) -> bool:
+    return bool(WARNING_OUTPUT_PATTERN.search(line))
 
 
 def _exit_code(returncode: int) -> int:
@@ -382,9 +393,12 @@ def main(argv: list[str] | None = None) -> int:
 
     returncode = 127
     try:
+        child_env = os.environ.copy()
+        child_env.pop("VIRTUAL_ENV", None)
         process = subprocess.Popen(
             args.command,
             cwd=workspace,
+            env=child_env,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -425,12 +439,20 @@ def main(argv: list[str] | None = None) -> int:
                 if line is None:
                     closed_streams.add(stream_name)
                 else:
+                    sampled_for_shared = output_sampler.should_publish()
+                    warning_output = _looks_like_warning(line)
                     writer.emit(
                         "process_output_chunk",
                         stream=stream_name,
                         message=line,
-                        publish_shared=output_sampler.should_publish(),
+                        publish_shared=sampled_for_shared and not warning_output,
                     )
+                    if warning_output:
+                        writer.emit(
+                            "runtime_warning",
+                            stream=stream_name,
+                            message=line,
+                        )
 
             now = time.monotonic()
             if events.dropped > reported_drops:

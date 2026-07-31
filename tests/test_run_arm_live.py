@@ -76,6 +76,76 @@ def test_nonzero_child_exit_is_preserved(tmp_path: Path) -> None:
     assert returncode == 7
 
 
+def test_child_does_not_inherit_wrapper_virtual_env(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("VIRTUAL_ENV", "/tmp/wrapper-ephemeral-venv")
+    live_dir = tmp_path / "live"
+    returncode = main(
+        [
+            "--arm-id",
+            "router-test",
+            "--phase",
+            "phase3",
+            "--mode",
+            "canary",
+            "--live-run-id",
+            "live-virtual-env-test",
+            "--workspace",
+            str(tmp_path),
+            "--live-dir",
+            str(live_dir),
+            "--",
+            sys.executable,
+            "-c",
+            (
+                "import os; "
+                "print('child_virtual_env=' + "
+                "('set' if 'VIRTUAL_ENV' in os.environ else 'unset'))"
+            ),
+        ]
+    )
+    assert returncode == 0
+    events = read_events(live_dir / "live-virtual-env-test.ndjson")
+    assert any(
+        event["event_type"] == "process_output_chunk"
+        and event.get("message") == "child_virtual_env=unset"
+        for event in events
+    )
+
+
+def test_warning_output_is_preserved_as_runtime_warning(tmp_path: Path) -> None:
+    live_dir = tmp_path / "live"
+    returncode = main(
+        [
+            "--arm-id",
+            "router-test",
+            "--phase",
+            "phase3",
+            "--mode",
+            "canary",
+            "--live-run-id",
+            "live-warning-test",
+            "--workspace",
+            str(tmp_path),
+            "--live-dir",
+            str(live_dir),
+            "--",
+            sys.executable,
+            "-c",
+            "import sys; print('warning: early diagnostic', file=sys.stderr)",
+        ]
+    )
+    assert returncode == 0
+    events = read_events(live_dir / "live-warning-test.ndjson")
+    assert any(
+        event["event_type"] == "runtime_warning"
+        and event.get("message") == "warning: early diagnostic"
+        for event in events
+    )
+
+
 def test_wrapper_loads_runtime_env_file_values_into_redactor(tmp_path: Path) -> None:
     secret = "provider-secret-format::not-prefix-shaped"
     secret_dir = tmp_path / ".secrets"

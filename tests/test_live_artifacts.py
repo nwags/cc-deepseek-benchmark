@@ -140,6 +140,43 @@ def test_growing_files_are_not_stable_or_uploaded(tmp_path: Path) -> None:
     assert transcript in stable
 
 
+def test_missing_stability_candidate_is_pending_not_a_boundary_error(
+    tmp_path: Path,
+) -> None:
+    run_dir = make_run(tmp_path, "2026-07-28__10-00-00")
+    trial = run_dir / "task-one__pending"
+    trial.mkdir()
+    tracker = FileStabilityTracker()
+
+    assert not tracker.stable(
+        trial / "result.json",
+        stability_seconds=0,
+        workspace=tmp_path,
+        parent=trial,
+    )
+
+    outside = tmp_path.parent / "outside-pending-result.json"
+    with pytest.raises(PathBoundaryError):
+        tracker.stable(
+            outside,
+            stability_seconds=0,
+            workspace=tmp_path,
+            parent=trial,
+        )
+
+    outside_dir = tmp_path.parent / "outside-pending-directory"
+    outside_dir.mkdir()
+    escape = trial / "escape"
+    escape.symlink_to(outside_dir, target_is_directory=True)
+    with pytest.raises(PathBoundaryError):
+        tracker.stable(
+            escape / "result.json",
+            stability_seconds=0,
+            workspace=tmp_path,
+            parent=trial,
+        )
+
+
 class FakeS3:
     def __init__(self) -> None:
         self.calls: list[tuple[str, str, str, dict[str, object]]] = []

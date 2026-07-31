@@ -9,8 +9,10 @@ import {
   LiveTrialRow,
   getActiveLiveRuns,
   getLiveArtifacts,
+  getLiveOutputEvents,
   getLiveRun,
   getLiveRunEvents,
+  getLiveRunWarnings,
   getLiveTrials,
   getRecentLiveRuns,
   getStaleLiveRuns
@@ -64,13 +66,23 @@ function modelLabel(run: LiveRunRow | null | undefined): string {
   return run?.backend_model ?? run?.router_model ?? run?.provider_family ?? "—";
 }
 
-function processTail(events: LiveEventRow[]): string {
-  const lines = events
-    .filter((event) =>
-      event.event_type === "process_output_chunk" || event.event_type === "agent_output_chunk"
-    )
-    .slice(-20)
-    .map((event) => `[${event.stream ?? "out"}] ${event.message ?? ""}`);
+const OUTPUT_EVENT_TYPES = new Set(["process_output_chunk", "agent_output_chunk"]);
+const WARNING_TEXT = /(^|[^a-z])(warning|warn|error|exception|fatal)([^a-z]|$)/i;
+
+function isOutputEvent(event: LiveEventRow): boolean {
+  return OUTPUT_EVENT_TYPES.has(event.event_type);
+}
+
+function isWarningEvent(event: LiveEventRow): boolean {
+  return event.event_type === "publication_warning"
+    || event.event_type === "runtime_warning"
+    || (isOutputEvent(event) && WARNING_TEXT.test(event.message ?? ""));
+}
+
+function formatOutput(events: LiveEventRow[]): string {
+  const lines = events.map(
+    (event) => `[${event.stream ?? "out"}] ${event.message ?? ""}`
+  );
   return lines.join("\n") || "No observable process output is available yet.";
 }
 
@@ -78,12 +90,15 @@ async function loadLocalFallback(selectedId?: string) {
   const { getLocalLiveFallback } = await import("../../../lib/live-local-fallback");
   const local = getLocalLiveFallback();
   const selected = local.runs.find((run) => run.live_run_id === selectedId) ?? local.runs[0] ?? null;
+  const events = selected ? local.eventsByRun.get(selected.live_run_id) ?? [] : [];
   return {
     runs: local.runs,
     active: local.runs.filter((run) => run.is_active),
     stale: local.runs.filter((run) => run.is_stale),
     selected,
-    events: selected ? local.eventsByRun.get(selected.live_run_id) ?? [] : [],
+    events,
+    outputEvents: events.filter(isOutputEvent),
+    warningEvents: events.filter(isWarningEvent),
     trials: [] as LiveTrialRow[],
     artifacts: [] as LiveArtifactRow[],
     localDirectory: local.directory
@@ -102,6 +117,8 @@ export default async function LiveRunsPage({
   let stale: LiveRunRow[] = [];
   let selected: LiveRunRow | null = null;
   let events: LiveEventRow[] = [];
+  let outputEvents: LiveEventRow[] = [];
+  let warningEvents: LiveEventRow[] = [];
   let trials: LiveTrialRow[] = [];
   let artifacts: LiveArtifactRow[] = [];
   let errorState: "migration" | "database" | null = null;
@@ -116,9 +133,11 @@ export default async function LiveRunsPage({
     ]);
     const selectedId = requestedId ?? runs[0]?.live_run_id;
     if (selectedId) {
-      [selected, events, trials, artifacts] = await Promise.all([
+      [selected, events, outputEvents, warningEvents, trials, artifacts] = await Promise.all([
         getLiveRun(selectedId),
         getLiveRunEvents(selectedId),
+        getLiveOutputEvents(selectedId),
+        getLiveRunWarnings(selectedId),
         getLiveTrials(selectedId),
         getLiveArtifacts(selectedId)
       ]);
@@ -129,7 +148,18 @@ export default async function LiveRunsPage({
     if (process.env.DASHBOARD_LIVE_LOCAL_FALLBACK === "true") {
       try {
         const fallback = await loadLocalFallback(requestedId);
-        ({ runs, active, stale, selected, events, trials, artifacts, localDirectory } = fallback);
+        ({
+          runs,
+          active,
+          stale,
+          selected,
+          events,
+          outputEvents,
+          warningEvents,
+          trials,
+          artifacts,
+          localDirectory
+        } = fallback);
         usingLocalFallback = true;
       } catch {
         localDirectory = null;
@@ -138,7 +168,7 @@ export default async function LiveRunsPage({
   }
 
   const refreshEnabled = active.some((run) => !run.is_stale);
-  const outputTail = processTail(events);
+  const outputHistory = formatOutput(outputEvents);
 
   return (
     <AppShell
@@ -278,14 +308,45 @@ export default async function LiveRunsPage({
             </div>
           </section>
 
+          <section className="panel warning-panel">
+            <div className="panel-heading">
+              <div>
+                <h2>Warnings and diagnostic signals</h2>
+                <p>
+                  {warningEvents.length} preserved warning events, queried independently from the rolling output history.
+                </p>
+              </div>
+            </div>
+            {warningEvents.length === 0 ? (
+              <div className="placeholder-body">No warning signals have been observed for this execution.</div>
+            ) : (
+              <div className="table-wrap">
+                <table>
+                  <thead><tr><th>Seq</th><th>Time</th><th>Event</th><th>Stream</th><th>Message</th></tr></thead>
+                  <tbody>{warningEvents.map((event) => (
+                    <tr key={`warning-${event.sequence}`}>
+                      <td>{event.sequence}</td>
+                      <td>{fmtDate(event.occurred_at)}</td>
+                      <td>{event.event_type}</td>
+                      <td>{event.stream ?? "—"}</td>
+                      <td className="live-message">{event.message ?? "—"}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
           <section className="panel">
             <div className="panel-heading">
               <div>
-                <h2>Recent observable output</h2>
-                <p>Bounded to the latest 20 process output events from an 80-event query window.</p>
+                <h2>Observable output history</h2>
+                <p>
+                  Showing {outputEvents.length} latest process or agent output events from a dedicated output-only query.
+                </p>
               </div>
             </div>
-            <pre className="content-preview content-preview-compact">{outputTail}</pre>
+            <pre className="content-preview content-preview-compact">{outputHistory}</pre>
           </section>
 
           <section className="panel">
@@ -346,13 +407,13 @@ export default async function LiveRunsPage({
             <div className="panel-heading">
               <div>
                 <h2>Event tail</h2>
-                <p>{events.length} bounded events, including status and publication activity.</p>
+                <p>{events.length} latest status, lifecycle, diagnostic, and publication events.</p>
               </div>
             </div>
             <div className="table-wrap">
               <table>
                 <thead><tr><th>Seq</th><th>Time</th><th>Event</th><th>Stream</th><th>Message</th></tr></thead>
-                <tbody>{events.slice(-30).map((event) => (
+                <tbody>{events.map((event) => (
                   <tr key={event.sequence}>
                     <td>{event.sequence}</td>
                     <td>{fmtDate(event.occurred_at)}</td>

@@ -347,6 +347,9 @@ class FileStabilityTracker:
         parent: Path | None = None,
     ) -> bool:
         current_time = time.monotonic() if now is None else now
+        candidate_path = path
+        if workspace is not None and not path.is_absolute():
+            candidate_path = workspace / path
         try:
             candidate = (
                 resolve_under(
@@ -362,6 +365,25 @@ class FileStabilityTracker:
             if candidate.is_symlink():
                 raise PathBoundaryError("stability candidate must not be a symbolic link")
             stat = candidate.stat()
+        except PathBoundaryError:
+            if workspace is not None and parent is not None:
+                workspace_resolved = workspace.resolve(strict=True)
+                parent_resolved = parent.resolve(strict=True)
+                lexical = Path(os.path.abspath(candidate_path))
+                try:
+                    lexical_parent = lexical.parent.resolve(strict=True)
+                except OSError:
+                    lexical_parent = None
+                missing_direct_child = (
+                    is_relative_to(parent_resolved, workspace_resolved)
+                    and lexical_parent == parent_resolved
+                    and not lexical.exists()
+                    and not lexical.is_symlink()
+                )
+                if missing_direct_child:
+                    self._observations.pop(path, None)
+                    return False
+            raise
         except OSError:
             self._observations.pop(path, None)
             return False

@@ -2,7 +2,9 @@ import { queryRows } from "./db";
 
 export const LIVE_STALE_AFTER_SECONDS = 90;
 export const LIVE_RUN_LIMIT = 20;
-export const LIVE_EVENT_LIMIT = 80;
+export const LIVE_EVENT_LIMIT = 200;
+export const LIVE_OUTPUT_EVENT_LIMIT = 300;
+export const LIVE_WARNING_EVENT_LIMIT = 100;
 export const LIVE_TRIAL_LIMIT = 200;
 export const LIVE_ARTIFACT_LIMIT = 300;
 
@@ -214,12 +216,76 @@ export async function getLiveRunEvents(
           payload
         from benchmark.live_run_events
         where live_run_id = $1
+          and event_type not in ('process_output_chunk', 'agent_output_chunk')
         order by sequence desc
         limit $2
       ) recent
       order by sequence
     `,
     [liveRunId, Math.min(Math.max(limit, 1), LIVE_EVENT_LIMIT)]
+  );
+}
+
+export async function getLiveOutputEvents(
+  liveRunId: string,
+  limit = LIVE_OUTPUT_EVENT_LIMIT
+): Promise<LiveEventRow[]> {
+  return queryRows<LiveEventRow>(
+    `
+      select *
+      from (
+        select
+          sequence,
+          event_type,
+          occurred_at,
+          elapsed_seconds::float8,
+          stream,
+          left(message, 2000) as message,
+          payload
+        from benchmark.live_run_events
+        where live_run_id = $1
+          and event_type in ('process_output_chunk', 'agent_output_chunk')
+        order by sequence desc
+        limit $2
+      ) recent
+      order by sequence
+    `,
+    [liveRunId, Math.min(Math.max(limit, 1), LIVE_OUTPUT_EVENT_LIMIT)]
+  );
+}
+
+export async function getLiveRunWarnings(
+  liveRunId: string,
+  limit = LIVE_WARNING_EVENT_LIMIT
+): Promise<LiveEventRow[]> {
+  return queryRows<LiveEventRow>(
+    `
+      select *
+      from (
+        select
+          sequence,
+          event_type,
+          occurred_at,
+          elapsed_seconds::float8,
+          stream,
+          left(message, 2000) as message,
+          payload
+        from benchmark.live_run_events
+        where live_run_id = $1
+          and (
+            event_type in ('publication_warning', 'runtime_warning')
+            or (
+              event_type in ('process_output_chunk', 'agent_output_chunk')
+              and coalesce(message, '') ~*
+                '(^|[^[:alpha:]])(warning|warn|error|exception|fatal)([^[:alpha:]]|$)'
+            )
+          )
+        order by sequence desc
+        limit $2
+      ) recent
+      order by sequence
+    `,
+    [liveRunId, Math.min(Math.max(limit, 1), LIVE_WARNING_EVENT_LIMIT)]
   );
 }
 
