@@ -13,6 +13,7 @@ import {
   getLiveRun,
   getLiveRunEvents,
   getLiveRunWarnings,
+  getLiveToolEvents,
   getLiveTrials,
   getRecentLiveRuns,
   getStaleLiveRuns
@@ -67,15 +68,29 @@ function modelLabel(run: LiveRunRow | null | undefined): string {
 }
 
 const OUTPUT_EVENT_TYPES = new Set(["process_output_chunk", "agent_output_chunk"]);
+const TOOL_EVENT_TYPES = new Set(["tool_call_started", "tool_result", "tool_call_finished"]);
 const WARNING_TEXT = /(^|[^a-z])(warning|warn|error|exception|fatal)([^a-z]|$)/i;
 
 function isOutputEvent(event: LiveEventRow): boolean {
   return OUTPUT_EVENT_TYPES.has(event.event_type);
 }
 
+function isToolEvent(event: LiveEventRow): boolean {
+  return TOOL_EVENT_TYPES.has(event.event_type);
+}
+
+function payloadString(event: LiveEventRow, key: string): string | null {
+  const value = event.payload?.[key];
+  return typeof value === "string" ? value : null;
+}
+
 function isWarningEvent(event: LiveEventRow): boolean {
   return event.event_type === "publication_warning"
     || event.event_type === "runtime_warning"
+    || (
+      event.event_type === "tool_call_finished"
+      && payloadString(event, "status") === "failed"
+    )
     || (isOutputEvent(event) && WARNING_TEXT.test(event.message ?? ""));
 }
 
@@ -99,6 +114,7 @@ async function loadLocalFallback(selectedId?: string) {
     events,
     outputEvents: events.filter(isOutputEvent),
     warningEvents: events.filter(isWarningEvent),
+    toolEvents: events.filter(isToolEvent),
     trials: [] as LiveTrialRow[],
     artifacts: [] as LiveArtifactRow[],
     localDirectory: local.directory
@@ -119,6 +135,7 @@ export default async function LiveRunsPage({
   let events: LiveEventRow[] = [];
   let outputEvents: LiveEventRow[] = [];
   let warningEvents: LiveEventRow[] = [];
+  let toolEvents: LiveEventRow[] = [];
   let trials: LiveTrialRow[] = [];
   let artifacts: LiveArtifactRow[] = [];
   let errorState: "migration" | "database" | null = null;
@@ -133,11 +150,12 @@ export default async function LiveRunsPage({
     ]);
     const selectedId = requestedId ?? runs[0]?.live_run_id;
     if (selectedId) {
-      [selected, events, outputEvents, warningEvents, trials, artifacts] = await Promise.all([
+      [selected, events, outputEvents, warningEvents, toolEvents, trials, artifacts] = await Promise.all([
         getLiveRun(selectedId),
         getLiveRunEvents(selectedId),
         getLiveOutputEvents(selectedId),
         getLiveRunWarnings(selectedId),
+        getLiveToolEvents(selectedId),
         getLiveTrials(selectedId),
         getLiveArtifacts(selectedId)
       ]);
@@ -156,6 +174,7 @@ export default async function LiveRunsPage({
           events,
           outputEvents,
           warningEvents,
+          toolEvents,
           trials,
           artifacts,
           localDirectory
@@ -340,6 +359,37 @@ export default async function LiveRunsPage({
           <section className="panel">
             <div className="panel-heading">
               <div>
+                <h2>Tool activity</h2>
+                <p>
+                  {toolEvents.length} structured lifecycle events parsed incrementally from Claude Code tool-use and tool-result records. Thinking and reasoning content is not parsed or displayed.
+                </p>
+              </div>
+            </div>
+            {toolEvents.length === 0 ? (
+              <div className="placeholder-body">No structured tool activity has been observed for this execution.</div>
+            ) : (
+              <div className="table-wrap">
+                <table>
+                  <thead><tr><th>Seq</th><th>Time</th><th>Trial</th><th>Tool</th><th>Event</th><th>Status</th><th>Summary</th></tr></thead>
+                  <tbody>{toolEvents.map((event) => (
+                    <tr key={`tool-${event.sequence}`}>
+                      <td>{event.sequence}</td>
+                      <td>{fmtDate(payloadString(event, "source_timestamp") ?? event.occurred_at)}</td>
+                      <td className="mono">{payloadString(event, "trial_key") ?? "—"}</td>
+                      <td>{payloadString(event, "tool_name") ?? "unknown"}</td>
+                      <td>{event.event_type}</td>
+                      <td>{payloadString(event, "status") ?? "—"}</td>
+                      <td className="live-message">{event.message ?? "—"}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          <section className="panel">
+            <div className="panel-heading">
+              <div>
                 <h2>Observable output history</h2>
                 <p>
                   Showing {outputEvents.length} latest process or agent output events from a dedicated output-only query.
@@ -387,15 +437,16 @@ export default async function LiveRunsPage({
             {artifacts.length === 0 ? <div className="placeholder-body">No progressive artifacts are available.</div> : (
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>Trial</th><th>Type</th><th>Path</th><th>Size</th><th>State</th><th>R2</th></tr></thead>
+                  <thead><tr><th>Trial</th><th>Type</th><th>Path</th><th>Size</th><th>State</th><th>R2</th><th>Content</th></tr></thead>
                   <tbody>{artifacts.map((artifact) => (
-                    <tr key={`${artifact.relative_local_path}:${artifact.sha256}`}>
+                    <tr key={artifact.artifact_id}>
                       <td className="mono">{artifact.trial_key ?? "run root"}</td>
                       <td>{artifact.artifact_type}</td>
                       <td className="mono">{artifact.relative_local_path}</td>
                       <td>{fmtNumber(artifact.size_bytes)} B</td>
                       <td>{artifact.stability_state}</td>
                       <td>{artifact.r2_uri ? "available" : "pending"}</td>
+                      <td><Link href={`/live-artifacts/${encodeURIComponent(artifact.artifact_id)}`}>Preview</Link></td>
                     </tr>
                   ))}</tbody>
                 </table>

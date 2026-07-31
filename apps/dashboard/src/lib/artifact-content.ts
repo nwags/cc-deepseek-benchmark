@@ -5,6 +5,7 @@ type PreviewArtifact = {
   artifact_type?: string | null;
   local_path?: string | null;
   r2_uri?: string | null;
+  sha256?: string | null;
   size_bytes?: number | string | null;
 };
 
@@ -121,6 +122,7 @@ function r2Config() {
   const accessKeyId = process.env.R2_ACCESS_KEY_ID;
   const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
   const region = process.env.R2_REGION || "auto";
+  const configuredBucket = process.env.R2_BUCKET || null;
   const missing = [];
 
   if (!endpointUrl) missing.push("R2_ENDPOINT_URL");
@@ -136,7 +138,8 @@ function r2Config() {
     endpointUrl,
     accessKeyId,
     secretAccessKey,
-    region
+    region,
+    configuredBucket
   };
 }
 
@@ -171,7 +174,7 @@ function signR2Request({
   region: string;
   method: string;
   url: URL;
-  range: string;
+  range?: string;
 }) {
   const now = new Date();
   const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "");
@@ -180,10 +183,10 @@ function signR2Request({
   const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
   const headers: Record<string, string> = {
     host: url.host,
-    range,
     "x-amz-content-sha256": "UNSIGNED-PAYLOAD",
     "x-amz-date": amzDate
   };
+  if (range) headers.range = range;
   const signedHeaders = Object.keys(headers).sort().join(";");
   const canonicalHeaders = Object.keys(headers)
     .sort()
@@ -367,6 +370,10 @@ async function readR2Preview(
     messages.push(`R2 preview unavailable: missing server configuration (${config.missing.join(", ")}).`);
     return null;
   }
+  if (config.configuredBucket && parsed.bucket !== config.configuredBucket) {
+    messages.push("R2 preview unavailable: artifact bucket does not match dashboard configuration.");
+    return null;
+  }
 
   const endpoint = new URL(config.endpointUrl);
   const keyPath = parsed.key.split("/").map(encodePathSegment).join("/");
@@ -410,6 +417,76 @@ async function readR2Preview(
     });
   } catch (error) {
     messages.push(`R2 preview unavailable: ${error instanceof Error ? error.message : "request failed"}.`);
+    return null;
+  }
+}
+
+export async function fetchArtifactDownload(
+  artifact: PreviewArtifact
+): Promise<Response | null> {
+  const parsed = parseR2Uri(artifact.r2_uri);
+  if (!parsed) return null;
+  const config = r2Config();
+  if (!config.configured) return null;
+  if (config.configuredBucket && parsed.bucket !== config.configuredBucket) {
+    return null;
+  }
+
+  const endpoint = new URL(config.endpointUrl);
+  const keyPath = parsed.key.split("/").map(encodePathSegment).join("/");
+  const basePath = endpoint.pathname.replace(/\/$/, "");
+  endpoint.pathname = `${basePath}/${encodePathSegment(parsed.bucket)}/${keyPath}`;
+  const headers = signR2Request({
+    accessKeyId: config.accessKeyId,
+    secretAccessKey: config.secretAccessKey,
+    region: config.region,
+    method: "GET",
+    url: endpoint
+  });
+
+  try {
+    const response = await fetch(endpoint, { headers, cache: "no-store" });
+    if (!response.ok) return null;
+
+    const expectedSha = artifact.sha256?.trim().toLowerCase() || null;
+    const remoteSha = response.headers
+      .get("x-amz-meta-sha256")
+      ?.trim()
+      .toLowerCase() || null;
+    const expectedSize =
+      artifact.size_bytes === null || artifact.size_bytes === undefined
+        ? null
+        : Number(artifact.size_bytes);
+    const remoteMetadataSizeHeader =
+      response.headers.get("x-amz-meta-size_bytes");
+    const remoteMetadataSize =
+      remoteMetadataSizeHeader === null
+        ? null
+        : Number(remoteMetadataSizeHeader);
+    const remoteContentLengthHeader =
+      response.headers.get("content-length");
+    const remoteContentLength =
+      remoteContentLengthHeader === null
+        ? null
+        : Number(remoteContentLengthHeader);
+    const integrityMismatch =
+      (expectedSha !== null && remoteSha !== expectedSha)
+      || (
+        expectedSize !== null
+        && remoteMetadataSize !== expectedSize
+      )
+      || (
+        expectedSize !== null
+        && remoteContentLength !== null
+        && remoteContentLength !== expectedSize
+      );
+
+    if (integrityMismatch) {
+      await response.body?.cancel();
+      return null;
+    }
+    return response;
+  } catch {
     return null;
   }
 }

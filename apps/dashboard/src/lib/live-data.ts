@@ -5,6 +5,7 @@ export const LIVE_RUN_LIMIT = 20;
 export const LIVE_EVENT_LIMIT = 200;
 export const LIVE_OUTPUT_EVENT_LIMIT = 300;
 export const LIVE_WARNING_EVENT_LIMIT = 100;
+export const LIVE_TOOL_EVENT_LIMIT = 300;
 export const LIVE_TRIAL_LIMIT = 200;
 export const LIVE_ARTIFACT_LIMIT = 300;
 
@@ -79,6 +80,8 @@ export type LiveTrialRow = {
 };
 
 export type LiveArtifactRow = {
+  artifact_id: string;
+  live_run_id: string;
   trial_key: string | null;
   artifact_type: string;
   relative_local_path: string;
@@ -216,7 +219,10 @@ export async function getLiveRunEvents(
           payload
         from benchmark.live_run_events
         where live_run_id = $1
-          and event_type not in ('process_output_chunk', 'agent_output_chunk')
+          and event_type not in (
+            'process_output_chunk', 'agent_output_chunk',
+            'tool_call_started', 'tool_result', 'tool_call_finished'
+          )
         order by sequence desc
         limit $2
       ) recent
@@ -275,6 +281,10 @@ export async function getLiveRunWarnings(
           and (
             event_type in ('publication_warning', 'runtime_warning')
             or (
+              event_type = 'tool_call_finished'
+              and payload->>'status' = 'failed'
+            )
+            or (
               event_type in ('process_output_chunk', 'agent_output_chunk')
               and coalesce(message, '') ~*
                 '(^|[^[:alpha:]])(warning|warn|error|exception|fatal)([^[:alpha:]]|$)'
@@ -286,6 +296,36 @@ export async function getLiveRunWarnings(
       order by sequence
     `,
     [liveRunId, Math.min(Math.max(limit, 1), LIVE_WARNING_EVENT_LIMIT)]
+  );
+}
+
+export async function getLiveToolEvents(
+  liveRunId: string,
+  limit = LIVE_TOOL_EVENT_LIMIT
+): Promise<LiveEventRow[]> {
+  return queryRows<LiveEventRow>(
+    `
+      select *
+      from (
+        select
+          sequence,
+          event_type,
+          occurred_at,
+          elapsed_seconds::float8,
+          stream,
+          left(message, 2000) as message,
+          payload
+        from benchmark.live_run_events
+        where live_run_id = $1
+          and event_type in (
+            'tool_call_started', 'tool_result', 'tool_call_finished'
+          )
+        order by sequence desc
+        limit $2
+      ) recent
+      order by sequence
+    `,
+    [liveRunId, Math.min(Math.max(limit, 1), LIVE_TOOL_EVENT_LIMIT)]
   );
 }
 
@@ -321,6 +361,29 @@ export async function getLiveTrials(
   );
 }
 
+export async function getLiveArtifact(artifactId: string): Promise<LiveArtifactRow | null> {
+  const rows = await queryRows<LiveArtifactRow>(
+    `
+      select
+        id::text as artifact_id,
+        live_run_id,
+        trial_key,
+        artifact_type,
+        relative_local_path,
+        r2_uri,
+        sha256,
+        size_bytes::float8 as size_bytes,
+        stability_state,
+        uploaded_at
+      from benchmark.live_artifacts
+      where id::text = $1
+      limit 1
+    `,
+    [artifactId]
+  );
+  return rows[0] ?? null;
+}
+
 export async function getLiveArtifacts(
   liveRunId: string,
   limit = LIVE_ARTIFACT_LIMIT
@@ -328,6 +391,8 @@ export async function getLiveArtifacts(
   return queryRows<LiveArtifactRow>(
     `
       select
+        id::text as artifact_id,
+        live_run_id,
         trial_key,
         artifact_type,
         relative_local_path,

@@ -16,6 +16,10 @@ from scripts.lib.live_artifacts import (
 )
 from scripts.lib.live_db import BatchedDatabasePublisher
 from scripts.lib.live_events import LocalEventWriter, utc_now
+from scripts.lib.live_tool_events import (
+    IncrementalToolEventParser,
+    load_seen_tool_event_ids,
+)
 from scripts.lib.path_safety import PathBoundaryError, resolve_under
 
 
@@ -63,6 +67,9 @@ class ProgressiveRunMonitor:
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._tracker = FileStabilityTracker()
+        self._tool_parser = IncrementalToolEventParser(
+            seen_event_ids=load_seen_tool_event_ids(writer.event_path)
+        )
         self._run_dir: Path | None = None
         self._detected: set[str] = set()
         self._verifier_started: set[str] = set()
@@ -154,6 +161,17 @@ class ProgressiveRunMonitor:
             if verifier_path.exists() and trial_key not in self._verifier_started:
                 self._verifier_started.add(trial_key)
                 self.writer.emit("verifier_started", trial_key=trial_key)
+
+            for tool_event in self._tool_parser.scan_trial(
+                trial_dir,
+                trial_key=trial_key,
+                workspace=self.workspace,
+            ):
+                self.writer.emit(
+                    tool_event.event_type,
+                    message=tool_event.message,
+                    **tool_event.payload,
+                )
 
             result_path = trial_dir / "result.json"
             result_stable = self._tracker.stable(
