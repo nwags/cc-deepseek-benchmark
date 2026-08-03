@@ -9,6 +9,7 @@ const navItems = [
   { href: "/eval-suites", label: "Eval Suites" },
   { href: "/evals", label: "Evals" },
   { href: "/runs", label: "Runs" },
+  { href: "/runs/live", label: "Live Runs" },
   { href: "/arms", label: "Arms" },
   { href: "/tasks", label: "Tasks" },
   { href: "/artifacts", label: "Artifacts" },

@@ -6,14 +6,11 @@ Phase 3 should not treat the current OVH VPS as a finished benchmark farm. The l
 
 ## Current safe operating mode
 
-Current safe mode is:
-
-- one self-hosted GitHub Actions runner job at a time,
-- one arm per dispatch,
-- `n_attempts=1` for smoke,
-- `n_concurrent=1` until runtime, Docker behavior, provider rate limits, and cost behavior are measured.
-
-This is sufficient for conservative smoke waves. It is not sufficient for the full sweep.
+The current fleet has six independent, online GitHub Actions runner slots across
+two VPS hosts. Each job still runs one arm, and canary/smoke work should retain
+conservative attempt and Harbor-concurrency settings until provider limits and
+cost behavior are confirmed. Six available slots do not by themselves authorize
+a six-job paid sweep.
 
 ## Control plane vs worker pool
 
@@ -77,11 +74,21 @@ A runner slot is an isolated execution lane. Each slot should have:
 - provider-family concurrency limits,
 - cost guardrails.
 
-Example single-host slot layout:
+Current routing labels are phase-neutral:
 
-    phase3-slot-1 -> label phase3-slot-1 -> LiteLLM 4001 -> /srv/phase3/slot-1
-    phase3-slot-2 -> label phase3-slot-2 -> LiteLLM 4002 -> /srv/phase3/slot-2
-    phase3-slot-3 -> label phase3-slot-3 -> LiteLLM 4003 -> /srv/phase3/slot-3
+| Host | Slots | VPS label | Per-slot labels |
+|---|---|---|---|
+| VPS 1 | 1-3 | `cc-bench-vps1` | `cc-bench-slot-1`, `cc-bench-slot-2`, `cc-bench-slot-3` |
+| VPS 2 | 4-6 | `cc-bench-vps2` | `cc-bench-slot-4`, `cc-bench-slot-5`, `cc-bench-slot-6` |
+
+Every slot also has `self-hosted`, `Linux`, `X64`, and the common
+`cc-bench` pool label. Historical runner display names are opaque
+infrastructure identities. Workflow routing must not derive a host or slot from
+`RUNNER_NAME`.
+
+Each slot has a separate GitHub Actions workspace. Phase 3 result paths and
+historical `/srv/phase3` service paths remain valid benchmark/infrastructure
+terminology; they are not runner labels.
 
 A single-host slot layout is useful as a bridge, but the full-sweep target should be horizontally scalable worker instances.
 

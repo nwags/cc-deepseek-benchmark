@@ -24,8 +24,20 @@ The dashboard reads Supabase Postgres views in the benchmark schema:
 - benchmark.v_dashboard_runs
 - benchmark.v_dashboard_arms
 - benchmark.v_dashboard_tasks
+- benchmark.live_runs
+- benchmark.live_run_events
+- benchmark.live_trials
+- benchmark.live_artifacts
 
-Large artifacts remain in Cloudflare R2. This first dashboard scaffold displays artifact metadata only; signed R2 artifact links can be added later through server-side routes.
+Large artifacts remain in Cloudflare R2. `/runs/live` reads shared Supabase
+state published by remote runners and shows bounded event, partial-trial, and
+progressive-artifact data. It marks active rows stale after 90 seconds without
+a heartbeat and refreshes automatically while a non-stale execution remains
+active. A stale orphan alone does not keep the page on an eight-second loop.
+
+The workstation-local `.run/live` reader is development-only. Set
+`DASHBOARD_LIVE_LOCAL_FALLBACK=true` to use it only when shared live state is
+unavailable.
 
 <!-- phase3-2026-06-12-alignment:start -->
 ## 2026-06-12 dashboard usage alignment

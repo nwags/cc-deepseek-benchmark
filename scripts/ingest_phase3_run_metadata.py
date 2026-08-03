@@ -19,10 +19,21 @@ import json
 import os
 import re
 import subprocess
+import sys
+from contextlib import nullcontext
 from datetime import datetime
 from dataclasses import dataclass, asdict
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
+
+if __package__ in {None, ""}:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from scripts.lib.path_safety import (
+    PathBoundaryError,
+    iter_allowlisted_files,
+    resolve_under,
+)
 
 
 ARTIFACT_NAMES = {
@@ -49,16 +60,51 @@ class Artifact:
     r2_key: str | None = None
 
 
-def read_json(path: Path) -> dict[str, Any]:
+class CanonicalIdentityCollision(RuntimeError):
+    pass
+
+
+class DependentTrialRowsError(RuntimeError):
+    pass
+
+
+class R2ObjectConflict(RuntimeError):
+    pass
+
+
+def read_json(
+    path: Path,
+    *,
+    workspace: Path | None = None,
+    parent: Path | None = None,
+) -> dict[str, Any]:
     if not path.exists():
         return {}
+    if workspace is not None and parent is not None:
+        path = resolve_under(
+            path,
+            workspace=workspace,
+            parent=parent,
+            require_file=True,
+            label="manifest JSON input",
+        )
     try:
-        return json.loads(path.read_text())
-    except json.JSONDecodeError as exc:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise SystemExit(f"Invalid JSON in {path}: {exc}") from exc
+    if not isinstance(value, dict):
+        raise SystemExit(f"Invalid JSON object in {path}")
+    return value
 
 
-def sha256_file(path: Path) -> str:
+def sha256_file(path: Path, *, workspace: Path, parent: Path) -> str:
+    path = resolve_under(
+        path,
+        workspace=workspace,
+        parent=parent,
+        require_file=True,
+        label="manifest artifact",
+    )
     h = hashlib.sha256()
     with path.open("rb") as f:
         for chunk in iter(lambda: f.read(1024 * 1024), b""):
@@ -135,33 +181,191 @@ def artifact_type(path: Path) -> str:
     return "artifact"
 
 
-def build_r2_key(root: Path, path: Path, prefix: str, phase: str, mode: str, arm_id: str | None) -> str:
+def _safe_identity_component(value: Any) -> str:
+    return re.sub(r"[^A-Za-z0-9._-]+", "-", str(value)).strip("-._") or "unknown"
+
+
+def canonical_run_label(run: dict[str, Any]) -> str:
+    explicit = run.get("run_label")
+    if explicit:
+        return str(explicit)
+    base = f"{run.get('arm_id') or 'unknown-arm'}/{run.get('run_timestamp')}"
+    if run.get("execution_scoped") and run.get("execution_identity"):
+        return (
+            f"{base}/execution-"
+            f"{_safe_identity_component(run['execution_identity'])}"
+        )
+    if run.get("execution_scoped") and run.get("github_run_id"):
+        return (
+            f"{base}/github-{_safe_identity_component(run['github_run_id'])}"
+            f"/attempt-{_safe_identity_component(run.get('github_run_attempt') or 1)}"
+        )
+    return base
+
+
+def assert_canonical_identity_compatible(
+    *,
+    incoming_github_run_id: Any,
+    incoming_github_run_attempt: Any,
+    existing_github_run_id: Any,
+    existing_github_run_attempt: Any,
+) -> None:
+    if incoming_github_run_id is None:
+        return
+    if existing_github_run_id is None:
+        raise CanonicalIdentityCollision(
+            "canonical identity is already occupied by an execution without GitHub identity"
+        )
+    if str(existing_github_run_id) != str(incoming_github_run_id):
+        raise CanonicalIdentityCollision(
+            "canonical identity is already occupied by a different GitHub run"
+        )
+    if (
+        existing_github_run_attempt is not None
+        and incoming_github_run_attempt is not None
+        and int(existing_github_run_attempt) != int(incoming_github_run_attempt)
+    ):
+        raise CanonicalIdentityCollision(
+            "canonical identity is already occupied by a different GitHub run attempt"
+        )
+
+
+def normalize_run_relative_artifact_path(
+    local_path: Any,
+    *,
+    run_dir: Any,
+    run_timestamp: Any,
+) -> str | None:
+    if not local_path:
+        return None
+    path = PurePosixPath(str(local_path).replace("\\", "/"))
+    parts = path.parts
+    if ".." in parts:
+        return None
+    run_parts = PurePosixPath(str(run_dir).replace("\\", "/")).parts
+    for index in range(len(parts) - len(run_parts), -1, -1):
+        if tuple(parts[index : index + len(run_parts)]) == tuple(run_parts):
+            relative = parts[index + len(run_parts) :]
+            return PurePosixPath(*relative).as_posix() if relative else None
+    timestamp = str(run_timestamp or "")
+    for index in range(len(parts) - 1, -1, -1):
+        if parts[index] == timestamp:
+            relative = parts[index + 1 :]
+            return PurePosixPath(*relative).as_posix() if relative else None
+    if not path.is_absolute():
+        return path.as_posix().lstrip("./") or None
+    return None
+
+
+def reusable_r2_uri_map(
+    rows: list[tuple[Any, Any, Any, Any]],
+    *,
+    run: dict[str, Any],
+) -> dict[tuple[str, str, int], str]:
+    reusable: dict[tuple[str, str, int], str] = {}
+    for local_path, r2_uri, sha256, size_bytes in rows:
+        relative = normalize_run_relative_artifact_path(
+            local_path,
+            run_dir=run.get("run_dir"),
+            run_timestamp=run.get("run_timestamp"),
+        )
+        if relative and r2_uri and sha256 is not None and size_bytes is not None:
+            reusable[(relative, str(sha256), int(size_bytes))] = str(r2_uri)
+    return reusable
+
+
+def resolve_reusable_r2_uri(
+    artifact: dict[str, Any],
+    *,
+    run: dict[str, Any],
+    reusable: dict[tuple[str, str, int], str],
+) -> str | None:
+    relative = normalize_run_relative_artifact_path(
+        artifact.get("local_path"),
+        run_dir=run.get("run_dir"),
+        run_timestamp=run.get("run_timestamp"),
+    )
+    if not relative:
+        return None
+    return reusable.get(
+        (
+            relative,
+            str(artifact.get("sha256") or ""),
+            int(artifact.get("size_bytes") or 0),
+        )
+    )
+
+
+def build_r2_key(
+    root: Path,
+    path: Path,
+    prefix: str,
+    phase: str,
+    mode: str,
+    arm_id: str | None,
+    execution_scope: str | None = None,
+    sha256: str | None = None,
+) -> str:
     rel = path.relative_to(root).as_posix()
     safe_arm = arm_id or "unknown-arm"
     run_timestamp = root.name
 
     # If R2_PREFIX is the same as the phase, avoid keys like
     # phase3/phase3/canary/...
-    parts = [p.strip("/") for p in [prefix, phase, mode, safe_arm, run_timestamp, rel] if p]
+    parts = [
+        p.strip("/")
+        for p in [
+            prefix,
+            phase,
+            mode,
+            safe_arm,
+            execution_scope,
+            run_timestamp,
+            f"sha256-{sha256}" if sha256 else None,
+            rel,
+        ]
+        if p
+    ]
     if parts and len(parts) > 1 and parts[0] == parts[1]:
         parts.pop(1)
     return "/".join(parts)
 
 
-def collect_artifacts(run_dir: Path, r2_prefix: str, phase: str, mode: str, arm_id: str | None) -> list[Artifact]:
+def collect_artifacts(
+    run_dir: Path,
+    r2_prefix: str,
+    phase: str,
+    mode: str,
+    arm_id: str | None,
+    *,
+    workspace: Path,
+    execution_scope: str | None = None,
+) -> list[Artifact]:
     artifacts: list[Artifact] = []
-    for path in sorted(run_dir.rglob("*")):
-        if not path.is_file():
-            continue
-        if path.name not in ARTIFACT_NAMES:
-            continue
+    for path in sorted(
+        iter_allowlisted_files(
+            run_dir,
+            workspace=workspace,
+            names=ARTIFACT_NAMES,
+        )
+    ):
+        artifact_sha256 = sha256_file(path, workspace=workspace, parent=run_dir)
         artifacts.append(
             Artifact(
                 artifact_type=artifact_type(path),
-                local_path=path.as_posix(),
-                sha256=sha256_file(path),
+                local_path=path.relative_to(workspace).as_posix(),
+                sha256=artifact_sha256,
                 size_bytes=path.stat().st_size,
-                r2_key=build_r2_key(run_dir, path, r2_prefix, phase, mode, arm_id),
+                r2_key=build_r2_key(
+                    run_dir,
+                    path,
+                    r2_prefix,
+                    phase,
+                    mode,
+                    arm_id,
+                    execution_scope,
+                    artifact_sha256,
+                ),
             )
         )
     return artifacts
@@ -233,11 +437,34 @@ def extract_trial_runtime_seconds(data: dict[str, Any]) -> Any:
     )
 
 
-def extract_trials(run_dir: Path) -> list[dict[str, Any]]:
+def extract_trials(run_dir: Path, *, workspace: Path) -> list[dict[str, Any]]:
     trials: list[dict[str, Any]] = []
-    for path in sorted(run_dir.glob("*/result.json")):
-        data = read_json(path)
-        trial_name = path.parent.name
+    trial_dirs: list[Path] = []
+    for child in sorted(run_dir.iterdir()):
+        if "__" not in child.name:
+            continue
+        if child.is_symlink():
+            raise PathBoundaryError("trial directory must not be a symbolic link")
+        if child.is_dir():
+            trial_dirs.append(
+                resolve_under(
+                    child,
+                    workspace=workspace,
+                    parent=run_dir,
+                    require_directory=True,
+                    label="trial directory",
+                )
+            )
+    for trial_dir in trial_dirs:
+        path = resolve_under(
+            trial_dir / "result.json",
+            workspace=workspace,
+            parent=trial_dir,
+            require_file=True,
+            label="trial result",
+        )
+        data = read_json(path, workspace=workspace, parent=trial_dir)
+        trial_name = trial_dir.name
         task_name = trial_name.split("__", 1)[0]
 
         result = data.get("result") or {}
@@ -265,7 +492,7 @@ def extract_trials(run_dir: Path) -> list[dict[str, Any]]:
 
         trials.append(
             {
-                "trial_dir": path.parent.as_posix(),
+                "trial_dir": trial_dir.relative_to(workspace).as_posix(),
                 "trial_name": trial_name,
                 "task_name": task_name,
                 "reward": extract_reward(data),
@@ -285,7 +512,7 @@ def extract_trials(run_dir: Path) -> list[dict[str, Any]]:
                     model_info.get("name"),
                     data.get("model_name"),
                 ),
-                "raw_result_path": path.as_posix(),
+                "raw_result_path": path.relative_to(workspace).as_posix(),
             }
         )
     return trials
@@ -298,18 +525,45 @@ def build_manifest(
     logical_mode_override: str | None = None,
     suite_id_override: str | None = None,
     github_run_id: str | None = None,
+    github_run_attempt: int | None = None,
+    execution_scoped: bool = False,
+    execution_identity: str | None = None,
+    workspace: Path | None = None,
 ) -> dict[str, Any]:
-    run_result = read_json(run_dir / "result.json")
-    run_config = read_json(run_dir / "config.json")
+    workspace = (workspace or Path.cwd()).resolve(strict=True)
+    run_dir = resolve_under(
+        run_dir,
+        workspace=workspace,
+        require_directory=True,
+        label="canonical run directory",
+    )
+    run_result = read_json(run_dir / "result.json", workspace=workspace, parent=run_dir)
+    run_config = read_json(run_dir / "config.json", workspace=workspace, parent=run_dir)
     phase, storage_mode = detect_phase_mode(run_dir)
     logical_mode = resolve_logical_mode(storage_mode, logical_mode_override)
     suite_id = suite_id_override or default_suite_id(phase, logical_mode)
     arm_id = detect_arm(run_dir)
+    execution_scope = (
+        f"execution-{_safe_identity_component(execution_identity)}"
+        if execution_scoped and execution_identity
+        else (
+            f"github-{_safe_identity_component(github_run_id)}"
+            f"/attempt-{_safe_identity_component(github_run_attempt or 1)}"
+            if execution_scoped and github_run_id
+            else None
+        )
+    )
 
     git_commit = git_value(["git", "rev-parse", "HEAD"])
     branch = git_value(["git", "branch", "--show-current"])
 
     stats = run_result.get("stats", {})
+    jobs_dir = run_config.get("jobs_dir")
+    if isinstance(jobs_dir, str) and Path(jobs_dir).is_absolute():
+        try:
+            jobs_dir = Path(jobs_dir).resolve().relative_to(workspace).as_posix()
+        except ValueError:
+            jobs_dir = None
     manifest = {
         "schema_version": 1,
         "run": {
@@ -319,8 +573,11 @@ def build_manifest(
             "storage_mode": storage_mode,
             "suite_id": suite_id,
             "github_run_id": github_run_id,
+            "github_run_attempt": github_run_attempt,
+            "execution_scoped": bool(execution_scope),
+            "execution_identity": execution_identity,
             "arm_id": arm_id,
-            "run_dir": run_dir.as_posix(),
+            "run_dir": run_dir.relative_to(workspace).as_posix(),
             "run_timestamp": run_dir.name,
             "git_commit": git_commit,
             "branch": branch,
@@ -339,11 +596,23 @@ def build_manifest(
             "agent": run_config.get("agent"),
             "model_name": run_config.get("model_name"),
             "dataset": run_config.get("dataset"),
-            "jobs_dir": run_config.get("jobs_dir"),
+            "jobs_dir": jobs_dir,
         },
-        "trials": extract_trials(run_dir),
-        "artifacts": [asdict(a) for a in collect_artifacts(run_dir, r2_prefix, phase, storage_mode, arm_id)],
+        "trials": extract_trials(run_dir, workspace=workspace),
+        "artifacts": [
+            asdict(a)
+            for a in collect_artifacts(
+                run_dir,
+                r2_prefix,
+                phase,
+                storage_mode,
+                arm_id,
+                workspace=workspace,
+                execution_scope=execution_scope,
+            )
+        ],
     }
+    manifest["run"]["run_label"] = canonical_run_label(manifest["run"])
     return manifest
 
 
@@ -366,13 +635,18 @@ def require_env(name: str, value: str | None) -> str:
     return value
 
 
-def upload_artifacts_to_r2(manifest: dict[str, Any], *, bucket: str, endpoint_url: str, access_key_id: str, secret_access_key: str, region_name: str = "auto") -> None:
+def create_r2_client(
+    *,
+    endpoint_url: str,
+    access_key_id: str,
+    secret_access_key: str,
+    region_name: str = "auto",
+) -> Any:
     try:
         import boto3
     except ImportError as exc:
-        raise SystemExit("boto3 is required for --upload-r2. Run with: uv run --with boto3 ...") from exc
-
-    client = boto3.client(
+        raise SystemExit("boto3 is required for R2 publication") from exc
+    return boto3.client(
         "s3",
         endpoint_url=endpoint_url,
         aws_access_key_id=access_key_id,
@@ -380,20 +654,158 @@ def upload_artifacts_to_r2(manifest: dict[str, Any], *, bucket: str, endpoint_ur
         region_name=region_name,
     )
 
+
+def upload_artifacts_to_r2(
+    manifest: dict[str, Any],
+    *,
+    bucket: str,
+    endpoint_url: str,
+    access_key_id: str,
+    secret_access_key: str,
+    region_name: str = "auto",
+    workspace: Path | None = None,
+    run_dir: Path | None = None,
+    client: Any = None,
+) -> Any:
+    client = client or create_r2_client(
+        endpoint_url=endpoint_url,
+        access_key_id=access_key_id,
+        secret_access_key=secret_access_key,
+        region_name=region_name,
+    )
+    workspace = (workspace or Path.cwd()).resolve(strict=True)
+    run_dir = resolve_under(
+        run_dir or workspace / str(manifest.get("run", {}).get("run_dir") or ""),
+        workspace=workspace,
+        require_directory=True,
+        label="canonical run directory",
+    )
+
     uploaded = 0
+    reused = 0
     for artifact in manifest.get("artifacts", []):
+        if artifact.get("r2_uri"):
+            continue
         local_path = artifact.get("local_path")
         r2_key = artifact.get("r2_key")
         if not local_path or not r2_key:
             continue
-        client.upload_file(local_path, bucket, r2_key)
+        resolved = resolve_under(
+            workspace / str(local_path),
+            workspace=workspace,
+            parent=run_dir,
+            require_file=True,
+            label="canonical artifact",
+        )
+        expected_size = int(artifact.get("size_bytes") or -1)
+        expected_sha = str(artifact.get("sha256") or "")
+        if resolved.stat().st_size != expected_size:
+            raise PathBoundaryError("canonical artifact size changed before upload")
+        if sha256_file(resolved, workspace=workspace, parent=run_dir) != expected_sha:
+            raise PathBoundaryError("canonical artifact checksum changed before upload")
+        try:
+            response = client.head_object(Bucket=bucket, Key=str(r2_key))
+        except Exception as exc:
+            if not _is_r2_not_found(exc):
+                raise
+        else:
+            metadata = {
+                str(key).lower(): str(value)
+                for key, value in (response.get("Metadata") or {}).items()
+            }
+            exact = (
+                metadata.get("sha256") == expected_sha
+                and metadata.get("size_bytes") == str(expected_size)
+                and int(response.get("ContentLength", -1)) == expected_size
+            )
+            if not exact:
+                raise R2ObjectConflict(
+                    "existing canonical R2 object has conflicting integrity metadata"
+                )
+            artifact["r2_uri"] = f"r2://{bucket}/{r2_key}"
+            reused += 1
+            continue
+        client.upload_file(
+            resolved.as_posix(),
+            bucket,
+            r2_key,
+            ExtraArgs={
+                "Metadata": {
+                    "sha256": expected_sha,
+                    "size_bytes": str(expected_size),
+                }
+            },
+        )
         artifact["r2_uri"] = f"r2://{bucket}/{r2_key}"
         uploaded += 1
 
-    print(f"uploaded {uploaded} artifacts to R2 bucket {bucket}")
+    print(f"uploaded {uploaded} artifacts to R2; reused {reused} exact objects")
+    return client
 
 
-def insert_manifest_into_postgres(manifest: dict[str, Any], *, db_url: str) -> None:
+def _is_r2_not_found(exc: Exception) -> bool:
+    if isinstance(exc, FileNotFoundError):
+        return True
+    response = getattr(exc, "response", None)
+    if not isinstance(response, dict):
+        return False
+    code = str((response.get("Error") or {}).get("Code") or "")
+    return code in {"404", "NoSuchKey", "NotFound"}
+
+
+def dependent_trial_row_counts(cursor: Any, run_id: Any) -> dict[str, int]:
+    queries = {
+        "benchmark_trial_cost_coverage": """
+            select count(*)
+            from benchmark.benchmark_trial_cost_coverage coverage
+            join benchmark.benchmark_trials trial on trial.id = coverage.trial_id
+            where trial.run_id = %s
+        """,
+        "contamination_audits": """
+            select count(*)
+            from benchmark.contamination_audits audit
+            join benchmark.benchmark_trials trial on trial.id = audit.trial_id
+            where trial.run_id = %s
+        """,
+    }
+    counts: dict[str, int] = {}
+    for relation, query in queries.items():
+        cursor.execute("select to_regclass(%s)", (f"benchmark.{relation}",))
+        if cursor.fetchone()[0] is None:
+            counts[relation] = 0
+            continue
+        cursor.execute(query, (run_id,))
+        counts[relation] = int(cursor.fetchone()[0] or 0)
+    return counts
+
+
+def assert_trial_replacement_allowed(
+    cursor: Any,
+    *,
+    run_id: Any,
+    allow_dependent_trial_replacement: bool,
+) -> dict[str, int]:
+    counts = dependent_trial_row_counts(cursor, run_id)
+    if (
+        not allow_dependent_trial_replacement
+        and any(count > 0 for count in counts.values())
+    ):
+        occupied = ", ".join(
+            f"{name}={count}" for name, count in counts.items() if count > 0
+        )
+        raise DependentTrialRowsError(
+            f"canonical trial replacement would delete dependent rows: {occupied}"
+        )
+    return counts
+
+
+def insert_manifest_into_postgres(
+    manifest: dict[str, Any],
+    *,
+    db_url: str | None = None,
+    connection: Any = None,
+    allow_dependent_trial_replacement: bool = False,
+) -> dict[str, str]:
     try:
         import psycopg
         from psycopg.types.json import Jsonb
@@ -410,10 +822,39 @@ def insert_manifest_into_postgres(manifest: dict[str, Any], *, db_url: str) -> N
     # existing idempotency constraint. Sponsor-facing mode lives on arm runs.
     run_mode = storage_mode
     suite_id = run.get("suite_id")
-    run_label = f"{arm_id}/{run.get('run_timestamp')}"
+    run_label = canonical_run_label(run)
+    owns_connection = connection is None
+    if owns_connection and not db_url:
+        raise ValueError("db_url is required when no connection is supplied")
 
-    with psycopg.connect(db_url) as conn:
+    connection_context = (
+        psycopg.connect(db_url) if owns_connection else nullcontext(connection)
+    )
+    with connection_context as conn:
         with conn.cursor() as cur:
+            cur.execute(
+                """
+                select
+                    arm_run.github_run_id,
+                    arm_run.raw_metadata ->> 'github_run_attempt'
+                from benchmark.benchmark_arm_runs arm_run
+                join benchmark.benchmark_runs benchmark_run
+                  on benchmark_run.id = arm_run.run_id
+                where benchmark_run.phase = %s
+                  and benchmark_run.mode = %s
+                  and benchmark_run.run_label = %s
+                  and arm_run.arm_id = %s
+                """,
+                (phase, run_mode, run_label, arm_id),
+            )
+            for existing_github_run_id, existing_attempt in cur.fetchall():
+                assert_canonical_identity_compatible(
+                    incoming_github_run_id=run.get("github_run_id"),
+                    incoming_github_run_attempt=run.get("github_run_attempt"),
+                    existing_github_run_id=existing_github_run_id,
+                    existing_github_run_attempt=existing_attempt,
+                )
+
             cur.execute(
                 """
                 insert into benchmark.benchmark_arms (
@@ -470,9 +911,9 @@ def insert_manifest_into_postgres(manifest: dict[str, Any], *, db_url: str) -> N
                     run_label,
                     run.get("git_commit"),
                     run.get("branch"),
-                    None,
-                    None,
-                    None,
+                    run.get("runner_name"),
+                    run.get("runner_provider"),
+                    run.get("runner_region"),
                     run.get("started_at"),
                     run.get("finished_at"),
                     run.get("status") or "unknown",
@@ -560,19 +1001,25 @@ def insert_manifest_into_postgres(manifest: dict[str, Any], *, db_url: str) -> N
             # accidentally erase R2 artifact coverage for an already-uploaded run.
             cur.execute(
                 """
-                select local_path, r2_uri
+                select local_path, r2_uri, sha256, size_bytes
                 from benchmark.benchmark_artifacts
                 where run_id = %s
                   and r2_uri is not null
                 """,
                 (run_id,),
             )
-            existing_r2_uri_by_local_path = {
-                local_path: r2_uri
-                for local_path, r2_uri in cur.fetchall()
-                if local_path and r2_uri
-            }
+            existing_r2_uri_by_identity = reusable_r2_uri_map(
+                cur.fetchall(),
+                run=run,
+            )
 
+            assert_trial_replacement_allowed(
+                cur,
+                run_id=run_id,
+                allow_dependent_trial_replacement=(
+                    allow_dependent_trial_replacement
+                ),
+            )
             cur.execute("delete from benchmark.benchmark_artifacts where run_id = %s", (run_id,))
             cur.execute("delete from benchmark.benchmark_trials where run_id = %s", (run_id,))
 
@@ -648,7 +1095,12 @@ def insert_manifest_into_postgres(manifest: dict[str, Any], *, db_url: str) -> N
                         trial_db_id,
                         artifact.get("artifact_type"),
                         local_path,
-                        artifact.get("r2_uri") or existing_r2_uri_by_local_path.get(local_path),
+                        artifact.get("r2_uri")
+                        or resolve_reusable_r2_uri(
+                            artifact,
+                            run=run,
+                            reusable=existing_r2_uri_by_identity,
+                        ),
                         None,
                         artifact.get("sha256"),
                         artifact.get("size_bytes"),
@@ -656,13 +1108,17 @@ def insert_manifest_into_postgres(manifest: dict[str, Any], *, db_url: str) -> N
                     ),
                 )
 
-        conn.commit()
+        if owns_connection:
+            conn.commit()
 
-    print(f"upserted manifest into Postgres run_id={run_id} run_label={run_label}")
+    if owns_connection:
+        print(f"upserted manifest into Postgres run_id={run_id} run_label={run_label}")
+    return {"run_id": str(run_id), "arm_run_id": str(arm_run_id)}
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-dir", required=True, help="Path to one timestamped Harbor result directory.")
+    parser.add_argument("--workspace", default=os.getenv("GITHUB_WORKSPACE") or os.getcwd())
     parser.add_argument("--manifest-out", default=None, help="Output manifest JSON path.")
     parser.add_argument("--r2-prefix", default=os.getenv("R2_PREFIX", "phase3"))
     parser.add_argument("--logical-mode", choices=["canary", "smoke", "full", "ad-hoc"], default=None)
@@ -671,6 +1127,14 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true", help="Build manifest only; do not upload or insert.")
     parser.add_argument("--upload-r2", action="store_true", help="Upload selected artifacts to Cloudflare R2.")
     parser.add_argument("--insert-db", action="store_true", help="Insert manifest metadata into Supabase/Postgres.")
+    parser.add_argument(
+        "--allow-dependent-trial-replacement",
+        action="store_true",
+        help=(
+            "Maintenance only: permit replacement that can cascade-delete "
+            "trial-linked derived rows."
+        ),
+    )
     parser.add_argument("--db-url", default=os.getenv("SUPABASE_DB_URL"), help="Postgres connection URL. Defaults to SUPABASE_DB_URL.")
     parser.add_argument("--r2-bucket", default=os.getenv("R2_BUCKET"))
     parser.add_argument("--r2-endpoint-url", default=os.getenv("R2_ENDPOINT_URL"))
@@ -679,7 +1143,10 @@ def main() -> int:
     parser.add_argument("--r2-region", default=os.getenv("R2_REGION", "auto"))
     args = parser.parse_args()
 
+    workspace = Path(args.workspace).resolve()
     run_dir = Path(args.run_dir)
+    if not run_dir.is_absolute():
+        run_dir = workspace / run_dir
     if not run_dir.exists():
         raise SystemExit(f"run directory does not exist: {run_dir}")
     if not (run_dir / "result.json").exists():
@@ -692,6 +1159,7 @@ def main() -> int:
         logical_mode_override=args.logical_mode,
         suite_id_override=args.suite_id,
         github_run_id=args.github_run_id,
+        workspace=workspace,
     )
 
     if args.dry_run and (args.upload_r2 or args.insert_db):
@@ -705,12 +1173,17 @@ def main() -> int:
             access_key_id=require_env("R2_ACCESS_KEY_ID", args.r2_access_key_id),
             secret_access_key=require_env("R2_SECRET_ACCESS_KEY", args.r2_secret_access_key),
             region_name=args.r2_region or "auto",
+            workspace=workspace,
+            run_dir=run_dir,
         )
 
     if args.insert_db:
         insert_manifest_into_postgres(
             manifest,
             db_url=require_env("SUPABASE_DB_URL", args.db_url),
+            allow_dependent_trial_replacement=(
+                args.allow_dependent_trial_replacement
+            ),
         )
 
     out = Path(args.manifest_out) if args.manifest_out else run_dir / "ingest_manifest.json"

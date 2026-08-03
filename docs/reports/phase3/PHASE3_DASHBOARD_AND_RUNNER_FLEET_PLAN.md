@@ -88,11 +88,11 @@ Initial stack:
 
 The current OVH VPS should be treated as a single benchmark worker. True concurrency should come from multiple runners, ideally one runner per VPS.
 
-Near-term runner labels:
-
-- ovh-runner-01: phase3, ovh, x64, docker, smoke
-- ovh-runner-02: phase3, ovh, x64, docker, smoke
-- ovh-runner-03: phase3, ovh, x64, docker, smoke
+Current runner routing uses the phase-neutral common label `cc-bench`, host
+labels `cc-bench-vps1` and `cc-bench-vps2`, and per-slot labels
+`cc-bench-slot-1` through `cc-bench-slot-6`. Runner display names retain some
+historical wording and must be treated as opaque identities, not parsed as
+routing metadata.
 
 GitHub Actions matrix jobs can use max-parallel equal to the number of available runner hosts.
 
