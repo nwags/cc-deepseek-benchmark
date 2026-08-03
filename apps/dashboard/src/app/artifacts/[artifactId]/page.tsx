@@ -13,13 +13,15 @@ import {
 import { getTaskInstructionPreview, previewArtifactContent } from "../../../lib/artifact-content";
 import { buildArtifactHref } from "../../../lib/links";
 import { formatBytes, formatCurrency, formatNumber, formatSeconds } from "../../../lib/format";
+import { redactSecretsInText, sanitizeDisplayedUri } from "../../../lib/safe-display";
 
 export const dynamic = "force-dynamic";
 
 function compactPath(value: string | null | undefined) {
   if (!value) return "—";
-  const parts = value.split("/");
-  if (parts.length <= 7) return value;
+  const safeValue = sanitizeDisplayedUri(value) ?? "—";
+  const parts = safeValue.split("/");
+  if (parts.length <= 7) return safeValue;
   return `…/${parts.slice(-5).join("/")}`;
 }
 
@@ -92,12 +94,12 @@ export default async function ArtifactDetailPage({
           <div><span>Suite</span><strong className="mono">{artifact.suite_id ?? "—"}</strong></div>
           <div><span>Arm</span><strong className="mono">{artifact.arm_id ?? "—"}</strong></div>
           <div><span>Task</span><strong className="mono">{artifact.task_id ?? "run-root artifact"}</strong></div>
-          <div><span>Attempt</span><strong>{artifact.attempt_index ?? "—"}</strong></div>
+          <div><span>Run trial #</span><strong>{artifact.attempt_index ?? "not recorded"}</strong></div>
           <div><span>Quality</span><strong>{artifact.quality_flag ?? "run artifact"}</strong></div>
           <div><span>Reward</span><strong>{artifact.reward ?? "—"}</strong></div>
           <div><span>Runtime</span><strong>{formatSeconds(artifact.runtime_seconds)}</strong></div>
-          <div><span>Cost</span><strong>{formatCurrency(artifact.cost_usd)}</strong></div>
-          <div><span>Tokens</span><strong>{formatNumber(artifact.input_tokens ?? 0)} in / {formatNumber(artifact.output_tokens ?? 0)} out</strong></div>
+          <div><span>Cost</span><strong>{artifact.cost_usd === null || artifact.cost_usd === undefined ? "not recorded" : formatCurrency(artifact.cost_usd)}</strong></div>
+          <div><span>Tokens</span><strong>{artifact.input_tokens === null || artifact.input_tokens === undefined ? "not recorded" : formatNumber(artifact.input_tokens)} in / {artifact.output_tokens === null || artifact.output_tokens === undefined ? "not recorded" : formatNumber(artifact.output_tokens)} out</strong></div>
           <div><span>Artifact id</span><strong className="mono">{artifact.artifact_id}</strong></div>
           <div><span>Trial id</span><strong className="mono">{artifact.trial_id ?? "—"}</strong></div>
           <div><span>Size</span><strong>{formatBytes(artifact.size_bytes)}</strong></div>
@@ -135,8 +137,8 @@ export default async function ArtifactDetailPage({
           <Link href={trialQualityHref(artifact)}>Trial Quality</Link>
           {artifact.task_id ? <Link href={`/evals/${encodeURIComponent(artifact.task_id)}`}>Eval task</Link> : null}
           {artifact.trial_id ? <Link href={`/trials/${artifact.trial_id}`}>Trial evidence</Link> : null}
-          {artifact.r2_uri ? <span className="mono" title={artifact.r2_uri}>{compactPath(artifact.r2_uri)}</span> : null}
-          {artifact.local_path ? <span className="mono" title={artifact.local_path}>{compactPath(artifact.local_path)}</span> : null}
+          {artifact.r2_uri ? <span className="mono" title={sanitizeDisplayedUri(artifact.r2_uri) ?? undefined}>{compactPath(artifact.r2_uri)}</span> : null}
+          {artifact.local_path ? <span className="mono" title={sanitizeDisplayedUri(artifact.local_path) ?? undefined}>{compactPath(artifact.local_path)}</span> : null}
         </div>
       </section>
 
@@ -153,7 +155,7 @@ export default async function ArtifactDetailPage({
         <div className="placeholder-body">
           {preview.messages.length > 0 ? (
             <ul>
-              {preview.messages.map((message) => <li key={message}>{message}</li>)}
+              {preview.messages.map((message) => <li key={message}>{redactSecretsInText(message)}</li>)}
             </ul>
           ) : null}
           <p>
@@ -162,7 +164,7 @@ export default async function ArtifactDetailPage({
           </p>
         </div>
         {preview.text ? (
-          <pre className="content-preview">{preview.text}</pre>
+          <pre className="content-preview">{redactSecretsInText(preview.text)}</pre>
         ) : null}
       </section>
 
@@ -170,12 +172,12 @@ export default async function ArtifactDetailPage({
         <div className="panel-heading">
           <div>
             <h2>Task text</h2>
-            <p>{taskInstruction.message}</p>
+            <p>{redactSecretsInText(taskInstruction.message)}</p>
           </div>
-          {taskInstruction.path ? <span className="mono">{taskInstruction.path}</span> : null}
+          {taskInstruction.path ? <span className="mono">{redactSecretsInText(taskInstruction.path)}</span> : null}
         </div>
         {taskInstruction.text ? (
-          <pre className="content-preview content-preview-compact">{taskInstruction.text}</pre>
+          <pre className="content-preview content-preview-compact">{redactSecretsInText(taskInstruction.text)}</pre>
         ) : (
           <div className="placeholder-body">No task instruction text is available in this dashboard context.</div>
         )}
@@ -186,10 +188,10 @@ export default async function ArtifactDetailPage({
           <div className="panel-heading">
             <div>
               <h2>Exception context</h2>
-              <p>{artifact.exception_type ?? "exception"}</p>
+              <p>{redactSecretsInText(artifact.exception_type ?? "exception")}</p>
             </div>
           </div>
-          <div className="placeholder-body">{artifact.exception_summary ?? "No exception summary recorded."}</div>
+          <div className="placeholder-body">{redactSecretsInText(artifact.exception_summary ?? "No exception summary recorded.")}</div>
         </section>
       ) : null}
 
@@ -216,7 +218,7 @@ export default async function ArtifactDetailPage({
                   <tr key={row.artifact_id}>
                     <td>
                       <div><ArtifactTypeLabel artifactType={row.artifact_type} /></div>
-                      <div className="mono" title={row.local_path ?? row.r2_uri ?? row.artifact_id}>
+                      <div className="mono" title={sanitizeDisplayedUri(row.local_path ?? row.r2_uri ?? row.artifact_id) ?? undefined}>
                         {compactPath(row.local_path ?? row.r2_uri ?? row.artifact_id)}
                       </div>
                     </td>

@@ -10,6 +10,8 @@ python -m py_compile scripts/anthropic_sanitizer_proxy.py
 python -m py_compile scripts/eval_wave.py
 python -m py_compile scripts/eval_quality_audit.py
 python -m py_compile scripts/generate_phase3_qualitative_audit.py
+python -m py_compile scripts/generate_comprehensive_evidence_review.py
+python -m py_compile scripts/scan_comprehensive_review_outputs.py
 python -m py_compile scripts/classify_phase3_exception_artifacts.py
 python -m py_compile scripts/classify_phase3_normal_failures.py
 python -m py_compile scripts/run_qualitative_reporting.py

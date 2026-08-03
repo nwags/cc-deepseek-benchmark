@@ -205,8 +205,11 @@ export type RunDetailRow = {
 };
 
 export type RunTrialRow = {
+  trial_id: string;
   task_id: string;
   arm_id: string;
+  task_attempt: number;
+  run_trial_ordinal: number | null;
   reward: number | null;
   runtime_seconds: number | null;
   cost_usd: number | null;
@@ -223,6 +226,7 @@ export type RunArtifactRow = {
 };
 
 export type ArtifactBrowserRow = {
+  group_key: string;
   artifact_id: string;
   run_id: string;
   run_label: string;
@@ -234,6 +238,11 @@ export type ArtifactBrowserRow = {
   trial_id: string | null;
   task_id: string | null;
   attempt_index: number | null;
+  run_trial_number: number | null;
+  task_attempt_number: number | null;
+  task_attempt_count: number | null;
+  task_ordinal: number | null;
+  run_task_count: number | null;
   reward: number | string | null;
   quality_flag: string | null;
   exception_type: string | null;
@@ -243,6 +252,7 @@ export type ArtifactBrowserRow = {
   r2_uri: string | null;
   size_bytes: number | null;
   created_at: string | null;
+  matching_artifact: boolean;
 };
 
 export type ArtifactBrowserFilters = {
@@ -255,7 +265,51 @@ export type ArtifactBrowserFilters = {
   artifact_type?: string;
   artifact_kind?: string;
   q?: string;
-  limit?: number;
+  page?: number;
+  page_size?: number;
+};
+
+export type ArtifactBrowserGroup = {
+  group_key: string;
+  trial_id: string | null;
+  run_id: string;
+  run_label: string;
+  suite_id: string | null;
+  logical_mode: string | null;
+  storage_mode: string | null;
+  arm_id: string | null;
+  task_id: string | null;
+  attempt_index: number | null;
+  run_trial_number: number | null;
+  task_attempt_number: number | null;
+  task_attempt_count: number | null;
+  task_ordinal: number | null;
+  run_task_count: number | null;
+  reward: number | string | null;
+  quality_flag: string | null;
+  exception_type: string | null;
+  exception_summary: string | null;
+  artifacts: ArtifactBrowserRow[];
+};
+
+export type ArtifactBrowserPage = {
+  groups: ArtifactBrowserGroup[];
+  page: number;
+  page_size: number;
+  total_group_count: number;
+  matching_artifact_count: number;
+  expanded_artifact_count: number;
+  total_pages: number;
+};
+
+export type ArtifactBrowserFilterOptions = {
+  run_labels: string[];
+  suite_ids: string[];
+  arm_ids: string[];
+  task_ids: string[];
+  quality_flags: string[];
+  exception_types: string[];
+  artifact_types: string[];
 };
 
 export type ArtifactDetailRow = {
@@ -306,6 +360,11 @@ export type TrialEvidenceRow = {
   task_id: string | null;
   task_name: string | null;
   attempt_index: number | null;
+  run_trial_number: number | null;
+  task_attempt_number: number | null;
+  task_attempt_count: number | null;
+  task_ordinal: number | null;
+  run_task_count: number | null;
   reward: number | string | null;
   runtime_seconds: number | string | null;
   cost_usd: number | string | null;
@@ -322,6 +381,10 @@ export type TrialEvidenceRow = {
   invalidated_at: string | null;
   invalidated_by: string | null;
   invalid_raw_metadata: Record<string, unknown> | null;
+  run_started_at: string | null;
+  provider_family: string | null;
+  backend_model: string | null;
+  router_model: string | null;
 };
 
 export async function getRunDetail(runLabel: string): Promise<RunDetailRow | null> {
@@ -376,8 +439,14 @@ export async function getRunTrials(runId: string): Promise<RunTrialRow[]> {
   return queryRows<RunTrialRow>(
     `
       select
+        id::text as trial_id,
         task_id,
         arm_id,
+        row_number() over (
+          partition by run_id, task_id
+          order by attempt_index nulls last, id
+        )::int as task_attempt,
+        attempt_index::int as run_trial_ordinal,
         reward::float8,
         runtime_seconds::float8,
         cost_usd::float8,
@@ -386,7 +455,7 @@ export async function getRunTrials(runId: string): Promise<RunTrialRow[]> {
         output_tokens::int
       from benchmark.benchmark_trials
       where run_id = $1::uuid
-      order by task_id, arm_id
+      order by task_id, task_attempt, id
     `,
     [runId]
   );
@@ -409,12 +478,9 @@ export async function getRunArtifacts(runId: string): Promise<RunArtifactRow[]> 
   );
 }
 
-export async function getArtifactBrowserRows(
-  filters: ArtifactBrowserFilters = {}
-): Promise<ArtifactBrowserRow[]> {
-  const conditions = ["r.phase = 'phase3'"];
+function artifactBrowserQueryParts(filters: ArtifactBrowserFilters = {}) {
+  const conditions = ["true"];
   const params: unknown[] = [];
-  const limit = Math.min(Math.max(filters.limit ?? 250, 1), 1000);
 
   function addCondition(sql: string, value: string | undefined) {
     if (!value) return;
@@ -422,36 +488,66 @@ export async function getArtifactBrowserRows(
     conditions.push(sql.replace("$param", `$${params.length}`));
   }
 
-  addCondition("coalesce(q.suite_id, ar.suite_id) = $param", filters.suite_id);
-  addCondition("coalesce(q.arm_id, t.arm_id, ar.arm_id) = $param", filters.arm_id);
-  addCondition("r.run_label = $param", filters.run_label);
-  addCondition("coalesce(q.task_id, t.task_id) = $param", filters.task_id);
-  addCondition("q.quality_flag = $param", filters.quality_flag);
-  addCondition("coalesce(q.exception_type, t.exception_type) = $param", filters.exception_type);
-  addCondition("art.artifact_type = $param", filters.artifact_type ?? filters.artifact_kind);
+  addCondition("suite_id = $param", filters.suite_id);
+  addCondition("arm_id = $param", filters.arm_id);
+  addCondition("run_label = $param", filters.run_label);
+  addCondition("task_id = $param", filters.task_id);
+  addCondition("quality_flag = $param", filters.quality_flag);
+  addCondition("exception_type = $param", filters.exception_type);
+  addCondition("artifact_type = $param", filters.artifact_type ?? filters.artifact_kind);
 
   if (filters.q) {
     params.push(`%${filters.q}%`);
     const placeholder = `$${params.length}`;
     conditions.push(`(
-      art.local_path ilike ${placeholder}
-      or art.r2_uri ilike ${placeholder}
-      or art.github_uri ilike ${placeholder}
-      or art.notes ilike ${placeholder}
-      or r.run_label ilike ${placeholder}
-      or t.task_id ilike ${placeholder}
-      or t.exception_summary ilike ${placeholder}
+      artifact_path ilike ${placeholder}
+      or notes ilike ${placeholder}
+      or run_label ilike ${placeholder}
+      or task_id ilike ${placeholder}
+      or exception_summary ilike ${placeholder}
     )`);
   }
 
-  params.push(limit);
-
-  return queryRows<ArtifactBrowserRow>(
-    `
+  const ctes = `
+    with quality_rows as (
+      select distinct on (trial_id) *
+      from benchmark.v_trial_quality_flags
+      order by trial_id, quality_flag, suite_id, arm_id
+    ),
+    trial_attempts as (
       select
+        t.*,
+        row_number() over (
+          partition by t.run_id, t.task_id
+          order by t.attempt_index nulls last, t.id
+        )::int as task_attempt_number,
+        count(*) over (partition by t.run_id, t.task_id)::int as task_attempt_count
+      from benchmark.benchmark_trials t
+    ),
+    run_task_first_positions as (
+      select run_id, task_id, min(attempt_index) as first_trial_position
+      from benchmark.benchmark_trials
+      where task_id is not null
+      group by run_id, task_id
+    ),
+    run_tasks as (
+      select
+        run_id,
+        task_id,
+        row_number() over (
+          partition by run_id
+          order by first_trial_position nulls last, task_id
+        )::int as task_ordinal,
+        count(*) over (partition by run_id)::int as run_task_count
+      from run_task_first_positions
+    ),
+    artifact_context as (
+      select
+        coalesce(t.id::text, 'run:' || r.id::text) as group_key,
         art.id::text as artifact_id,
         r.id::text as run_id,
         r.run_label,
+        r.started_at,
         coalesce(t.arm_run_id, ar.id)::text as arm_run_id,
         coalesce(q.suite_id, ar.suite_id) as suite_id,
         coalesce(q.logical_mode, ar.logical_mode) as logical_mode,
@@ -460,6 +556,11 @@ export async function getArtifactBrowserRows(
         t.id::text as trial_id,
         coalesce(q.task_id, t.task_id) as task_id,
         coalesce(q.attempt_index, t.attempt_index)::int as attempt_index,
+        t.attempt_index::int as run_trial_number,
+        t.task_attempt_number,
+        t.task_attempt_count,
+        rt.task_ordinal,
+        rt.run_task_count,
         coalesce(q.reward, t.reward) as reward,
         q.quality_flag,
         coalesce(q.exception_type, t.exception_type) as exception_type,
@@ -468,36 +569,205 @@ export async function getArtifactBrowserRows(
         art.artifact_type,
         art.r2_uri,
         art.size_bytes::int,
-        art.created_at::text
+        art.created_at,
+        art.notes
       from benchmark.benchmark_artifacts art
-      join benchmark.benchmark_runs r
-        on r.id = art.run_id
-      left join benchmark.benchmark_trials t
-        on t.id = art.trial_id
+      join benchmark.benchmark_runs r on r.id = art.run_id
+      left join trial_attempts t on t.id = art.trial_id
+      left join run_tasks rt on rt.run_id = t.run_id and rt.task_id = t.task_id
       left join lateral (
         select ar1.*
         from benchmark.benchmark_arm_runs ar1
         where ar1.id = t.arm_run_id
-           or (t.arm_run_id is null and ar1.run_id = art.run_id)
-        order by
-          case when ar1.id = t.arm_run_id then 0 else 1 end,
-          ar1.created_at desc
+          or (t.id is not null and t.arm_run_id is null and ar1.run_id = art.run_id)
+        order by case when ar1.id = t.arm_run_id then 0 else 1 end, ar1.created_at desc
         limit 1
       ) ar on true
-      left join benchmark.v_trial_quality_flags q
-        on q.trial_id = t.id
+      left join quality_rows q on q.trial_id = t.id
+      where r.phase = 'phase3'
+    ),
+    matching_artifacts as (
+      select * from artifact_context
       where ${conditions.join("\n        and ")}
-      order by
-        r.started_at desc nulls last,
-        r.run_label desc,
-        coalesce(q.task_id, t.task_id) nulls last,
-        coalesce(q.attempt_index, t.attempt_index) nulls last,
-        art.artifact_type,
-        artifact_path
-      limit $${params.length}
+    ),
+    matching_groups as (
+      select
+        group_key,
+        max(started_at) as group_started_at,
+        min(run_trial_number) as group_trial_position
+      from matching_artifacts
+      group by group_key
+    )`;
+
+  return { ctes, params };
+}
+
+export async function getArtifactBrowserPage(
+  filters: ArtifactBrowserFilters = {}
+): Promise<ArtifactBrowserPage> {
+  const pageSize = [10, 25, 50, 100].includes(filters.page_size ?? 25)
+    ? filters.page_size ?? 25
+    : 25;
+  const requestedPage = Math.max(filters.page ?? 1, 1);
+  const { ctes, params } = artifactBrowserQueryParts(filters);
+
+  const countRows = await queryRows<{ total_group_count: number; matching_artifact_count: number }>(
+    `${ctes}
+      select
+        (select count(*)::int from matching_groups) as total_group_count,
+        (select count(distinct artifact_id)::int from matching_artifacts) as matching_artifact_count
     `,
     params
   );
+  const totalGroupCount = countRows[0]?.total_group_count ?? 0;
+  const matchingArtifactCount = countRows[0]?.matching_artifact_count ?? 0;
+  const totalPages = Math.max(Math.ceil(totalGroupCount / pageSize), 1);
+  const page = Math.min(requestedPage, totalPages);
+  const offset = (page - 1) * pageSize;
+
+  if (totalGroupCount === 0) {
+    return {
+      groups: [], page: 1, page_size: pageSize, total_group_count: 0,
+      matching_artifact_count: 0, expanded_artifact_count: 0, total_pages: 1
+    };
+  }
+
+  const rowParams = [...params, pageSize, offset];
+  const rows = await queryRows<ArtifactBrowserRow>(
+    `${ctes},
+      paged_groups as (
+        select * from matching_groups
+        order by group_started_at desc nulls last, group_trial_position nulls first, group_key
+        limit $${params.length + 1} offset $${params.length + 2}
+      )
+      select
+        ac.group_key,
+        ac.artifact_id,
+        ac.run_id,
+        ac.run_label,
+        ac.arm_run_id,
+        ac.suite_id,
+        ac.logical_mode,
+        ac.storage_mode,
+        ac.arm_id,
+        ac.trial_id,
+        ac.task_id,
+        ac.attempt_index,
+        ac.run_trial_number,
+        ac.task_attempt_number,
+        ac.task_attempt_count,
+        ac.task_ordinal,
+        ac.run_task_count,
+        ac.reward,
+        ac.quality_flag,
+        ac.exception_type,
+        ac.exception_summary,
+        ac.artifact_path,
+        ac.artifact_type,
+        ac.r2_uri,
+        ac.size_bytes,
+        ac.created_at::text,
+        exists(select 1 from matching_artifacts ma where ma.artifact_id = ac.artifact_id) as matching_artifact
+      from paged_groups pg
+      join artifact_context ac on ac.group_key = pg.group_key
+      order by pg.group_started_at desc nulls last, pg.group_trial_position nulls first,
+        pg.group_key, ac.artifact_type, ac.artifact_path
+    `,
+    rowParams
+  );
+
+  const groupsByKey = new Map<string, ArtifactBrowserGroup>();
+  for (const row of rows) {
+    let group = groupsByKey.get(row.group_key);
+    if (!group) {
+      group = {
+        group_key: row.group_key,
+        trial_id: row.trial_id,
+        run_id: row.run_id,
+        run_label: row.run_label,
+        suite_id: row.suite_id,
+        logical_mode: row.logical_mode,
+        storage_mode: row.storage_mode,
+        arm_id: row.arm_id,
+        task_id: row.task_id,
+        attempt_index: row.attempt_index,
+        run_trial_number: row.run_trial_number,
+        task_attempt_number: row.task_attempt_number,
+        task_attempt_count: row.task_attempt_count,
+        task_ordinal: row.task_ordinal,
+        run_task_count: row.run_task_count,
+        reward: row.reward,
+        quality_flag: row.quality_flag,
+        exception_type: row.exception_type,
+        exception_summary: row.exception_summary,
+        artifacts: []
+      };
+      groupsByKey.set(row.group_key, group);
+    }
+    group.artifacts.push(row);
+  }
+
+  return {
+    groups: Array.from(groupsByKey.values()),
+    page,
+    page_size: pageSize,
+    total_group_count: totalGroupCount,
+    matching_artifact_count: matchingArtifactCount,
+    expanded_artifact_count: rows.length,
+    total_pages: totalPages
+  };
+}
+
+export async function getArtifactBrowserFilterOptions(): Promise<ArtifactBrowserFilterOptions> {
+  const rows = await queryRows<ArtifactBrowserFilterOptions>(`
+    with quality_rows as (
+      select distinct on (trial_id) *
+      from benchmark.v_trial_quality_flags
+      order by trial_id, quality_flag, suite_id, arm_id
+    ),
+    option_context as (
+      select
+        r.run_label,
+        coalesce(q.suite_id, ar.suite_id) as suite_id,
+        coalesce(q.arm_id, t.arm_id, ar.arm_id) as arm_id,
+        coalesce(q.task_id, t.task_id) as task_id,
+        q.quality_flag,
+        coalesce(q.exception_type, t.exception_type) as exception_type,
+        art.artifact_type
+      from benchmark.benchmark_artifacts art
+      join benchmark.benchmark_runs r on r.id = art.run_id
+      left join benchmark.benchmark_trials t on t.id = art.trial_id
+      left join lateral (
+        select ar1.* from benchmark.benchmark_arm_runs ar1
+        where ar1.id = t.arm_run_id
+           or (t.id is not null and t.arm_run_id is null and ar1.run_id = art.run_id)
+        order by case when ar1.id = t.arm_run_id then 0 else 1 end, ar1.created_at desc
+        limit 1
+      ) ar on true
+      left join quality_rows q on q.trial_id = t.id
+      where r.phase = 'phase3'
+    )
+    select
+      coalesce(array(select distinct run_label from option_context where run_label is not null order by run_label limit 500), '{}') as run_labels,
+      coalesce(array(select distinct suite_id from option_context where suite_id is not null order by suite_id limit 500), '{}') as suite_ids,
+      coalesce(array(select distinct arm_id from option_context where arm_id is not null order by arm_id limit 500), '{}') as arm_ids,
+      coalesce(array(select distinct task_id from option_context where task_id is not null order by task_id limit 500), '{}') as task_ids,
+      coalesce(array(select distinct quality_flag from option_context where quality_flag is not null order by quality_flag limit 500), '{}') as quality_flags,
+      coalesce(array(select distinct exception_type from option_context where exception_type is not null order by exception_type limit 500), '{}') as exception_types,
+      coalesce(array(select distinct artifact_type from option_context where artifact_type is not null order by artifact_type limit 500), '{}') as artifact_types
+  `);
+  return rows[0] ?? {
+    run_labels: [], suite_ids: [], arm_ids: [], task_ids: [], quality_flags: [],
+    exception_types: [], artifact_types: []
+  };
+}
+
+/** Compatibility helper for callers that still need a flat, bounded list. */
+export async function getArtifactBrowserRows(
+  filters: ArtifactBrowserFilters = {}
+): Promise<ArtifactBrowserRow[]> {
+  const page = await getArtifactBrowserPage({ ...filters, page: 1, page_size: 100 });
+  return page.groups.flatMap((group) => group.artifacts);
 }
 
 const artifactDetailSelect = `
@@ -544,14 +814,19 @@ const artifactDetailSelect = `
     select ar1.*
     from benchmark.benchmark_arm_runs ar1
     where ar1.id = t.arm_run_id
-       or (t.arm_run_id is null and ar1.run_id = art.run_id)
+       or (t.id is not null and t.arm_run_id is null and ar1.run_id = art.run_id)
     order by
       case when ar1.id = t.arm_run_id then 0 else 1 end,
       ar1.created_at desc
     limit 1
   ) ar on true
-  left join benchmark.v_trial_quality_flags q
-    on q.trial_id = t.id
+  left join lateral (
+    select q1.*
+    from benchmark.v_trial_quality_flags q1
+    where q1.trial_id = t.id
+    order by q1.quality_flag, q1.suite_id, q1.arm_id
+    limit 1
+  ) q on true
   left join benchmark.benchmark_invalid_arm_runs invalid
     on invalid.suite_id = coalesce(q.suite_id, ar.suite_id)
    and invalid.arm_id = coalesce(q.arm_id, t.arm_id, ar.arm_id)
@@ -587,44 +862,89 @@ export async function getArtifactsForTrial(trialId: string): Promise<ArtifactDet
 export async function getTrialEvidence(trialId: string): Promise<TrialEvidenceRow | null> {
   const rows = await queryRows<TrialEvidenceRow>(
     `
+      with trial_positions as (
+        select
+          t.*,
+          row_number() over (
+            partition by t.run_id, t.task_id
+            order by t.attempt_index nulls last, t.id
+          )::int as task_attempt_number,
+          count(*) over (partition by t.run_id, t.task_id)::int as task_attempt_count
+        from benchmark.benchmark_trials t
+      ),
+      run_task_first_positions as (
+        select run_id, task_id, min(attempt_index) as first_trial_position
+        from benchmark.benchmark_trials
+        where task_id is not null
+        group by run_id, task_id
+      ),
+      run_tasks as (
+        select
+          run_id,
+          task_id,
+          row_number() over (
+            partition by run_id
+            order by first_trial_position nulls last, task_id
+          )::int as task_ordinal,
+          count(*) over (partition by run_id)::int as run_task_count
+        from run_task_first_positions
+      )
       select
         t.id::text as trial_id,
         r.id::text as run_id,
         r.run_label,
         t.arm_run_id::text,
-        q.suite_id,
-        q.logical_mode,
-        q.storage_mode,
-        q.arm_id,
-        q.task_id,
+        coalesce(q.suite_id, ar.suite_id) as suite_id,
+        coalesce(q.logical_mode, ar.logical_mode) as logical_mode,
+        coalesce(q.storage_mode, ar.storage_mode, r.mode) as storage_mode,
+        coalesce(q.arm_id, t.arm_id, ar.arm_id) as arm_id,
+        coalesce(q.task_id, t.task_id) as task_id,
         task.task_name,
-        q.attempt_index::int,
-        q.reward,
-        q.runtime_seconds,
-        q.cost_usd,
-        q.input_tokens,
-        q.cache_tokens,
-        q.output_tokens,
+        coalesce(q.attempt_index, t.attempt_index)::int as attempt_index,
+        t.attempt_index::int as run_trial_number,
+        t.task_attempt_number,
+        t.task_attempt_count,
+        rt.task_ordinal,
+        rt.run_task_count,
+        coalesce(q.reward, t.reward) as reward,
+        coalesce(q.runtime_seconds, t.runtime_seconds) as runtime_seconds,
+        coalesce(q.cost_usd, t.cost_usd) as cost_usd,
+        coalesce(q.input_tokens, t.input_tokens) as input_tokens,
+        coalesce(q.cache_tokens, t.cache_tokens) as cache_tokens,
+        coalesce(q.output_tokens, t.output_tokens) as output_tokens,
         t.result_local_path,
         t.result_artifact_uri,
         q.quality_flag,
-        q.exception_type,
-        q.exception_summary,
+        coalesce(q.exception_type, t.exception_type) as exception_type,
+        coalesce(q.exception_summary, t.exception_summary) as exception_summary,
         invalid.reason as invalid_reason,
         invalid.provider_run_id as invalid_provider_run_id,
         invalid.invalidated_at::text,
         invalid.invalidated_by,
-        invalid.raw_metadata as invalid_raw_metadata
-      from benchmark.benchmark_trials t
+        invalid.raw_metadata as invalid_raw_metadata,
+        r.started_at::text as run_started_at,
+        ar.provider_family,
+        ar.backend_model,
+        ar.router_model
+      from trial_positions t
       join benchmark.benchmark_runs r
         on r.id = t.run_id
-      left join benchmark.v_trial_quality_flags q
-        on q.trial_id = t.id
+      left join benchmark.v_arm_run_summary ar
+        on ar.arm_run_id = t.arm_run_id
+      left join run_tasks rt
+        on rt.run_id = t.run_id and rt.task_id = t.task_id
+      left join lateral (
+        select q1.*
+        from benchmark.v_trial_quality_flags q1
+        where q1.trial_id = t.id
+        order by q1.quality_flag, q1.suite_id, q1.arm_id
+        limit 1
+      ) q on true
       left join benchmark.benchmark_tasks task
         on task.task_id = coalesce(q.task_id, t.task_id)
       left join benchmark.benchmark_invalid_arm_runs invalid
-        on invalid.suite_id = q.suite_id
-       and invalid.arm_id = q.arm_id
+        on invalid.suite_id = coalesce(q.suite_id, ar.suite_id)
+       and invalid.arm_id = coalesce(q.arm_id, t.arm_id, ar.arm_id)
        and invalid.run_label = r.run_label
       where t.id = $1::uuid
         and r.phase = 'phase3'
