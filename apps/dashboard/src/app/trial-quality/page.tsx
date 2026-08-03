@@ -4,6 +4,7 @@ import { TermInfo } from "../../components/TermInfo";
 import { QualityBadge, buildSuspectNoopHref } from "../../components/QualityContext";
 import { InvalidReason, ValidityBadge, invalidCategory } from "../../components/ValidityContext";
 import { buildArtifactHref } from "../../lib/links";
+import { redactSecretsInText } from "../../lib/safe-display";
 import {
   getArmRunQualitySummaryRows,
   getInvalidArmRunRows,
@@ -346,8 +347,8 @@ export default async function TrialQualityPage({
                       <td>{row.runtime_seconds ? `${Number(row.runtime_seconds).toFixed(1)}s` : "—"}</td>
                       <td>{Number(row.input_tokens ?? 0).toLocaleString()} in / {Number(row.output_tokens ?? 0).toLocaleString()} out</td>
                       <td>{money(row.cost_usd)}</td>
-                      <td>{row.exception_type ?? "—"}</td>
-                      <td>{row.exception_summary ?? "—"}</td>
+                      <td>{redactSecretsInText(row.exception_type ?? "—")}</td>
+                      <td>{redactSecretsInText(row.exception_summary ?? "—")}</td>
                       <td>
                         <Link
                           href={buildArtifactHref({

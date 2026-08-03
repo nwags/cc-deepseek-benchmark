@@ -1,6 +1,19 @@
+REVIEW_OUTPUT_DIR ?= results/manual_verification/comprehensive_review_20260731
+
+.PHONY: check review-output-scan
+
 check:
 	bash scripts/check.sh
+	cd apps/dashboard && npm run test:trial-analysis
 	uv run pytest -q tests
+	$(MAKE) review-output-scan
+
+review-output-scan:
+	@if [ -d "$(REVIEW_OUTPUT_DIR)" ]; then \
+		python3 scripts/scan_comprehensive_review_outputs.py "$(REVIEW_OUTPUT_DIR)"; \
+	else \
+		printf 'review_output_scan\tskipped_missing_directory\t%s\n' "$(REVIEW_OUTPUT_DIR)"; \
+	fi
 
 secret-scan:
 	bash scripts/secret_scan.sh

@@ -1,13 +1,14 @@
 import { artifactTypeDefinitions, artifactTypeTitle } from "../lib/artifact-types";
+import { sanitizeEvidenceText } from "../lib/safe-display";
 
 export function ArtifactTypeLabel({
   artifactType
 }: {
   artifactType: string | null | undefined;
 }) {
-  const label = artifactType || "unknown";
+  const label = sanitizeEvidenceText(artifactType) || "unknown";
   return (
-    <span className="term-label mono" title={artifactTypeTitle(artifactType)}>
+    <span className="term-label mono" title={sanitizeEvidenceText(artifactTypeTitle(artifactType)) ?? undefined}>
       {label}
     </span>
   );
@@ -25,7 +26,7 @@ export function ArtifactTypesReference() {
       <div className="concept-grid">
         {artifactTypeDefinitions.map((item) => (
           <article key={item.artifactType}>
-            <h3><span className="mono">{item.artifactType}</span></h3>
+            <h3>{item.displayName} <span className="mono">{item.artifactType}</span></h3>
             <p><strong>{item.shortDefinition}</strong> {item.definition}</p>
           </article>
         ))}

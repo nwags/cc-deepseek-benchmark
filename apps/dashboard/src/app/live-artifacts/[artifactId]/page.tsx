@@ -4,6 +4,7 @@ import { AppShell } from "../../../components/AppShell";
 import { previewArtifactContent } from "../../../lib/artifact-content";
 import { formatBytes } from "../../../lib/format";
 import { getLiveArtifact, getLiveRun } from "../../../lib/live-data";
+import { redactSecretsInText, sanitizeDisplayedUri } from "../../../lib/safe-display";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +48,7 @@ export default async function LiveArtifactPage({
         <div className="panel-heading">
           <div>
             <h2>{artifact.artifact_type}</h2>
-            <p className="mono">{artifact.relative_local_path}</p>
+            <p className="mono">{sanitizeDisplayedUri(artifact.relative_local_path)}</p>
           </div>
           <span className={artifact.r2_uri ? "quality-badge" : "quality-badge quality-badge-warn"}>
             {artifact.r2_uri ? "R2 available" : "metadata only"}
@@ -82,14 +83,14 @@ export default async function LiveArtifactPage({
         </div>
         <div className="placeholder-body">
           {preview.messages.length > 0 ? (
-            <ul>{preview.messages.map((message) => <li key={message}>{message}</li>)}</ul>
+            <ul>{preview.messages.map((message) => <li key={message}>{redactSecretsInText(message)}</li>)}</ul>
           ) : null}
           <p>
             Read {formatBytes(preview.bytes_read)}{preview.total_bytes ? ` of ${formatBytes(preview.total_bytes)}` : ""}.
             {preview.content_type ? ` Content type: ${preview.content_type}.` : ""}
           </p>
         </div>
-        {preview.text ? <pre className="content-preview">{preview.text}</pre> : null}
+        {preview.text ? <pre className="content-preview">{redactSecretsInText(preview.text)}</pre> : null}
       </section>
     </AppShell>
   );

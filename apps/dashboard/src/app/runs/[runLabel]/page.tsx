@@ -19,13 +19,17 @@ import {
   formatPercent,
   formatSeconds
 } from "../../../lib/format";
+import { redactSecretsInText, sanitizeDisplayedUri } from "../../../lib/safe-display";
 
 export const dynamic = "force-dynamic";
 
+const safeText = (value: string | null | undefined, fallback = "—") => value ? redactSecretsInText(value) : fallback;
+
 function compactArtifactPath(value: string): string {
-  const parts = value.split("/");
+  const safeValue = sanitizeDisplayedUri(value) ?? "—";
+  const parts = safeValue.split("/");
   if (parts.length <= 7) {
-    return value;
+    return safeValue;
   }
 
   return `…/${parts.slice(-5).join("/")}`;
@@ -59,7 +63,7 @@ export default async function RunDetailPage({
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <h2 className="mono">{run.run_label}</h2>
+            <h2 className="mono">{safeText(run.run_label)}</h2>
             <p>
               <Link href="/runs">← Back to runs</Link>
             </p>
@@ -103,9 +107,9 @@ export default async function RunDetailPage({
           <div className="detail-grid">
             <div><span>Validity</span><strong>{validityLabel(invalidRow)}</strong></div>
             <div><span>Category</span><strong>{invalidCategory(invalidRow) ?? "—"}</strong></div>
-            <div><span>Provider/workflow id</span><strong className="mono">{invalidRow.provider_run_id ?? "—"}</strong></div>
+            <div><span>Provider/workflow id</span><strong className="mono">{safeText(invalidRow.provider_run_id)}</strong></div>
             <div><span>Reason</span><strong><InvalidReason row={invalidRow} includeProvider={false} /></strong></div>
-            <div><span>Invalidated by</span><strong>{invalidRow.invalidated_by ?? "—"}</strong></div>
+            <div><span>Invalidated by</span><strong>{safeText(invalidRow.invalidated_by)}</strong></div>
             <div><span>Invalidated at</span><strong>{invalidRow.invalidated_at ?? "—"}</strong></div>
           </div>
         </section>
@@ -127,10 +131,10 @@ export default async function RunDetailPage({
           <div><span>Logical mode</span><strong>{quality?.logical_mode ?? run.mode}</strong></div>
           <div><span>Storage mode</span><strong>{quality?.storage_mode ?? run.mode}</strong></div>
           <div><span>Suite</span><strong className="mono">{quality?.suite_id ?? "—"}</strong></div>
-          <div><span>Branch</span><strong>{run.branch ?? "—"}</strong></div>
+          <div><span>Branch</span><strong>{safeText(run.branch)}</strong></div>
           <div><span>Git commit</span><strong className="mono">{run.git_commit ?? "—"}</strong></div>
-          <div><span>Runner</span><strong>{run.runner_name ?? "—"}</strong></div>
-          <div><span>Runner provider</span><strong>{run.runner_provider ?? "—"}</strong></div>
+          <div><span>Runner</span><strong>{safeText(run.runner_name)}</strong></div>
+          <div><span>Runner provider</span><strong>{safeText(run.runner_provider)}</strong></div>
           <div><span>Started</span><strong>{run.started_at ?? "—"}</strong></div>
           <div><span>Finished</span><strong>{run.finished_at ?? "—"}</strong></div>
           <div><span>Input tokens</span><strong>{formatNumber(run.input_tokens)}</strong></div>
@@ -175,6 +179,7 @@ export default async function RunDetailPage({
             <thead>
               <tr>
                 <th>Task</th>
+                <th>Attempt</th>
                 <th>Arm</th>
                 <th>Reward</th>
                 <th>Runtime</th>
@@ -184,9 +189,10 @@ export default async function RunDetailPage({
             </thead>
             <tbody>
               {trials.map((trial) => (
-                <tr key={`${trial.task_id}-${trial.arm_id}`}>
-                  <td className="mono">{trial.task_id}</td>
-                  <td className="mono">{trial.arm_id}</td>
+                <tr key={trial.trial_id}>
+                  <td className="mono">{safeText(trial.task_id)}</td>
+                  <td>Attempt {trial.task_attempt} <span className="muted">(run #{trial.run_trial_ordinal ?? "not recorded"})</span></td>
+                  <td className="mono">{safeText(trial.arm_id)}</td>
                   <td>{trial.reward ?? "—"}</td>
                   <td>{formatSeconds(trial.runtime_seconds)}</td>
                   <td>{formatCurrency(trial.cost_usd)}</td>
@@ -219,11 +225,11 @@ export default async function RunDetailPage({
         <div className="artifact-list">
           {artifacts.map((artifact) => (
             <article className="artifact-card" key={artifact.artifact_path}>
-              <div className="artifact-path mono" title={artifact.artifact_path}>
+              <div className="artifact-path mono" title={sanitizeDisplayedUri(artifact.artifact_path) ?? undefined}>
                 {compactArtifactPath(artifact.artifact_path)}
               </div>
               <div className="artifact-meta">
-                <span>{artifact.artifact_kind ?? "unknown"}</span>
+                <span>{safeText(artifact.artifact_kind, "unknown")}</span>
                 <span>{formatBytes(artifact.size_bytes)}</span>
                 <span>{artifact.r2_uri ? "R2 indexed" : "local only"}</span>
               </div>

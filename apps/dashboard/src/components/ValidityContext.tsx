@@ -1,4 +1,5 @@
 import type { InvalidArmRunRow } from "../lib/dashboard-data";
+import { sanitizeEvidenceText } from "../lib/safe-display";
 
 function metadataString(row: InvalidArmRunRow | null | undefined, key: string): string | null {
   const value = row?.raw_metadata?.[key];
@@ -30,7 +31,7 @@ export function ValidityBadge({ row }: { row: InvalidArmRunRow | null | undefine
 
   return (
     <span className={row ? "quality-badge quality-badge-warn" : "quality-badge"}>
-      {row && category ? `${label}: ${category}` : label}
+      {sanitizeEvidenceText(row && category ? `${label}: ${category}` : label)}
     </span>
   );
 }
@@ -46,12 +47,12 @@ export function InvalidReason({
 
   return (
     <span>
-      {row.reason}
+      {sanitizeEvidenceText(row.reason)}
       {includeProvider && row.provider_run_id ? (
         <>
           {" "}
           <span className="muted">provider/workflow id </span>
-          <span className="mono">{row.provider_run_id}</span>
+          <span className="mono">{sanitizeEvidenceText(row.provider_run_id)}</span>
         </>
       ) : null}
     </span>

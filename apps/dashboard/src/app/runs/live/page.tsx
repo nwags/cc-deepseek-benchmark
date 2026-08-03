@@ -18,6 +18,7 @@ import {
   getRecentLiveRuns,
   getStaleLiveRuns
 } from "../../../lib/live-data";
+import { redactSecretsInText, sanitizeDisplayedUri } from "../../../lib/safe-display";
 
 export const dynamic = "force-dynamic";
 
@@ -64,7 +65,11 @@ function statusClass(status: string): string {
 }
 
 function modelLabel(run: LiveRunRow | null | undefined): string {
-  return run?.backend_model ?? run?.router_model ?? run?.provider_family ?? "—";
+  return redactSecretsInText(run?.backend_model ?? run?.router_model ?? run?.provider_family ?? "—");
+}
+
+function safeText(value: string | null | undefined, fallback = "—"): string {
+  return value ? redactSecretsInText(value) : fallback;
 }
 
 const OUTPUT_EVENT_TYPES = new Set(["process_output_chunk", "agent_output_chunk"]);
@@ -96,7 +101,7 @@ function isWarningEvent(event: LiveEventRow): boolean {
 
 function formatOutput(events: LiveEventRow[]): string {
   const lines = events.map(
-    (event) => `[${event.stream ?? "out"}] ${event.message ?? ""}`
+    (event) => `[${safeText(event.stream, "out")}] ${safeText(event.message, "")}`
   );
   return lines.join("\n") || "No observable process output is available yet.";
 }
@@ -207,7 +212,7 @@ export default async function LiveRunsPage({
               <h2>{errorState === "migration" ? "Live schema is not available" : "Live database is unavailable"}</h2>
               <p>
                 {usingLocalFallback
-                  ? `Using the explicitly enabled local-development fallback${localDirectory ? ` at ${localDirectory}` : ""}.`
+                  ? `Using the explicitly enabled local-development fallback${localDirectory ? ` at ${safeText(localDirectory)}` : ""}.`
                   : errorState === "migration"
                     ? "Apply the live supervision migration before using shared live state."
                     : "The canonical dashboard remains separate; live state will return when the database connection recovers."}
@@ -304,7 +309,7 @@ export default async function LiveRunsPage({
               <div>
                 <h2>Selected execution</h2>
                 <p className="mono">{selected.live_run_id}</p>
-                <p>{selected.latest_message ?? "No publication message yet."}</p>
+                <p>{safeText(selected.latest_message, "No publication message yet.")}</p>
               </div>
               <span className={statusClass(selected.display_status)}>{selected.display_status}</span>
             </div>
@@ -346,9 +351,9 @@ export default async function LiveRunsPage({
                     <tr key={`warning-${event.sequence}`}>
                       <td>{event.sequence}</td>
                       <td>{fmtDate(event.occurred_at)}</td>
-                      <td>{event.event_type}</td>
-                      <td>{event.stream ?? "—"}</td>
-                      <td className="live-message">{event.message ?? "—"}</td>
+                      <td>{safeText(event.event_type)}</td>
+                      <td>{safeText(event.stream)}</td>
+                      <td className="live-message">{safeText(event.message)}</td>
                     </tr>
                   ))}</tbody>
                 </table>
@@ -375,11 +380,11 @@ export default async function LiveRunsPage({
                     <tr key={`tool-${event.sequence}`}>
                       <td>{event.sequence}</td>
                       <td>{fmtDate(payloadString(event, "source_timestamp") ?? event.occurred_at)}</td>
-                      <td className="mono">{payloadString(event, "trial_key") ?? "—"}</td>
-                      <td>{payloadString(event, "tool_name") ?? "unknown"}</td>
-                      <td>{event.event_type}</td>
-                      <td>{payloadString(event, "status") ?? "—"}</td>
-                      <td className="live-message">{event.message ?? "—"}</td>
+                      <td className="mono">{safeText(payloadString(event, "trial_key"))}</td>
+                      <td>{safeText(payloadString(event, "tool_name"), "unknown")}</td>
+                      <td>{safeText(event.event_type)}</td>
+                      <td>{safeText(payloadString(event, "status"))}</td>
+                      <td className="live-message">{safeText(event.message)}</td>
                     </tr>
                   ))}</tbody>
                 </table>
@@ -419,7 +424,7 @@ export default async function LiveRunsPage({
                       <td>{fmtSeconds(trial.runtime_seconds)}</td>
                       <td>{fmtNumber((trial.input_tokens ?? 0) + (trial.cache_tokens ?? 0) + (trial.output_tokens ?? 0))}</td>
                       <td>{fmtMoney(trial.cost_usd)}</td>
-                      <td title={trial.exception_summary ?? undefined}>{trial.exception_type ?? "—"}</td>
+                      <td title={trial.exception_summary ? safeText(trial.exception_summary) : undefined}>{safeText(trial.exception_type)}</td>
                     </tr>
                   ))}</tbody>
                 </table>
@@ -442,7 +447,7 @@ export default async function LiveRunsPage({
                     <tr key={artifact.artifact_id}>
                       <td className="mono">{artifact.trial_key ?? "run root"}</td>
                       <td>{artifact.artifact_type}</td>
-                      <td className="mono">{artifact.relative_local_path}</td>
+                      <td className="mono">{sanitizeDisplayedUri(artifact.relative_local_path)}</td>
                       <td>{fmtNumber(artifact.size_bytes)} B</td>
                       <td>{artifact.stability_state}</td>
                       <td>{artifact.r2_uri ? "available" : "pending"}</td>
@@ -468,9 +473,9 @@ export default async function LiveRunsPage({
                   <tr key={event.sequence}>
                     <td>{event.sequence}</td>
                     <td>{fmtDate(event.occurred_at)}</td>
-                    <td>{event.event_type}</td>
-                    <td>{event.stream ?? "—"}</td>
-                    <td className="live-message">{event.message ?? "—"}</td>
+                    <td>{safeText(event.event_type)}</td>
+                    <td>{safeText(event.stream)}</td>
+                    <td className="live-message">{safeText(event.message)}</td>
                   </tr>
                 ))}</tbody>
               </table>
