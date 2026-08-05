@@ -297,3 +297,65 @@ def test_run_trial_rows_use_unique_trial_keys_across_three_task_attempts() -> No
         for attempt in (1, 2, 3)
     ]
     assert len({row["trial_id"] for row in attempt_rows}) == 3
+
+
+def test_dashboard_corpus_scopes_are_centralized_and_visible() -> None:
+    scopes = Path("apps/dashboard/src/lib/corpus-scopes.ts").read_text()
+    notice = Path("apps/dashboard/src/components/CorpusScopeNotice.tsx").read_text()
+    package = Path("apps/dashboard/package.json").read_text()
+
+    for scope_id in (
+        "phase3-core",
+        "phase3-extended",
+        "valid-imported",
+        "all-imported",
+    ):
+        assert f'"{scope_id}"' in scopes
+    assert "presentationKind: CorpusScopePresentationKind" in scopes
+    assert "comparedFields" in scopes
+    assert 'reason: "dynamic_scope"' in scopes
+    assert 'reason: "no_observed_counts"' in scopes
+    assert "compareCorpusScopeCounts" in notice
+    assert "getCorpusScopePresentationLabel" in notice
+    assert 'role="alert"' in notice
+    assert "not a full-suite leaderboard denominator" in notice
+    assert "corpus-scopes.test.mjs" in package
+
+
+def test_comparative_pages_disclose_their_distinct_corpus_scopes() -> None:
+    overview = Path("apps/dashboard/src/app/page.tsx").read_text()
+    cross_phase = Path("apps/dashboard/src/app/cross-phase/page.tsx").read_text()
+    arms = Path("apps/dashboard/src/app/arms/page.tsx").read_text()
+    evals = Path("apps/dashboard/src/app/evals/page.tsx").read_text()
+    cost = Path("apps/dashboard/src/app/cost-coverage/page.tsx").read_text()
+    data = Path("apps/dashboard/src/lib/dashboard-data.ts").read_text()
+
+    assert 'scopeId="phase3-extended"' in overview
+    assert "Phase 3 extended full-suite comparison" in overview
+    assert 'scopeId="valid-imported"' in overview
+    assert "Valid imported evidence inventory" in overview
+
+    assert 'scopeId="phase3-core"' in cross_phase
+    assert "getCorpusScopePresentationLabel" in cross_phase
+    assert "Historical comparison provenance" in cross_phase
+    assert "July 13 adjusted-cost comparison" in cross_phase
+
+    assert 'scopeId="all-imported"' in arms
+    assert "All imported" in arms
+    assert "not a valid full-suite leaderboard denominator" in arms
+
+    assert 'scopeId="valid-imported"' in evals
+    assert "Valid imported inventory" in evals
+    assert "Invalid and quarantined arm runs are excluded" in evals
+    assert "not a fixed full-suite leaderboard denominator" in evals
+    assert "from benchmark.v_valid_eval_arm_comparison" in data
+
+    assert 'scopeId="phase3-core"' in cost
+    assert 'getCorpusScope("phase3-core")' in cost
+    assert "Reviewed adjusted-cost coverage layer" in cost
+    assert "intentionally does not synthesize an extended adjusted-cost total" in cost
+    assert "sponsor-facing" not in cost
+    for source in (cross_phase, cost):
+        assert "15 arms / 900 trials / 515 successes" not in source
+        assert "$972.17" not in source
+        assert "Kimi K3 is not included" not in source

@@ -1,4 +1,6 @@
 import { AppShell } from "../../components/AppShell";
+import { CorpusScopeNotice } from "../../components/CorpusScopeNotice";
+import { getCorpusScope, getCorpusScopePresentationLabel } from "../../lib/corpus-scopes";
 import {
   getBehaviorRows,
   getCrossPhaseRows,
@@ -7,6 +9,8 @@ import {
 } from "../../lib/cross-phase-reporting";
 
 export const dynamic = "force-static";
+
+const PHASE3_CORE_SCOPE = getCorpusScope("phase3-core");
 
 function formatPercent(value: number | null): string {
   if (value === null) return "n/a";
@@ -21,6 +25,12 @@ function formatMoney(value: number | null): string {
 function formatRatio(value: number | null): string {
   if (value === null) return "n/a";
   return value.toFixed(2);
+}
+
+function phaseDisplayLabel(phase: string): string {
+  return phase === "phase3"
+    ? `${PHASE3_CORE_SCOPE.displayLabel} — ${getCorpusScopePresentationLabel(PHASE3_CORE_SCOPE)}`
+    : phase;
 }
 
 export default function CrossPhasePage() {
@@ -38,20 +48,30 @@ export default function CrossPhasePage() {
     .slice(0, 8);
 
   const behaviorByArm = new Map(behaviorRows.map((row) => [row.arm_id, row]));
+  const phase3Summary = summaries.find((summary) => summary.phase === "phase3");
 
   return (
     <AppShell
-      title="Cross-phase"
-      description="File-backed reporting view for Phase 1 direct, Phase 2 direct, and Phase 3 router-mediated benchmark results."
+      title={`Cross-phase: ${phaseDisplayLabel("phase3")}`}
+      description={`File-backed reporting view for Phase 1 direct, Phase 2 direct, and ${PHASE3_CORE_SCOPE.displayLabel} router-mediated benchmark results.`}
     >
+      <CorpusScopeNotice
+        scopeId="phase3-core"
+        observedCounts={{
+          armCount: phase3Summary?.arm_count ?? 0,
+          trialCount: phase3Summary?.trial_count ?? 0,
+          successCount: phase3Summary?.success_count ?? 0,
+        }}
+      />
       <section className="quality-context-panel">
-        Supabase-backed Phase 3 pages remain unchanged. This page reads the reviewed cross-phase reporting artifacts generated from the frozen Phase 1/2 aggregates and valid Phase 3 reporting layer.
+        <strong>Historical comparison provenance:</strong> This file-backed page represents the July 13 adjusted-cost comparison.
+        Supabase-backed current views declare their corpus separately, and the frozen Phase 1/2 aggregates remain unchanged.
       </section>
 
       <section className="metric-grid">
         {summaries.map((summary) => (
           <article className="metric-card" key={summary.phase}>
-            <span className="metric-label">{summary.phase}</span>
+            <span className="metric-label">{phaseDisplayLabel(summary.phase)}</span>
             <strong>{formatPercent(summary.pass_rate)}</strong>
             <span className="metric-subtitle">
               {summary.success_count}/{summary.trial_count} successes · {summary.arm_count} arms · {formatMoney(summary.adjusted_cost_usd)}
@@ -84,7 +104,7 @@ export default function CrossPhasePage() {
             <tbody>
               {summaries.map((summary) => (
                 <tr key={summary.phase}>
-                  <td className="sticky-id-column"><span className="quality-badge">{summary.phase}</span></td>
+                  <td className="sticky-id-column"><span className="quality-badge">{phaseDisplayLabel(summary.phase)}</span></td>
                   <td>{summary.arm_count}</td>
                   <td>{summary.trial_count}</td>
                   <td>{summary.success_count}</td>
@@ -137,7 +157,7 @@ export default function CrossPhasePage() {
                       <div className="muted">Frozen aggregate row</div>
                     )}
                   </td>
-                  <td>{row.phase}</td>
+                  <td>{phaseDisplayLabel(row.phase)}</td>
                   <td>{row.provider}</td>
                   <td>{row.backend_model}</td>
                   <td>{row.routing_path}</td>
@@ -157,8 +177,8 @@ export default function CrossPhasePage() {
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <h2>Phase 3 cost-efficient clean successes</h2>
-            <p>Lowest adjusted cost per clean success among Phase 3 arms.</p>
+            <h2>{PHASE3_CORE_SCOPE.displayLabel} cost-efficient clean successes</h2>
+            <p>Lowest adjusted cost per clean success among rows in the file-backed reviewed comparison.</p>
           </div>
         </div>
         <div className="table-wrap">

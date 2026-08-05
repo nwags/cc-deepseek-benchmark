@@ -1,5 +1,7 @@
 import { AppShell } from "../../components/AppShell";
+import { CorpusScopeNotice } from "../../components/CorpusScopeNotice";
 import { MetricCard } from "../../components/MetricCard";
+import { getCorpusScope } from "../../lib/corpus-scopes";
 import {
   getAdjustedCostArmRows,
   getAdjustedCostOverview,
@@ -10,6 +12,7 @@ import { formatCurrency, formatNumber, formatPercent } from "../../lib/format";
 export const dynamic = "force-dynamic";
 
 const SUITE_ID = "phase3-full-20";
+const PHASE3_CORE_SCOPE = getCorpusScope("phase3-core");
 
 const costCategories = [
   {
@@ -20,7 +23,7 @@ const costCategories = [
   {
     category: "Adjusted known cost",
     meaning: "Recorded cost plus reconstructed missing-cost rows using configured pricing or same-arm empirical estimates.",
-    action: "Use as the preferred sponsor-facing benchmark cost while keeping confidence labels visible."
+    action: "Use as the preferred reviewed benchmark cost while keeping confidence labels visible."
   },
   {
     category: "Known accounting gap",
@@ -56,12 +59,27 @@ export default async function CostCoveragePage() {
     getAdjustedCostArmRows(SUITE_ID),
     getAdjustedOutcomeCostRows(SUITE_ID)
   ]);
+  const observedCounts = arms.reduce(
+    (counts, row) => ({
+      trialCount: counts.trialCount + row.trial_count,
+      successCount: counts.successCount + row.success_count,
+    }),
+    { trialCount: 0, successCount: 0 },
+  );
 
   return (
     <AppShell
-      title="Cost Coverage"
-      description="Adjusted cost coverage, accounting gaps, and nonproductive spend for the valid full benchmark suite."
+      title={`Cost Coverage: ${PHASE3_CORE_SCOPE.displayLabel} — reviewed adjusted-cost snapshot`}
+      description={`Reviewed adjusted cost coverage, accounting gaps, and nonproductive spend for ${PHASE3_CORE_SCOPE.displayLabel}.`}
     >
+      <CorpusScopeNotice
+        scopeId="phase3-core"
+        observedCounts={{ armCount: arms.length, ...observedCounts }}
+      />
+      <section className="quality-context-panel">
+        <strong>Reviewed adjusted-cost coverage layer:</strong> This page intentionally does not synthesize an extended adjusted-cost total.
+        It reads the existing reviewed adjusted-cost coverage layer and leaves its provenance and limitations visible in the scope notice.
+      </section>
       <section className="metric-grid">
         <MetricCard
           label="Recorded cost"

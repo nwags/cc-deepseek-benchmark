@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { TermInfo } from "../components/TermInfo";
 import { AppShell } from "../components/AppShell";
+import { CorpusScopeNotice } from "../components/CorpusScopeNotice";
 import { MetricCard } from "../components/MetricCard";
 import { SuiteHeatmap } from "../components/SuiteHeatmap";
 import { QualityPassRate, QualityBadge, buildSuspectNoopHref } from "../components/QualityContext";
@@ -47,13 +48,19 @@ export default async function DashboardPage() {
 
   return (
     <AppShell title="Coding Agent Benchmark Dashboard">
+      <h2>Phase 3 extended full-suite comparison</h2>
+      <CorpusScopeNotice
+        scopeId="phase3-extended"
+        observedCounts={{
+          armCount: fullSuite?.arm_run_count ?? 0,
+          trialCount: fullSuite?.trial_count ?? 0,
+          successCount: fullSuite?.success_count ?? 0,
+        }}
+      />
       <section className="metric-grid">
         <MetricCard label="Full-suite arms" value={formatNumber(fullSuite?.arm_run_count ?? 0)} detail="Imported into phase3-full-20" />
         <MetricCard label="Full-suite trials" value={formatNumber(fullSuite?.trial_count ?? 0)} detail="20 evals × 3 attempts × imported arms" />
         <MetricCard label="Full-suite pass rate" value={formatPercent(fullSuite?.pass_rate ?? null)} detail="Across imported full arms" />
-        <MetricCard label="Valid imported trials" value={formatNumber(overview.trial_count)} detail="Canary + smoke + full valid arm runs" />
-        <MetricCard label="Valid-run R2 artifacts" value={formatNumber(overview.artifact_count)} detail="Tracked evidence rows" />
-        <MetricCard label="Recorded cost" value={formatRecordedCost(overview.cost_usd, overview.cost_row_count, overview.missing_cost_count)} detail="Known cost rows only" />
       </section>
 
       <section className="quality-context-panel">
@@ -221,6 +228,17 @@ export default async function DashboardPage() {
             </article>
           ))}
         </div>
+      </section>
+
+      <h2>Valid imported evidence inventory</h2>
+      <CorpusScopeNotice
+        scopeId="valid-imported"
+        observedCounts={{ trialCount: overview.trial_count }}
+      />
+      <section className="metric-grid">
+        <MetricCard label="Valid imported trials" value={formatNumber(overview.trial_count)} detail="Canary + smoke + full valid arm runs" />
+        <MetricCard label="Valid-run R2 artifacts" value={formatNumber(overview.artifact_count)} detail="Tracked evidence rows" />
+        <MetricCard label="Recorded cost" value={formatRecordedCost(overview.cost_usd, overview.cost_row_count, overview.missing_cost_count)} detail="Known cost rows only; not the reviewed adjusted-cost total" />
       </section>
     </AppShell>
   );

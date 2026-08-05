@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AppShell } from "../../components/AppShell";
+import { CorpusScopeNotice } from "../../components/CorpusScopeNotice";
 import { getArmRows } from "../../lib/dashboard-data";
 import { buildArtifactHref } from "../../lib/links";
 import { formatCurrency, formatNumber, formatPercent, formatSeconds } from "../../lib/format";
@@ -36,14 +37,26 @@ function recordedCostLowerBound(
 
 export default async function ArmsPage() {
   const arms = await getArmRows();
+  const observedCounts = arms.reduce(
+    (counts, row) => ({
+      trialCount: counts.trialCount + row.trial_count,
+      successCount: counts.successCount + row.success_count,
+    }),
+    { trialCount: 0, successCount: 0 },
+  );
 
   return (
-    <AppShell title="Arms" description="All-imported model/backend aggregate. For valid full-suite comparisons, use Overview, Runs, or Eval Suites.">
+    <AppShell title="Arms — All imported" description="All-imported model/backend aggregate. For valid full-suite comparisons, use Overview, Runs, or Eval Suites.">
+      <CorpusScopeNotice
+        scopeId="all-imported"
+        observedCounts={{ armCount: arms.length, ...observedCounts }}
+      />
       <section className="panel">
         <div className="panel-heading">
           <h2>Arm comparison</h2>
           <p>
-            All imported runs by arm. This page can include canary, smoke, legacy, and diagnostic imports, so pass rates may differ from valid full-suite views.
+            All imported runs by arm. Canary, smoke, legacy, diagnostic, and full rows may be included.
+            This is not a valid full-suite leaderboard denominator, so pass rate and cost may differ from Overview or Cross-phase.
           </p>
         </div>
         <div className="table-wrap">

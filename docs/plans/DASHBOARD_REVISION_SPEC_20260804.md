@@ -79,7 +79,18 @@ The Phase 3 core population plus the Kimi K3 addendum:
 
 The extended view is the preferred default for current comparative dashboard views when all required metrics exist.
 
-### 4.3 All imported
+### 4.3 Valid imported
+
+All imported rows belonging to runs that remain valid, potentially including:
+
+- full-suite runs;
+- canaries;
+- smoke runs;
+- other valid run classes represented by a live aggregate.
+
+This is a dynamic evidence-inventory population, not a fixed full-suite leaderboard denominator. It was added after implementation inspection showed that the Overview inventory metrics use all valid imported runs while the comparison sections use the full-suite population.
+
+### 4.4 All imported
 
 All imported rows for the selected entity, potentially including:
 
@@ -92,7 +103,7 @@ All imported rows for the selected entity, potentially including:
 
 This is not a valid leaderboard denominator unless explicitly selected and labeled.
 
-### 4.4 Display name versus canonical ID
+### 4.5 Display name versus canonical ID
 
 Example:
 
@@ -128,6 +139,7 @@ Required scope IDs:
 
 - `phase3-core`
 - `phase3-extended`
+- `valid-imported`
 - `all-imported`
 
 The shared model must include, at minimum:
@@ -141,6 +153,7 @@ The shared model must include, at minimum:
 - success count;
 - cost coverage state;
 - whether the scope is valid for leaderboard comparisons;
+- presentation kind independent of whether the denominator is fixed or dynamic;
 - provenance/source label;
 - snapshot or generation date where applicable.
 
@@ -155,7 +168,7 @@ Implementation guidance:
 Acceptance criteria:
 
 - The same scope ID yields the same arm/trial/success counts on every page.
-- Unit tests cover all three scope definitions.
+- Unit tests cover all four scope definitions.
 - No comparative page presents an unlabeled 15-arm or 16-arm total.
 - “All imported” is never presented as a valid full-suite leaderboard without a warning.
 
@@ -169,6 +182,15 @@ Add a reusable scope banner or selector to:
 - Cost Coverage;
 - Evals;
 - relevant run/quality summary pages.
+
+Implemented Commit Group B page mapping:
+
+- Overview comparison: `phase3-extended`;
+- Overview inventory: `valid-imported`;
+- Cross-phase: `phase3-core`;
+- Cost Coverage: `phase3-core`;
+- Arms: `all-imported`;
+- Evals: `valid-imported`, matching `benchmark.v_valid_eval_arm_comparison` and its exclusion of invalid/quarantined arm runs.
 
 Required wording characteristics:
 
@@ -186,6 +208,7 @@ Default behavior:
 Acceptance criteria:
 
 - Overview cannot show 16/960 while Cross-phase silently shows 15/900 without both pages explaining the scope difference.
+- Overview separates its Phase 3 extended full-suite comparison from its dynamic valid-imported evidence inventory.
 - Cost Coverage explicitly states the population and whether Kimi K3 is included.
 - A user can switch or navigate between core and extended views where data supports both.
 - Scope survives links between pages, preferably through a stable query parameter.
@@ -422,7 +445,7 @@ Preferred result:
 - Add scope toggle:
   - valid full-suite
   - all imported
-- Redirect `/tasks` to the all-imported Evals view.
+- Redirect `/tasks` to the valid-imported Evals view; a future explicit scope toggle may expose an all-imported alternative.
 - Explain why counts differ by scope.
 
 ### DR-105 — Consolidate Planner and Arm Scaffold
@@ -582,10 +605,11 @@ Visual polish, taxonomy expansion, deep links, and charts follow only after P0 a
 | Check | Required result |
 |---|---|
 | Scope unit tests | all pass |
-| Overview scope | explicit core or extended |
-| Cross-phase scope | explicit core or extended |
-| Arms scope | explicit all-imported versus valid-full-suite |
-| Cost Coverage scope | population and Kimi K3 inclusion stated |
+| Overview scope | Phase 3 extended comparison and valid-imported inventory are separate |
+| Cross-phase scope | Phase 3 core historical snapshot |
+| Arms scope | all-imported |
+| Evals scope | valid-imported; invalid/quarantined arm runs excluded |
+| Cost Coverage scope | Phase 3 core population and Kimi K3 exclusion stated |
 | Historical reports | unchanged |
 | Runner Fleet nav | removed |
 | Runner hardcoded active count | absent |

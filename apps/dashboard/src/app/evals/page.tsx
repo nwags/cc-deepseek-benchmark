@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AppShell } from "../../components/AppShell";
+import { CorpusScopeNotice } from "../../components/CorpusScopeNotice";
 import { getEvalRows } from "../../lib/dashboard-data";
 import { formatCurrency, formatNumber, formatPercent, formatSeconds } from "../../lib/format";
 
@@ -7,16 +8,28 @@ export const dynamic = "force-dynamic";
 
 export default async function EvalsPage() {
   const rows = await getEvalRows();
+  const observedCounts = rows.reduce(
+    (counts, row) => ({
+      trialCount: counts.trialCount + row.trial_count,
+      successCount: counts.successCount + row.success_count,
+    }),
+    { trialCount: 0, successCount: 0 },
+  );
 
   return (
     <AppShell
-      title="Evals"
-      description="Task-level comparison entry point. Drill into one eval to compare all imported arms."
+      title="Evals — Valid imported inventory"
+      description="Task-level inventory across valid imported run classes; it is not a fixed full-suite leaderboard denominator."
     >
+      <CorpusScopeNotice scopeId="valid-imported" observedCounts={observedCounts} />
       <section className="panel">
         <div className="panel-heading">
           <h2>Eval comparison index</h2>
-          <p>Terminal-Bench tasks with imported benchmark trial rows.</p>
+          <p>
+            Task rows come from valid imported run classes, which may include full-suite, smoke, canary, diagnostic, legacy, or other valid imports.
+            Invalid and quarantined arm runs are excluded. This is not a fixed full-suite leaderboard denominator;
+            counts may differ from the Phase 3 extended Overview comparison and the historical Phase 3 core Cross-phase comparison.
+          </p>
         </div>
         <div className="table-wrap">
           <table>
