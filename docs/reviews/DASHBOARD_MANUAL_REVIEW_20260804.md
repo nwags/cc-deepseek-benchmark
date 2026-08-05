@@ -41,7 +41,7 @@ Migration 009 must not be rerun. No paid benchmark runs, provider probes, Supaba
 
 ### Architecture
 
-- [ ] DR-006 Current execution, scoring, live publication, Supabase, R2, and VPS flow documented
+- [x] DR-006 Current execution, scoring, live publication, Supabase, R2, and VPS flow documented — implemented; manual acceptance pending
 
 ### Review traceability
 
@@ -55,7 +55,7 @@ Migration 009 must not be rerun. No paid benchmark runs, provider probes, Supaba
 | O-002 | Cost Coverage appears to use the earlier 15-arm accounting layer | Confirmed | $972.17 adjusted known cost | Implemented pending manual acceptance: labeled as the historical Phase 3 core layer with Kimi K3 excluded. |
 | O-003 | Runner Fleet hardcodes current runner state | Confirmed | `/runners` page text | Implemented pending manual acceptance: the hardcoded claim is removed and the retained route is an explicit non-live deprecation destination. |
 | O-004 | Route Readiness contains static historical route findings | Confirmed | `/readiness` page rows | Implemented pending manual acceptance: the route is a dated historical planning snapshot with neutral notes and no current-status badges. |
-| O-005 | Architecture omits current live publication and VPS path | Confirmed | `/architecture` page | Pending |
+| O-005 | Architecture omits current live publication and VPS path | Confirmed | `/architecture` page and source inspection of the workflow, live wrapper, final publisher, manifest/ingestion helper, live data path, and artifact reader | Implemented pending manual acceptance: execution/scoring, optional live observation, canonical publication, and dashboard storage/read paths are now separate and explicit. |
 | O-006 | Evals was initially labeled all-imported | Confirmed | `getEvalRows()` reads `benchmark.v_valid_eval_arm_comparison`, whose underlying valid-only view excludes entries in `benchmark.benchmark_invalid_arm_runs`. | Corrected to valid-imported; implementation remains pending manual acceptance. |
 
 ## Implementation log
@@ -68,8 +68,23 @@ Migration 009 must not be rerun. No paid benchmark runs, provider probes, Supaba
 | 2026-08-04 | DR-003 | Labeled Cross-phase and Cost Coverage as the reviewed 15-arm core snapshot, stated Kimi K3 exclusion and cost limitations, and preserved historical inputs. | `apps/dashboard/src/app/cross-phase/page.tsx`; `apps/dashboard/src/app/cost-coverage/page.tsx`; `docs/plans/DASHBOARD_REVISION_SPEC_20260804.md` | File-backed summary observed at 15 arms / 900 trials / 515 successes / $972.1698454891979; `make secret-scan`; `git diff --check` | Passed; manual acceptance pending |
 | 2026-08-05 | DR-004 | Removed Runner Fleet from primary navigation and retained `/runners` as a non-live deprecation destination linking to execution observations and completed-run evidence. | `apps/dashboard/src/components/AppShell.tsx`; `apps/dashboard/src/app/runners/page.tsx`; `tests/test_live_dashboard.py` | Dashboard tests; typecheck; production build; repository checks | Passed; manual acceptance pending |
 | 2026-08-05 | DR-005 | Removed Route Readiness from primary navigation and retained `/readiness` as a dated historical planning snapshot with neutral source/date notes. | `apps/dashboard/src/components/AppShell.tsx`; `apps/dashboard/src/app/readiness/page.tsx`; `tests/test_live_dashboard.py`; `docs/plans/DASHBOARD_REVISION_SPEC_20260804.md` | Dashboard tests; typecheck; production build; repository checks | Passed; manual acceptance pending |
+| 2026-08-05 | DR-006 | Replaced the simplified Architecture diagram with separate execution/scoring, optional live-observation, canonical-publication, and storage/read-path views; documented the workflow publisher and helper relationship; replaced public compatibility-field terminology. | `apps/dashboard/src/app/architecture/page.tsx`; `apps/dashboard/src/lib/glossary.ts`; `tests/test_live_dashboard.py`; `docs/plans/DASHBOARD_REVISION_SPEC_20260804.md`; this file | Source assertions; dashboard Node tests; typecheck; production build; repository checks | Passed; manual acceptance pending |
 
 Commit Group C used source inspection only. No provider, LiteLLM, Claude Code, Harbor, router, runner, or infrastructure probes were run, and no external operational service was queried.
+
+Commit Group D used source inspection of `.github/workflows/phase3-arm-dispatch-v2.yml`, `scripts/run_arm_live.py`, `scripts/publish_phase3_run.py`, `scripts/ingest_phase3_run_metadata.py`, `docs/runbooks/LIVE_RUN_SUPERVISION.md`, `apps/dashboard/src/app/runs/live/page.tsx`, `apps/dashboard/src/lib/live-data.ts`, and `apps/dashboard/src/lib/artifact-content.ts`. No workflow, script, runbook, migration, result, or operational implementation file was changed. No probe, benchmark job, migration, external query, Supabase write, or R2 write was performed.
+
+Validation summary for Commit Group D:
+
+- dashboard run-plan Node test: passed;
+- dashboard analysis/registry Node test command: passed;
+- targeted dashboard source tests: 23 passed;
+- dashboard TypeScript typecheck: passed;
+- dashboard production build: passed;
+- `make check`: passed;
+- `make secret-scan`: passed;
+- `git diff --check`: passed;
+- `apps/dashboard/next-env.d.ts`: unchanged.
 
 Validation summary for Commit Group C:
 
@@ -130,6 +145,7 @@ Test at 1920×1080.
 
 - Scope differences are explicit in the implementation; manual visual acceptance remains pending.
 - The two static operational pages are contained in the implementation; manual visual acceptance remains pending.
+- Architecture now separates scoring, optional live observation, final publication, storage, and historical read paths; manual visual acceptance remains pending.
 
 ### Usability findings
 

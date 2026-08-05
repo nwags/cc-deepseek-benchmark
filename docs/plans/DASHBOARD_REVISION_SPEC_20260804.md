@@ -355,6 +355,14 @@ Acceptance criteria:
 - The scoring/test step is visible.
 - The architecture page contains no stale runner-count assertion.
 
+Implemented Commit Group D design:
+
+- Benchmark execution and scoring are shown as a forward ten-stage flow ending with held-out verifier/tests and Harbor's raw reward/result evidence; no LLM judge determines the reward.
+- Optional live observation and after-execution canonical publication are separate paths. Final publication remains possible when live supervision was not used.
+- `scripts/publish_phase3_run.py` is identified as the workflow final publisher. It reuses manifest/ingestion functionality from `scripts/ingest_phase3_run_metadata.py`, which also remains a separate historical/operator ingestion path rather than the sole current workflow entry.
+- The dashboard distinguishes Supabase live/canonical metadata and relationships from Cloudflare R2 evidence bytes and server-side dashboard reads. Historical file-backed review snapshots remain a separate frozen-provenance source.
+- Public Architecture terminology now uses `Benchmark run class` and `Result source/storage location`; the internal `logical_mode` and `storage_mode` names remain compatibility glossary entries.
+
 ### DR-007 — Add a dated post-merge dashboard review record
 
 Create a new review document rather than modifying the July 31/August 1 acceptance evidence.

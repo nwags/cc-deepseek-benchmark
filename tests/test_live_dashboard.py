@@ -409,3 +409,72 @@ def test_route_readiness_is_a_dated_historical_planning_snapshot() -> None:
     ):
         assert route in page
     assert "original event date not recorded" in page
+
+
+def test_architecture_documents_execution_live_publication_and_read_paths() -> None:
+    page = Path("apps/dashboard/src/app/architecture/page.tsx").read_text()
+    normalized = page.lower()
+
+    for phrase in (
+        "Benchmark questions",
+        "Benchmark design and arm selection",
+        "Local or GitHub Actions dispatch",
+        "self-hosted runner",
+        "OVH VPS",
+        "Harbor task container",
+        "Claude Code agent harness",
+        "LiteLLM route when applicable",
+        "Provider/model backend",
+        "Held-out verifier/test execution",
+        "No LLM judge determines the benchmark reward",
+        "scripts/run_arm_live.py",
+        "scripts/publish_phase3_run.py",
+        "scripts/ingest_phase3_run_metadata.py",
+        "Supabase live metadata/state",
+        "Cloudflare R2 artifact bytes",
+        "eligibility, and path-safety checks",
+        "transaction/rollback verification",
+        "Final publication without live supervision",
+        "Historical file-backed review snapshots",
+    ):
+        assert phrase in page
+    assert "raw reward and result" in normalized
+    assert "the dashboard reads shared supabase/r2 services and does not connect directly to the vps" in normalized
+    assert "not the sole current workflow publication path" in page
+    assert "Local dispatch executes in the selected local workspace" in page
+    assert "GitHub Actions uses a selected self-hosted runner workspace on an OVH VPS" in page
+    assert "When shared database publication is enabled" in page
+    assert "local redacted NDJSON remains available independently" in page
+    assert "Progressive artifacts are reconciled when present" in page
+    assert "Whether or not live supervision ran" in page
+    assert "uploads any missing canonical artifacts before R2 verification and canonical database publication" in page
+    for href in ('href="/runs/live"', 'href="/artifacts"', 'href="/cross-phase"'):
+        assert href in page
+    for stale_phrase in (
+        "Sponsor questions",
+        "Model-arm plan",
+        "Sponsor-facing",
+        ">Logical mode<",
+        ">Storage mode<",
+    ):
+        assert stale_phrase not in page
+
+
+def test_architecture_glossary_uses_public_terms_and_retains_internal_compatibility() -> None:
+    page = Path("apps/dashboard/src/app/architecture/page.tsx").read_text()
+    glossary = Path("apps/dashboard/src/lib/glossary.ts").read_text()
+    r2_entry = glossary.split('term: "R2 artifact"', 1)[1].split("  },", 1)[0]
+
+    assert 'term: "Benchmark run class"' in glossary
+    assert 'term: "Result source/storage location"' in glossary
+    assert "logical_mode is an internal field used to represent benchmark run class" in glossary
+    assert "storage_mode is an internal field used for the physical result-directory or legacy ingestion key" in glossary
+    assert 'TermInfo term="Benchmark run class"' in page
+    assert 'TermInfo term="Result source/storage location"' in page
+    assert 'export type GlossaryTerm = (typeof glossaryEntries)[number]["term"]' in glossary
+    assert "Sponsor-facing run type" not in glossary
+    assert "preferred benchmark cost for sponsor-facing comparisons" not in glossary
+    assert "published progressively during supervised execution" in r2_entry
+    assert "by final canonical publication" in r2_entry
+    assert "Supabase stores the corresponding metadata and relationships" in r2_entry
+    assert "other files collected during ingestion" not in r2_entry

@@ -93,8 +93,8 @@ export const glossaryEntries = [
   {
     term: "R2 artifact",
     slug: "r2-artifact",
-    shortDefinition: "Evidence file uploaded to Cloudflare R2.",
-    definition: "An R2 artifact is a benchmark evidence file uploaded to Cloudflare R2, such as result JSON, logs, trajectories, or other files collected during ingestion."
+    shortDefinition: "Benchmark evidence bytes stored in Cloudflare R2.",
+    definition: "R2 stores benchmark evidence bytes such as result JSON, logs, transcripts, trajectories, and verifier outputs. Objects may be published progressively during supervised execution, by final canonical publication, or by a separately reviewed historical/operator ingestion path. Supabase stores the corresponding metadata and relationships."
   },
   {
     term: "Trajectory",
@@ -121,16 +121,28 @@ export const glossaryEntries = [
     definition: "A full sweep is the primary benchmark execution: the selected full suite of Terminal-Bench tasks, usually with 3 attempts per task for each arm."
   },
   {
+    term: "Benchmark run class",
+    slug: "benchmark-run-class",
+    shortDefinition: "User-facing interpretation of a benchmark execution.",
+    definition: "Benchmark run class describes the user-facing interpretation of an execution, such as canary, smoke, full, ad-hoc, diagnostic, or dry-run where applicable."
+  },
+  {
+    term: "Result source/storage location",
+    slug: "result-source-storage-location",
+    shortDefinition: "Where result evidence originated or is retained.",
+    definition: "Result source/storage location identifies where result evidence originated or is retained, including Harbor or local result directories, live Supabase state, canonical Supabase records, Cloudflare R2 objects, and historical file-backed snapshots."
+  },
+  {
     term: "Logical mode",
     slug: "logical-mode",
-    shortDefinition: "Sponsor-facing run type.",
-    definition: "Logical mode is the dashboard/user-facing meaning of a run, such as canary, smoke, or full. A full run can still have storage_mode raw because of how Harbor stores full results."
+    shortDefinition: "Internal compatibility field for benchmark run class.",
+    definition: "logical_mode is an internal field used to represent benchmark run class, such as canary, smoke, full, or ad-hoc. It remains documented for compatibility with stored metadata and ingestion code."
   },
   {
     term: "Storage mode",
     slug: "storage-mode",
-    shortDefinition: "Physical result directory mode.",
-    definition: "Storage mode is the physical results directory or legacy ingestion key, such as raw, smoke, or canary. It is kept separate from logical mode to preserve idempotent ingestion."
+    shortDefinition: "Internal compatibility field for result-directory storage.",
+    definition: "storage_mode is an internal field used for the physical result-directory or legacy ingestion key, such as raw, smoke, or canary. It remains separate from benchmark run class to preserve compatibility and idempotent ingestion."
   },
   {
     term: "Trial errors",
@@ -149,7 +161,7 @@ export const glossaryEntries = [
     term: "Adjusted known cost",
     slug: "adjusted-known-cost",
     shortDefinition: "Recorded cost plus reconstructed missing-cost estimates.",
-    definition: "Adjusted known cost is recorded cost plus missing-cost rows that could be reconstructed from configured pricing snapshots or same-arm empirical estimates. It is the preferred benchmark cost for sponsor-facing comparisons, while still preserving cost-source confidence."
+    definition: "Adjusted known cost is recorded cost plus missing-cost rows that could be reconstructed from configured pricing snapshots or same-arm empirical estimates. It is the preferred benchmark cost for reviewed benchmark comparisons, while still preserving cost-source confidence."
   },
   {
     term: "Known accounting gap",
