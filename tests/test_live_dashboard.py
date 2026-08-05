@@ -359,3 +359,53 @@ def test_comparative_pages_disclose_their_distinct_corpus_scopes() -> None:
         assert "15 arms / 900 trials / 515 successes" not in source
         assert "$972.17" not in source
         assert "Kimi K3 is not included" not in source
+
+
+def test_stale_operational_pages_are_removed_from_primary_navigation() -> None:
+    shell = Path("apps/dashboard/src/components/AppShell.tsx").read_text()
+
+    assert '{ href: "/runners"' not in shell
+    assert '{ href: "/readiness"' not in shell
+    assert '{ href: "/runs/live", label: "Live Runs" }' in shell
+    assert '{ href: "/planner", label: "Planner" }' in shell
+
+
+def test_runner_fleet_route_is_a_non_live_deprecation_destination() -> None:
+    page = Path("apps/dashboard/src/app/runners/page.tsx").read_text()
+
+    assert 'href="/runs/live"' in page
+    assert 'href="/runs"' in page
+    assert "deprecated operational page" in page
+    assert "retained for old links" in page.lower()
+    assert "not a live fleet-status source" in page
+    assert "does not assert runner count, availability, capacity, or queue depth" in page
+    assert "execution-level runner names" in page
+    assert "complete fleet model" in page
+    for stale_claim in ("one OVH", "Current state", "runner is active"):
+        assert stale_claim not in page
+
+
+def test_route_readiness_is_a_dated_historical_planning_snapshot() -> None:
+    page = Path("apps/dashboard/src/app/readiness/page.tsx").read_text()
+
+    assert "historical planning snapshot" in page
+    assert "2026-08-05" in page
+    assert "No provider, LiteLLM, Claude Code, Harbor, or runner probes were run" in page
+    assert "underlying observations were not revalidated" in page
+    assert 'href="/planner"' in page
+    assert 'href="/runs/live"' in page
+    assert 'href="/runs"' in page
+    assert "Current non-standard" not in page
+    assert 'className="status"' not in page
+    assert "historicalRouteNotes" in page
+    assert "statusRows" not in page
+    assert "This process reference does not prove that any gate is currently satisfied" in page
+    for route in (
+        "router-anthropic-fable-5",
+        "claude-mythos-5",
+        "opusplan",
+        "hosted NVIDIA NIM",
+        "local open-weight serving",
+    ):
+        assert route in page
+    assert "original event date not recorded" in page

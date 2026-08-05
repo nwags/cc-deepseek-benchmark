@@ -242,6 +242,12 @@ Immediate P0 action:
 - The page must not claim runner count, availability, or capacity unless sourced from current data.
 - Prefer a redirect only after Live Runs contains an equivalent runner-status section.
 
+Implemented Commit Group C decision:
+
+- `/runners` remains reachable as an explicit deprecation destination for old links rather than redirecting.
+- Live Runs is linked as the execution-observation page, but it is not described as a complete fleet model: it does not establish fleet capacity, availability, queue depth, or runner heartbeat independent of executions.
+- The completed Runs index is linked as the canonical completed-run evidence destination.
+
 Future P1 target:
 
 - Live Runs contains a compact runner-status summary with:
@@ -272,6 +278,13 @@ Immediate P0 action:
 - Include a “last reviewed” date and identify that the rows are not live probes.
 - Link users to Planner, Live Runs, or current runbooks for operational work.
 - Do not run provider probes to refresh the page as part of this task.
+
+Implemented Commit Group C decision:
+
+- `/readiness` remains reachable as a historical planning snapshot, not a live status board.
+- `2026-08-05` is the dashboard containment-review date; it is not a provider, route, runner, or benchmark observation date.
+- The legacy route notes retain their substance, explicitly state when the original event date was not recorded, and carry no current-status badge.
+- No provider, LiteLLM, Claude Code, Harbor, runner, or infrastructure probe was performed to refresh these notes.
 
 Future P1 target:
 

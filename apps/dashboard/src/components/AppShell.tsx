@@ -14,9 +14,7 @@ const navItems = [
   { href: "/tasks", label: "Tasks" },
   { href: "/artifacts", label: "Artifacts" },
   { href: "/comprehensive-review", label: "Evidence Review" },
-  { href: "/runners", label: "Runners" },
   { href: "/planner", label: "Planner" },
-  { href: "/readiness", label: "Route Readiness" },
   { href: "/cost-coverage", label: "Cost Coverage" },
   { href: "/scaffold", label: "Arm Scaffold" }
 ];

@@ -1,18 +1,32 @@
+import Link from "next/link";
 import { AppShell } from "../../components/AppShell";
-import { PlaceholderPanel } from "../../components/PlaceholderPanel";
 
 export default function RunnersPage() {
   return (
     <AppShell
-      title="Runner Fleet"
-      description="Future view for OVH/GitHub self-hosted runner status, capacity, and queued benchmark jobs."
+      title="Runner Fleet — deprecated operational page"
+      description="Retained for old links; this page is not a live fleet-status source."
     >
-      <PlaceholderPanel title="Runner fleet status">
+      <section className="quality-context-panel">
+        <strong>Deprecated destination retained for old links.</strong> This page is not a live fleet-status source
+        and does not assert runner count, availability, capacity, or queue depth.
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Use execution evidence instead</h2>
+            <p>No redirect is performed because the available pages do not provide a complete fleet model.</p>
+          </div>
+        </div>
         <p>
-          Current state: one OVH x86 self-hosted runner is active. Next pass can add
-          a static runner registry and later GitHub workflow status integration.
+          <Link href="/runs/live">Live Runs</Link> shows execution-level runner names, active or stale execution state,
+          and heartbeat timestamps associated with executions. It does not establish independent fleet availability or capacity.
         </p>
-      </PlaceholderPanel>
+        <p>
+          <Link href="/runs">Runs</Link> is the canonical index for completed benchmark evidence.
+        </p>
+      </section>
     </AppShell>
   );
 }
