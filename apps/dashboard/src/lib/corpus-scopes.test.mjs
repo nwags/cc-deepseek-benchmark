@@ -3,11 +3,34 @@ import test from "node:test";
 import ts from "typescript";
 import { Buffer } from "node:buffer";
 import { readFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const source = await readFile(join(here, "corpus-scopes.ts"), "utf8");
+const snapshot = JSON.parse(await readFile(
+  resolve(here, "../../../../results/phase3/reporting/phase3_extended_reviewed_comparison_20260805.json"),
+  "utf8",
+));
+const generatedSource = await readFile(
+  resolve(here, "../generated/phase3-reviewed-comparison-data.ts"),
+  "utf8",
+);
+const generatedCompiled = ts.transpileModule(generatedSource, {
+  compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
+}).outputText;
+const snapshotModule = `data:text/javascript;base64,${Buffer.from(generatedCompiled).toString("base64")}`;
+const reviewedSource = (await readFile(join(here, "phase3-reviewed-comparison.ts"), "utf8"))
+  .replace(
+    '"../generated/phase3-reviewed-comparison-data"',
+    `"${snapshotModule}"`,
+  );
+const reviewedCompiled = ts.transpileModule(reviewedSource, {
+  compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
+}).outputText;
+const reviewedModuleUrl = `data:text/javascript;base64,${Buffer.from(reviewedCompiled).toString("base64")}`;
+const { PHASE3_REVIEWED_COMPARISON } = await import(reviewedModuleUrl);
+const source = (await readFile(join(here, "corpus-scopes.ts"), "utf8"))
+  .replace('from "./phase3-reviewed-comparison"', `from "${reviewedModuleUrl}"`);
 const compiled = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
 }).outputText;
@@ -48,7 +71,9 @@ test("fixed core and extended scopes retain reviewed counts and Kimi K3 boundari
   const extended = getCorpusScope("phase3-extended");
   assert.deepEqual(core.expectedCounts, { armCount: 15, trialCount: 900, successCount: 515 });
   assert.equal(Object.isFrozen(core.expectedCounts), true);
-  assert.equal(core.adjustedKnownCostUsd, 972.17);
+  assert.equal(core.adjustedKnownCostUsd, 972.169845489198);
+  assert.equal(core.qualifiedAdjustedCostEstimateUsd, null);
+  assert.equal(core.costDisplayLabel, "Adjusted known cost");
   assert.equal(core.comparisonValid, true);
   assert.equal(core.costCoverageState, "reviewed_adjusted_snapshot");
   assert.equal(core.kimiK3Disposition, "excluded");
@@ -57,9 +82,39 @@ test("fixed core and extended scopes retain reviewed counts and Kimi K3 boundari
   assert.equal(Object.isFrozen(extended.expectedCounts), true);
   assert.equal(extended.comparisonValid, true);
   assert.equal(extended.adjustedKnownCostUsd, null);
-  assert.equal(extended.costCoverageState, "partial_observed_unreconciled");
+  assert.equal(extended.qualifiedAdjustedCostEstimateUsd, 1002.9841648891979);
+  assert.equal(extended.costDisplayLabel, "Phase 3 extended qualified adjusted-cost estimate");
+  assert.equal(extended.costCoverageState, "reviewed_qualified_retained_rate_estimate");
+  assert.match(extended.costCoverageDescription, /not invoice-level or provider-billed/);
   assert.equal(extended.kimiK3Disposition, "included");
   assert.match(extended.includedPopulation, /router-kimi-k3/);
+});
+
+test("fixed registry facts must agree with the validated reviewed comparison", () => {
+  for (const id of ["phase3-core", "phase3-extended"]) {
+    const registry = getCorpusScope(id);
+    const reviewed = PHASE3_REVIEWED_COMPARISON.scopes[id];
+    assert.deepEqual(registry.expectedCounts, {
+      armCount: reviewed.armCount,
+      trialCount: reviewed.trialCount,
+      successCount: reviewed.successCount,
+    });
+    assert.equal(registry.presentationKind, reviewed.presentationKind);
+    assert.equal(registry.snapshotDate, reviewed.snapshotDate);
+    assert.equal(registry.adjustedKnownCostUsd, reviewed.costEvidence.adjustedKnownCostUsd === null
+      ? null
+      : Number(reviewed.costEvidence.adjustedKnownCostUsd));
+    assert.equal(
+      registry.qualifiedAdjustedCostEstimateUsd,
+      reviewed.costEvidence.qualifiedAdjustedCostEstimateUsd === null
+        ? null
+        : Number(reviewed.costEvidence.qualifiedAdjustedCostEstimateUsd),
+    );
+    assert.equal(
+      registry.kimiK3Disposition,
+      reviewed.arms.some((arm) => arm.armId === "router-kimi-k3") ? "included" : "excluded",
+    );
+  }
 });
 
 test("dynamic imported scopes fabricate no fixed totals or comparison validity", () => {
@@ -68,6 +123,8 @@ test("dynamic imported scopes fabricate no fixed totals or comparison validity",
     assert.equal(scope.populationKind, "dynamic");
     assert.equal(scope.expectedCounts, null);
     assert.equal(scope.adjustedKnownCostUsd, null);
+    assert.equal(scope.qualifiedAdjustedCostEstimateUsd, null);
+    assert.equal(scope.costDisplayLabel, null);
     assert.equal(scope.comparisonValid, false);
     assert.equal(scope.kimiK3Disposition, "population_dependent");
   }

@@ -1,3 +1,5 @@
+import { PHASE3_REVIEWED_COMPARISON } from "./phase3-reviewed-comparison";
+
 export type CorpusScopeId =
   | "phase3-core"
   | "phase3-extended"
@@ -18,7 +20,7 @@ export type ObservedCorpusScopeCounts = Partial<{
 
 export type CorpusCostCoverageState =
   | "reviewed_adjusted_snapshot"
-  | "partial_observed_unreconciled"
+  | "reviewed_qualified_retained_rate_estimate"
   | "recorded_valid_imports"
   | "mixed_imported_evidence";
 
@@ -37,6 +39,8 @@ export type CorpusScope = Readonly<{
   presentationKind: CorpusScopePresentationKind;
   expectedCounts: CorpusScopeCounts | null;
   adjustedKnownCostUsd: number | null;
+  qualifiedAdjustedCostEstimateUsd: number | null;
+  costDisplayLabel: string | null;
   comparisonValid: boolean;
   costCoverageState: CorpusCostCoverageState;
   costCoverageDescription: string;
@@ -67,40 +71,74 @@ function freezeScope(scope: CorpusScope): CorpusScope {
   });
 }
 
+const REVIEWED_CORE = PHASE3_REVIEWED_COMPARISON.scopes["phase3-core"];
+const REVIEWED_EXTENDED = PHASE3_REVIEWED_COMPARISON.scopes["phase3-extended"];
+
+function reviewedCounts(scope: typeof REVIEWED_CORE | typeof REVIEWED_EXTENDED): CorpusScopeCounts {
+  return {
+    armCount: scope.armCount,
+    trialCount: scope.trialCount,
+    successCount: scope.successCount,
+  };
+}
+
+function reviewedDecimal(value: string | null, label: string): number | null {
+  if (value === null) return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) throw new Error(`${label} is not a finite reviewed decimal`);
+  return parsed;
+}
+
+function reviewedKimiDisposition(
+  scope: typeof REVIEWED_CORE | typeof REVIEWED_EXTENDED,
+): "included" | "excluded" {
+  return scope.arms.some((arm) => arm.armId === "router-kimi-k3") ? "included" : "excluded";
+}
+
 export const CORPUS_SCOPES: Readonly<Record<CorpusScopeId, CorpusScope>> = Object.freeze({
   "phase3-core": freezeScope({
     id: "phase3-core",
     displayLabel: "Phase 3 core",
     shortDescription: "Reviewed historical Phase 3 full-suite snapshot used by the original report and July 13 adjusted-cost comparison.",
-    includedPopulation: "The original 15 valid full-suite Phase 3 arms: 20 evals with three attempts per arm.",
+    includedPopulation: `The original ${REVIEWED_CORE.armCount} valid full-suite Phase 3 arms: 20 evals with three attempts per arm.`,
     excludedPopulation: "The later router-kimi-k3 addendum and all canary, smoke, diagnostic, legacy, invalid, or quarantined runs.",
     populationKind: "fixed_corpus",
-    presentationKind: "historical_reviewed_snapshot",
-    expectedCounts: { armCount: 15, trialCount: 900, successCount: 515 },
-    adjustedKnownCostUsd: 972.17,
+    presentationKind: REVIEWED_CORE.presentationKind,
+    expectedCounts: reviewedCounts(REVIEWED_CORE),
+    adjustedKnownCostUsd: reviewedDecimal(
+      REVIEWED_CORE.costEvidence.adjustedKnownCostUsd,
+      "phase3-core adjusted known cost",
+    ),
+    qualifiedAdjustedCostEstimateUsd: null,
+    costDisplayLabel: "Adjusted known cost",
     comparisonValid: true,
     costCoverageState: "reviewed_adjusted_snapshot",
-    costCoverageDescription: "Reviewed adjusted-cost coverage totals $972.17 for the 15-arm core snapshot. It does not include Kimi K3.",
+    costCoverageDescription: `Reviewed adjusted-cost coverage totals $${Number(REVIEWED_CORE.costEvidence.adjustedKnownCostUsd).toFixed(2)} for the ${REVIEWED_CORE.armCount}-arm core snapshot. It does not include Kimi K3.`,
     provenanceLabel: "Original Phase 3 report and July 13, 2026 reviewed adjusted-cost reporting layer",
-    snapshotDate: "2026-07-13",
-    kimiK3Disposition: "excluded",
+    snapshotDate: REVIEWED_CORE.snapshotDate,
+    kimiK3Disposition: reviewedKimiDisposition(REVIEWED_CORE),
   }),
   "phase3-extended": freezeScope({
     id: "phase3-extended",
     displayLabel: "Phase 3 extended",
     shortDescription: "Current preferred full-suite quality-comparison scope: Phase 3 core plus the Kimi K3 addendum.",
-    includedPopulation: "The 15-arm Phase 3 core plus canonical arm router-kimi-k3, each with 60 full-suite attempts.",
+    includedPopulation: `The ${REVIEWED_CORE.armCount}-arm Phase 3 core plus canonical arm router-kimi-k3, with ${REVIEWED_EXTENDED.trialCount - REVIEWED_CORE.trialCount} Kimi K3 full-suite attempts.`,
     excludedPopulation: "Canary, smoke, diagnostic, legacy, invalid, and quarantined runs.",
     populationKind: "fixed_corpus",
-    presentationKind: "current_reviewed_corpus",
-    expectedCounts: { armCount: 16, trialCount: 960, successCount: 562 },
+    presentationKind: REVIEWED_EXTENDED.presentationKind,
+    expectedCounts: reviewedCounts(REVIEWED_EXTENDED),
     adjustedKnownCostUsd: null,
+    qualifiedAdjustedCostEstimateUsd: reviewedDecimal(
+      REVIEWED_EXTENDED.costEvidence.qualifiedAdjustedCostEstimateUsd,
+      "phase3-extended qualified adjusted-cost estimate",
+    ),
+    costDisplayLabel: "Phase 3 extended qualified adjusted-cost estimate",
     comparisonValid: true,
-    costCoverageState: "partial_observed_unreconciled",
-    costCoverageDescription: "Quality evidence is comparable across 16 arms, but Kimi K3 has only partial observed cost evidence and unresolved official-price reconciliation. No extended adjusted-cost total is asserted.",
-    provenanceLabel: "Phase 3 core with the reviewed Kimi K3 addendum",
-    snapshotDate: "2026-07-31",
-    kimiK3Disposition: "included",
+    costCoverageState: "reviewed_qualified_retained_rate_estimate",
+    costCoverageDescription: `The qualified extended estimate is $${Number(REVIEWED_EXTENDED.costEvidence.qualifiedAdjustedCostEstimateUsd).toFixed(6)}. Kimi K3 pricing-source provenance is incomplete, arm-run allocation confidence is low, trial allocation is unresolved, and the estimate is not invoice-level or provider-billed spend.`,
+    provenanceLabel: "Phase 3 core plus the reviewed Kimi K3 retained-rate reconciliation",
+    snapshotDate: REVIEWED_EXTENDED.snapshotDate,
+    kimiK3Disposition: reviewedKimiDisposition(REVIEWED_EXTENDED),
   }),
   "valid-imported": freezeScope({
     id: "valid-imported",
@@ -112,6 +150,8 @@ export const CORPUS_SCOPES: Readonly<Record<CorpusScopeId, CorpusScope>> = Objec
     presentationKind: "dynamic_inventory",
     expectedCounts: null,
     adjustedKnownCostUsd: null,
+    qualifiedAdjustedCostEstimateUsd: null,
+    costDisplayLabel: null,
     comparisonValid: false,
     costCoverageState: "recorded_valid_imports",
     costCoverageDescription: "Only recorded cost returned by the live valid-run aggregate is shown; coverage varies with imported run classes.",
@@ -129,6 +169,8 @@ export const CORPUS_SCOPES: Readonly<Record<CorpusScopeId, CorpusScope>> = Objec
     presentationKind: "dynamic_inventory",
     expectedCounts: null,
     adjustedKnownCostUsd: null,
+    qualifiedAdjustedCostEstimateUsd: null,
+    costDisplayLabel: null,
     comparisonValid: false,
     costCoverageState: "mixed_imported_evidence",
     costCoverageDescription: "Recorded cost and coverage can mix run classes and may differ from reviewed Phase 3 core or extended comparisons.",
