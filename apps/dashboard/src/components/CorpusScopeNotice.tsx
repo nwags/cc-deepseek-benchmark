@@ -26,6 +26,7 @@ export function CorpusScopeNotice({ scopeId, observedCounts = {} }: CorpusScopeN
   const comparison = compareCorpusScopeCounts(scope, observedCounts);
   const observedText = observedCountText(observedCounts);
   const expected = scope.expectedCounts;
+  const reviewedCost = scope.adjustedKnownCostUsd ?? scope.qualifiedAdjustedCostEstimateUsd;
 
   return (
     <section className="quality-context-panel" data-corpus-scope={scope.id} aria-label={`Corpus scope: ${scope.displayLabel}`}>
@@ -40,7 +41,9 @@ export function CorpusScopeNotice({ scopeId, observedCounts = {} }: CorpusScopeN
         <p>
           <strong>Reviewed denominator:</strong>{" "}
           {formatNumber(expected.armCount)} arms · {formatNumber(expected.trialCount)} trials · {formatNumber(expected.successCount)} successes
-          {scope.adjustedKnownCostUsd === null ? null : <> · {formatCurrency(scope.adjustedKnownCostUsd)} adjusted known cost</>}
+          {reviewedCost === null || scope.costDisplayLabel === null
+            ? null
+            : <> · {formatCurrency(reviewedCost)} {scope.costDisplayLabel}</>}
         </p>
       ) : observedText ? (
         <p><strong>Current observed inventory:</strong> {observedText}. These totals are dynamic, not a fixed leaderboard denominator.</p>

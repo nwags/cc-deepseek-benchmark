@@ -302,6 +302,7 @@ def test_run_trial_rows_use_unique_trial_keys_across_three_task_attempts() -> No
 def test_dashboard_corpus_scopes_are_centralized_and_visible() -> None:
     scopes = Path("apps/dashboard/src/lib/corpus-scopes.ts").read_text()
     notice = Path("apps/dashboard/src/components/CorpusScopeNotice.tsx").read_text()
+    selector = Path("apps/dashboard/src/components/CorpusScopeSelector.tsx").read_text()
     package = Path("apps/dashboard/package.json").read_text()
 
     for scope_id in (
@@ -317,9 +318,16 @@ def test_dashboard_corpus_scopes_are_centralized_and_visible() -> None:
     assert 'reason: "no_observed_counts"' in scopes
     assert "compareCorpusScopeCounts" in notice
     assert "getCorpusScopePresentationLabel" in notice
+    assert "qualifiedAdjustedCostEstimateUsd" in notice
+    assert "costDisplayLabel" in notice
     assert 'role="alert"' in notice
     assert "not a full-suite leaderboard denominator" in notice
+    assert 'href={`${pathname}?scope=${option.id}`}' in selector
+    assert 'aria-current={selected ? "page" : undefined}' in selector
+    assert "current reviewed comparison" in selector.lower()
+    assert "historical reviewed snapshot" in selector.lower()
     assert "corpus-scopes.test.mjs" in package
+    assert "cross-phase-reporting.test.mjs" in package
 
 
 def test_comparative_pages_disclose_their_distinct_corpus_scopes() -> None:
@@ -335,10 +343,19 @@ def test_comparative_pages_disclose_their_distinct_corpus_scopes() -> None:
     assert 'scopeId="valid-imported"' in overview
     assert "Valid imported evidence inventory" in overview
 
-    assert 'scopeId="phase3-core"' in cross_phase
-    assert "getCorpusScopePresentationLabel" in cross_phase
-    assert "Historical comparison provenance" in cross_phase
-    assert "July 13 adjusted-cost comparison" in cross_phase
+    for page in (cross_phase, cost):
+        assert "selectReviewedPhase3Scope" in page
+        assert "CorpusScopeSelector" in page
+        assert "selection.warningMessage" in page
+        assert 'role="alert"' in page
+        assert "scopeId={selection.scopeId}" in page
+        assert "phase3_extended_reviewed_comparison_20260805.json" in page
+
+    assert "getCrossPhaseRows(selectedScope)" in cross_phase
+    assert "getPhaseSummaries(rows, selectedScope)" in cross_phase
+    assert "reviewed 2026-08-05 comparison layer" in cross_phase
+    assert "retained 15-arm Phase 3 core comparison" in cross_phase
+    assert "does not include Kimi K3 or inherit the selected extended denominator" in cross_phase
 
     assert 'scopeId="all-imported"' in arms
     assert "All imported" in arms
@@ -350,15 +367,28 @@ def test_comparative_pages_disclose_their_distinct_corpus_scopes() -> None:
     assert "not a fixed full-suite leaderboard denominator" in evals
     assert "from benchmark.v_valid_eval_arm_comparison" in data
 
-    assert 'scopeId="phase3-core"' in cost
-    assert 'getCorpusScope("phase3-core")' in cost
-    assert "Reviewed adjusted-cost coverage layer" in cost
-    assert "intentionally does not synthesize an extended adjusted-cost total" in cost
+    assert "scope.costEvidence" in cost
+    assert "scope.outcomeCostCoverage" in cost
+    assert "scope.arms" in cost
+    assert "getAdjustedCostOverview" not in cost
+    assert "getAdjustedCostArmRows" not in cost
+    assert "getAdjustedOutcomeCostRows" not in cost
+    assert "Phase 3 extended qualified adjusted-cost estimate" in Path(
+        "apps/dashboard/src/generated/phase3-reviewed-comparison-data.ts"
+    ).read_text()
+    assert "Qualified retained-rate reconstruction" in cost
+    assert "Pricing-source provenance incomplete" in cost
+    assert "arm-run/provider-log allocation confidence low" in cost
+    assert "trial-level allocation unresolved" in cost
+    assert "not invoice-level or provider-billed spend" in cost
+    assert 'return "Unavailable"' in cost
+    assert "900-trial Phase 3 core only" in cost
+    assert "Kimi K3&apos;s 60 trials are excluded" in cost
+    assert "cover all {formatNumber(outcomes.coveredTrialCount)}/{formatNumber(scope.trialCount)} trials" in cost
+    assert "not assigned to any outcome bucket" in cost
     assert "sponsor-facing" not in cost
-    for source in (cross_phase, cost):
-        assert "15 arms / 900 trials / 515 successes" not in source
-        assert "$972.17" not in source
-        assert "Kimi K3 is not included" not in source
+    assert "intentionally does not synthesize an extended adjusted-cost total" not in cost
+    assert "getAdjustedCostOverview" in data
 
 
 def test_stale_operational_pages_are_removed_from_primary_navigation() -> None:

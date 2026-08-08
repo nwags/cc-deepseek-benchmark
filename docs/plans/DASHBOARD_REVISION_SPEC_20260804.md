@@ -393,11 +393,13 @@ Acceptance criteria:
 
 ## 6A. Corrective requirements confirmed by the 2026-08-05 manual review
 
-These requirements remain open. They record the corrective work required before a second manual visual acceptance pass; none is implemented by this specification update.
+These requirements record the corrective work required before a second manual visual acceptance pass. DR-008 and DR-009 are implemented through Commit Groups F1/F2 and await that second visual acceptance; DR-010 through DR-015 remain open.
 
 ### DR-008 — Reconcile and integrate Kimi K3 cost evidence
 
 **Priority:** P0
+
+**Implementation status:** Implemented in Commit Groups F1/F2; pending second manual visual acceptance.
 
 Required outcome:
 
@@ -415,6 +417,8 @@ Required outcome:
 ### DR-009 — Make Phase 3 extended the current reviewed comparison
 
 **Priority:** P0
+
+**Implementation status:** Implemented in Commit Groups F1/F2; pending second manual visual acceptance.
 
 Required outcome:
 
@@ -743,7 +747,7 @@ Show:
 
 ### Corrective pre-second-acceptance sequence
 
-1. Complete scope selection and Kimi pricing-provenance/cost integration (`DR-008`, `DR-009`) first.
+1. Scope selection and qualified Kimi pricing-provenance/cost integration (`DR-008`, `DR-009`) were completed in Commit Groups F1/F2 and now provide the stable reviewed inputs.
 2. Complete freshness and Overview run/cost contracts (`DR-010`, `DR-012`) against those stable inputs.
 3. Implement the single interactive cost/performance chart specified jointly by `DR-011` and `DR-301` after its scope and cost inputs are stable.
 4. Complete the required layout, Architecture/Data Model, and glossary-link corrections (`DR-013` through `DR-015`).

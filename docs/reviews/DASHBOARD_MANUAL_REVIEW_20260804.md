@@ -55,8 +55,8 @@ Migration 009 must not be rerun. No paid benchmark runs, provider probes, Supaba
 
 | ID | Observation | Status | Evidence | Resolution |
 |---|---|---|---|---|
-| O-001 | Overview and Cross-phase appear to use different Phase 3 populations | Confirmed | Overview full-suite comparison 16/960; Cross-phase 15/900. Inspection also found Overview inventory metrics use all valid imported canary, smoke, full, and other valid runs. | The 2026-08-05 visual review passed the visible scope distinction. A current reviewed extended Cross-phase and Cost Coverage comparison remains open under DR-008 and DR-009. |
-| O-002 | Cost Coverage appears to use the earlier 15-arm accounting layer | Confirmed | $972.17 adjusted known cost; sanitized Kimi K3 provider-log retained-rate reconstruction | Historical provenance is clear, but the current default still excludes the qualified Kimi K3 provider-log retained-rate reconstruction. DR-008 and DR-009 remain open. |
+| O-001 | Overview and Cross-phase appear to use different Phase 3 populations | Confirmed | Overview full-suite comparison 16/960; the first-pass Cross-phase implementation used 15/900. Inspection also found Overview inventory metrics use all valid imported canary, smoke, full, and other valid runs. | Group F2 now defaults Cross-phase and Cost Coverage to the reviewed 16-arm extended comparison while retaining Phase 3 core as an explicit historical alternate. Second visual acceptance remains pending. |
+| O-002 | Cost Coverage appears to use the earlier 15-arm accounting layer | Confirmed | $972.17 adjusted known cost; sanitized Kimi K3 provider-log retained-rate reconstruction | Group F2 now uses the shared reviewed layer and includes qualified Kimi K3 cost evidence by default, with pricing, allocation, and billing limitations visible. Second visual acceptance remains pending. |
 | O-003 | Runner Fleet hardcodes current runner state | Confirmed | `/runners` page text | The 2026-08-05 visual review passed stale fleet-state containment. Runner Fleet body alignment remains open under DR-013. |
 | O-004 | Route Readiness contains static historical route findings | Confirmed | `/readiness` page rows | The 2026-08-05 visual review passed historical/non-live containment. |
 | O-005 | Architecture omits current live publication and VPS path | Confirmed | `/architecture` page and source inspection of the workflow, live wrapper, final publisher, manifest/ingestion helper, live data path, and artifact reader | The 2026-08-05 visual review passed the structural Architecture flow. Explanatory detail and Data Model expansion remain open under DR-014. |
@@ -77,6 +77,8 @@ The Implementation log below preserves the “manual acceptance pending” state
 | 2026-08-05 | DR-006 | Replaced the simplified Architecture diagram with separate execution/scoring, optional live-observation, canonical-publication, and storage/read-path views; documented the workflow publisher and helper relationship; replaced public compatibility-field terminology. | `apps/dashboard/src/app/architecture/page.tsx`; `apps/dashboard/src/lib/glossary.ts`; `tests/test_live_dashboard.py`; `docs/plans/DASHBOARD_REVISION_SPEC_20260804.md`; this file | Source assertions; dashboard Node tests; typecheck; production build; repository checks | Passed; manual acceptance pending |
 | 2026-08-05 | DR-007 | Recorded the first manual visual acceptance pass, its passing observations, and the corrective findings that prevent acceptance. | This file; `docs/plans/DASHBOARD_REVISION_SPEC_20260804.md` | Manual review at approximately 1920×1080 | Failed; corrective work and a second pass are required, so DR-007 remains pending |
 | 2026-08-05 | DR-008 | Recorded sanitized provider-log token arithmetic, pricing-provenance limitations, allocation confidence, and duplicate-export provenance without retaining raw request logs. Dashboard integration remains open. | `docs/reports/phase3/KIMI_K3_PROVIDER_LOG_RECONCILIATION_20260805.md`; `docs/reports/phase3/KIMI_K3_PROVIDER_EXPORT_DUPLICATE_CHECK_20260805.md`; `results/phase3/reporting/kimi_k3_provider_log_reconciliation_20260805.csv` | Sanitized evidence review; repository validation | Evidence recorded; DR-008 implementation remains open |
+| 2026-08-07 | DR-008; DR-009 — Group F1 | Added one validated, deterministic reviewed Phase 3 data layer containing immutable core and qualified extended scopes, exact source hashes, separate cost/provenance/allocation fields, and partial outcome-cost coverage semantics. | `results/phase3/reporting/phase3_extended_reviewed_comparison_20260805.json`; `apps/dashboard/src/generated/phase3-reviewed-comparison-data.ts`; `apps/dashboard/src/lib/phase3-reviewed-comparison.ts`; generator and focused tests | Focused generator/loader tests; typecheck; production build; repository checks | Passed; integration proceeded to Group F2 |
+| 2026-08-08 | DR-008; DR-009 — Group F2 | Made the reviewed extended scope the default for Cross-phase and Cost Coverage, added an accessible query-parameter selector for the historical core alternate, removed the Cost Coverage split-source Supabase path, and exposed qualified Kimi cost limitations and partial outcome coverage. | `apps/dashboard/src/app/cross-phase/page.tsx`; `apps/dashboard/src/app/cost-coverage/page.tsx`; `apps/dashboard/src/components/CorpusScopeSelector.tsx`; `apps/dashboard/src/components/CorpusScopeNotice.tsx`; `apps/dashboard/src/lib/cross-phase-reporting.ts`; focused tests; specification and this record | Focused Node/Python tests; typecheck; production build; `make check`; secret scan; diff/protected-path checks | Passed; DR-008 and DR-009 implementation is complete pending second manual visual acceptance. |
 
 Commit Group C used source inspection only. No provider, LiteLLM, Claude Code, Harbor, router, runner, or infrastructure probes were run, and no external operational service was queried.
 
@@ -224,6 +226,8 @@ The review was performed at approximately 1920×1080.
 - Taxonomy language focuses on a prior dashboard undercount rather than current accounting meaning.
 - The second ARM-line placeholder renders “—” for every row and should be populated or omitted.
 
+Group F2 addresses the dated Cross-phase and Cost Coverage default-scope, Kimi inclusion, and cost-taxonomy findings above. These remain recorded as first-pass observations until the revised pages complete the second manual visual acceptance pass.
+
 #### Runner Fleet
 
 - Body links and text are not aligned with the surrounding panel content.
@@ -246,10 +250,10 @@ Dynamic pages must expose their data source, latest included evidence, canonical
 
 ## Open questions
 
-1. Commit Group B decision: each page identifies the population its existing data supports. Overview comparison uses Phase 3 extended, Overview inventory and Evals use valid-imported, Cross-phase and Cost Coverage retain Phase 3 core, and Arms uses all-imported.
+1. Commit Group F2 decision: Overview, Cross-phase, and Cost Coverage default to the reviewed Phase 3 extended comparison; Cross-phase and Cost Coverage expose Phase 3 core as a historical alternate. Overview inventory and Evals use valid-imported, and Arms uses all-imported.
 2. Commit Group C decision: `/runners` remains a deprecation page because Live Runs exposes execution observations rather than a complete fleet model.
 3. Commit Group C decision: `/readiness` remains a historical planning snapshot until a separately reviewed data-backed readiness model exists.
-4. Kimi K3 token arithmetic is reconciled under the retained rates for the reviewed extended comparison. Official pricing-source provenance, invoice-level reconciliation, arm-run exclusivity, and exact trial-level allocation remain incomplete, and DR-008/DR-009 integration work remains open.
+4. Kimi K3 token arithmetic is reconciled under the retained rates and integrated as qualified evidence in the reviewed extended comparison. Official pricing-source provenance, invoice-level reconciliation, arm-run exclusivity, and exact trial-level allocation remain incomplete and visibly qualified.
 
 ## Final disposition
 
@@ -257,15 +261,16 @@ Dynamic pages must expose their data source, latest included evidence, canonical
 
 ### Blockers
 
-- DR-008 through DR-015 remain open.
+- DR-008 and DR-009 are implemented pending the second manual visual acceptance pass.
+- DR-010 through DR-015 remain open.
 - DR-007 remains pending until the corrective work and second visual acceptance pass are recorded.
 
 ### Misleading representations
 
 - No regression requiring rollback of Commit Groups B–D was found.
-- The current Cross-phase and Cost Coverage defaults omit Kimi K3 from the current reviewed comparison.
+- Cross-phase and Cost Coverage now default to the reviewed extended comparison; their revised presentation still requires second-pass visual acceptance.
 - Dynamic views do not yet provide complete freshness contracts.
-- Run identity, adjusted-cost presentation, layout, charting, Architecture detail, Data Model coverage, and contextual glossary links require the corrective work in DR-008 through DR-015.
+- Run identity, freshness, layout, charting, Architecture detail, Data Model coverage, and contextual glossary links require the remaining corrective work in DR-010 through DR-015.
 
 ### Usability findings
 
@@ -273,4 +278,4 @@ Dynamic pages must expose their data source, latest included evidence, canonical
 
 ### Acceptance decision
 
-Failed. Corrective requirements DR-008 through DR-015 are open, and DR-007 remains pending until a second visual acceptance pass is recorded.
+Failed. DR-008 and DR-009 are implemented pending review; DR-010 through DR-015 remain open, and DR-007 remains pending until a second visual acceptance pass is recorded.
