@@ -393,7 +393,7 @@ Acceptance criteria:
 
 ## 6A. Corrective requirements confirmed by the 2026-08-05 manual review
 
-These requirements record the corrective work required before a second manual visual acceptance pass. DR-008 and DR-009 are implemented through Commit Groups F1/F2, and DR-012 is implemented through Commit Groups G1/G2; all await second manual visual acceptance. Group G3 implements the shared freshness foundation and its population-specific Overview integration, but the remaining dynamic-route rollout keeps DR-010 globally open. DR-011 and DR-013 through DR-015 remain open.
+These requirements record the corrective work required before a second manual visual acceptance pass. DR-008 and DR-009 are implemented through Commit Groups F1/F2, and DR-012 is implemented through Commit Groups G1/G2; all await second manual visual acceptance. Group G3 implements the shared freshness foundation and its population-specific Overview integration, and Group G4a extends it to the primary cloud-backed index and inventory routes. Detail, artifact-byte, live, and API route rollout remains pending, so DR-010 is still globally open. DR-011 and DR-013 through DR-015 remain open.
 
 ### DR-008 — Reconcile and integrate Kimi K3 cost evidence
 
@@ -432,7 +432,7 @@ Required outcome:
 
 **Priority:** P0
 
-**Implementation status:** Freshness foundation and Overview integration implemented in Group G3; remaining dynamic-route rollout pending Group G4. DR-010 is not globally complete.
+**Implementation status:** Freshness foundation and Overview integration implemented in Group G3; primary cloud-backed index/inventory rollout implemented in Group G4a. Detail, artifact-byte, live, and API route rollout remains pending. DR-010 is not globally complete.
 
 Every dynamic Supabase-backed page must expose:
 
@@ -446,6 +446,8 @@ Every dynamic Supabase-backed page must expose:
 Do not label data “live” without these qualifications.
 
 Group G3 establishes the shared contract without inventing a repository-wide age threshold or canonical-publication timestamp. Overview now presents the F1 and G1 reviewed layers as dated snapshots rather than live inventory, and presents separate operational notices for exact selected-run evidence, valid-imported inventory, and dynamic heatmap/difficulty aggregates. Ordinary imported data remains `unknown` when no staleness threshold is configured; failed reads remain `unavailable`; and canonical publication is explicitly `not_recorded` because the current schema has no authoritative field.
+
+Group G4a applies that contract to `/arms`, `/artifacts`, `/eval-suites`, `/evals`, `/runs`, `/tasks`, and `/trial-quality`. Each notice names the page's actual operational relations and population, derives latest included execution from `finished_at` for that same population, keeps canonical publication explicitly unrecorded, and leaves the ordinary staleness threshold unconfigured. A failed secondary freshness-metadata read does not hide otherwise available page data.
 
 ### DR-011 — Restore the requested interactive cost/performance chart
 
@@ -758,7 +760,7 @@ Show:
 
 1. Scope selection and qualified Kimi pricing-provenance/cost integration (`DR-008`, `DR-009`) were completed in Commit Groups F1/F2 and now provide the stable reviewed inputs.
 2. The reviewed run-selection and Overview run/cost contract (`DR-012`) was completed in Commit Groups G1/G2 against those stable inputs.
-3. Roll out the Group G3 freshness foundation from Overview to the remaining dynamic routes (`DR-010`, Group G4); do not treat the Overview-only integration as global completion.
+3. Continue the Group G3 freshness rollout after Group G4a's primary index/inventory coverage to the remaining detail, artifact-byte, live, and API routes (`DR-010`, later Group G4 subgroups); do not treat the current partial rollout as global completion.
 4. Implement the single interactive cost/performance chart specified jointly by `DR-011` and `DR-301` after its scope and cost inputs are stable.
 5. Complete the required layout, Architecture/Data Model, and glossary-link corrections (`DR-013` through `DR-015`).
 6. Run the second manual visual acceptance pass and finish `DR-007` only after the chart and other corrective P0 work are complete.

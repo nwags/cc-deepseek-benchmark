@@ -1,22 +1,34 @@
 import Link from "next/link";
 import { AppShell } from "../../components/AppShell";
-import { getEvalSuites } from "../../lib/dashboard-data";
+import { DataFreshnessNotice } from "../../components/DataFreshnessNotice";
+import { getEvalSuites, getPhase3EvalSuiteLatestIncludedExecutionAt } from "../../lib/dashboard-data";
+import { INDEX_ROUTE_FRESHNESS_SOURCES } from "../../lib/data-freshness-sources";
+import { buildRegisteredOperationalFreshness, readFreshnessMetadata } from "../../lib/data-freshness-server";
 import { formatCurrency, formatNumber, formatPercent } from "../../lib/format";
 
 export const dynamic = "force-dynamic";
 
 export default async function EvalSuitesPage() {
-  const suites = await getEvalSuites();
+  const [suites, freshnessRead] = await Promise.all([
+    getEvalSuites(),
+    readFreshnessMetadata(() => getPhase3EvalSuiteLatestIncludedExecutionAt()),
+  ]);
+  const freshness = buildRegisteredOperationalFreshness(
+    INDEX_ROUTE_FRESHNESS_SOURCES.evalSuites,
+    freshnessRead,
+    new Date().toISOString(),
+  );
 
   return (
     <AppShell
       title="Eval Suites"
       description="Terminal-Bench suite groupings for canary, smoke, and full benchmark comparisons."
     >
+      <DataFreshnessNotice freshness={freshness} />
       <section className="panel">
         <div className="panel-heading">
           <h2>Suites</h2>
-          <p>Each suite groups evals/tasks and compares all imported arms.</p>
+          <p>Each suite groups evals/tasks. Comparison totals include distinct arms represented by valid imported rows; invalid and quarantined arm runs are excluded.</p>
         </div>
         <div className="table-wrap">
           <table>

@@ -203,3 +203,138 @@ test("Overview freshness loaders use execution completion rather than row metada
   assert.deepEqual(calls[1].params, ["phase3-full-20"]);
   assert.doesNotMatch(calls[1].sql, /created_at|updated_at/);
 });
+
+test("index-route freshness loaders preserve their population filters and use finished_at", async () => {
+  const calls = [];
+  globalThis.__dashboardQueryHandler = async (sql, params) => {
+    calls.push({ sql, params });
+    if (sql.includes("jsonb_to_recordset")) {
+      return [{
+        suite_id: "phase3-full-20",
+        arm_id: "arm",
+        run_label: "arm/run",
+        match_count: 1,
+        finished_at: "2026-08-10T00:00:00Z",
+      }];
+    }
+    return [{ latest_included_execution_at: "2026-08-10T00:00:00Z" }];
+  };
+
+  await dashboardData.getAllImportedArmLatestIncludedExecutionAt();
+  await dashboardData.getAllImportedTaskLatestIncludedExecutionAt();
+  await dashboardData.getArtifactBrowserLatestIncludedExecutionAt({
+    run_label: "arm/run",
+    artifact_type: "result",
+  });
+  await dashboardData.getPhase3EvalSuiteLatestIncludedExecutionAt();
+  await dashboardData.getValidImportedEvalLatestIncludedExecutionAt();
+  await dashboardData.getDisplayedArmRunFreshnessResolution([{
+    suite_id: "phase3-full-20",
+    arm_id: "arm",
+    run_label: "arm/run",
+  }]);
+
+  assert.equal(calls.length, 6);
+  for (const { sql } of calls.slice(0, 5)) {
+    assert.match(sql, /max\([^)]*finished_at\)::text as latest_included_execution_at/);
+    assert.doesNotMatch(sql, /max\([^)]*(created_at|updated_at)[^)]*\)/);
+  }
+  assert.match(calls[5].sql, /max\(summary\.finished_at\)::text/);
+  assert.doesNotMatch(calls[5].sql, /created_at|updated_at|invalidated_at|uploaded_at/);
+
+  assert.match(calls[0].sql, /join benchmark\.benchmark_arms a/);
+  assert.match(calls[0].sql, /join benchmark\.benchmark_trials t|from benchmark\.benchmark_trials t/);
+  assert.match(calls[0].sql, /join benchmark\.benchmark_runs r/);
+
+  assert.match(calls[1].sql, /join benchmark\.benchmark_tasks task/);
+  assert.match(calls[1].sql, /from benchmark\.benchmark_trials t/);
+
+  assert.match(calls[2].sql, /from matching_artifacts/);
+  assert.match(calls[2].sql, /run_label = \$1/);
+  assert.match(calls[2].sql, /artifact_type = \$2/);
+  assert.deepEqual(calls[2].params, ["arm/run", "result"]);
+
+  assert.match(calls[3].sql, /from benchmark\.v_valid_arm_run_summary arm_run/);
+  assert.match(calls[3].sql, /join benchmark\.benchmark_eval_suites suite/);
+  assert.match(calls[3].sql, /where suite\.phase = 'phase3'/);
+
+  assert.match(calls[4].sql, /from benchmark\.v_valid_arm_run_summary/);
+  assert.match(calls[4].sql, /where trial_count > 0/);
+
+  assert.match(calls[5].sql, /from benchmark\.v_arm_run_summary summary/);
+  assert.match(calls[5].sql, /summary\.phase = 'phase3'/);
+  assert.match(calls[5].sql, /summary\.suite_id is not distinct from requested\.suite_id/);
+  assert.match(calls[5].sql, /summary\.arm_id = requested\.arm_id/);
+  assert.match(calls[5].sql, /summary\.run_label = requested\.run_label/);
+  assert.doesNotMatch(calls[5].sql, /from benchmark\.benchmark_runs/);
+  assert.deepEqual(JSON.parse(calls[5].params[0]), [{
+    suite_id: "phase3-full-20",
+    arm_id: "arm",
+    run_label: "arm/run",
+  }]);
+});
+
+test("trial-quality freshness resolves exact Phase 3 identities without same-label substitution", async () => {
+  let captured;
+  globalThis.__dashboardQueryHandler = async (sql, params) => {
+    captured = { sql, params };
+    return [{
+      suite_id: "phase3-full-20",
+      arm_id: "target-arm",
+      run_label: "shared/run-label",
+      match_count: 1,
+      finished_at: "2026-08-09T00:00:00Z",
+    }];
+  };
+
+  const result = await dashboardData.getDisplayedArmRunFreshnessResolution([{
+    suite_id: "phase3-full-20",
+    arm_id: "target-arm",
+    run_label: "shared/run-label",
+  }]);
+
+  assert.equal(result.latestIncludedExecutionAt, "2026-08-09T00:00:00Z");
+  assert.equal(result.resolvedIdentityCount, 1);
+  assert.match(captured.sql, /summary\.phase = 'phase3'/);
+  assert.match(captured.sql, /summary\.suite_id is not distinct from requested\.suite_id/);
+  assert.match(captured.sql, /summary\.arm_id = requested\.arm_id/);
+  assert.match(captured.sql, /summary\.run_label = requested\.run_label/);
+  assert.doesNotMatch(captured.sql, /where summary\.run_label = requested\.run_label\s*$/m);
+});
+
+test("unresolved, duplicate, and timestamp-free displayed identities stay explicit", async () => {
+  const identities = [
+    { suite_id: "phase3-full-20", arm_id: "resolved", run_label: "resolved/run" },
+    { suite_id: "phase3-full-20", arm_id: "missing", run_label: "missing/run" },
+    { suite_id: "phase3-full-20", arm_id: "duplicate", run_label: "duplicate/run" },
+    { suite_id: "phase3-full-20", arm_id: "unfinished", run_label: "unfinished/run" },
+  ];
+  globalThis.__dashboardQueryHandler = async () => [
+    { ...identities[0], match_count: 1, finished_at: "2026-08-09T00:00:00Z" },
+    { ...identities[1], match_count: 0, finished_at: null },
+    { ...identities[2], match_count: 2, finished_at: null },
+    { ...identities[3], match_count: 1, finished_at: null },
+  ];
+
+  const result = await dashboardData.getDisplayedArmRunFreshnessResolution(identities);
+  assert.equal(result.latestIncludedExecutionAt, "2026-08-09T00:00:00Z");
+  assert.equal(result.expectedIdentityCount, 4);
+  assert.equal(result.resolvedIdentityCount, 2);
+  assert.deepEqual(result.unresolvedIdentities, [identities[1]]);
+  assert.deepEqual(result.duplicateIdentities, [identities[2]]);
+  assert.deepEqual(result.missingFinishedAtIdentities, [identities[3]]);
+});
+
+test("duplicate requested arm-run identities are deterministically de-duplicated", async () => {
+  const identity = { suite_id: "phase3-full-20", arm_id: "arm", run_label: "arm/run" };
+  let requested;
+  globalThis.__dashboardQueryHandler = async (_sql, params) => {
+    requested = JSON.parse(params[0]);
+    return [{ ...identity, match_count: 1, finished_at: "2026-08-09T00:00:00Z" }];
+  };
+
+  const result = await dashboardData.getDisplayedArmRunFreshnessResolution([identity, identity]);
+  assert.deepEqual(requested, [identity]);
+  assert.equal(result.expectedIdentityCount, 1);
+  assert.equal(result.resolvedIdentityCount, 1);
+});

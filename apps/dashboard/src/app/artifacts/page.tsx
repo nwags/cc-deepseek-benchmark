@@ -2,15 +2,19 @@ import Link from "next/link";
 import { AppShell } from "../../components/AppShell";
 import { ArtifactEvidenceGuide } from "../../components/ArtifactEvidenceGuide";
 import { ArtifactTypeLabel } from "../../components/ArtifactTypeInfo";
+import { DataFreshnessNotice } from "../../components/DataFreshnessNotice";
 import { ValidityBadge } from "../../components/ValidityContext";
 import { buildSuspectNoopHref } from "../../components/QualityContext";
 import {
   ArtifactBrowserFilters,
   ArtifactBrowserGroup,
+  getArtifactBrowserLatestIncludedExecutionAt,
   getArtifactBrowserFilterOptions,
   getArtifactBrowserPage,
   getInvalidArmRunRowsByRunLabels
 } from "../../lib/dashboard-data";
+import { INDEX_ROUTE_FRESHNESS_SOURCES } from "../../lib/data-freshness-sources";
+import { buildRegisteredOperationalFreshness, readFreshnessMetadata } from "../../lib/data-freshness-server";
 import { deriveEvidenceCompleteness } from "../../lib/artifact-types";
 import { formatBytes, formatNumber } from "../../lib/format";
 import { redactSecretsInText } from "../../lib/safe-display";
@@ -119,15 +123,21 @@ export default async function ArtifactsPage({ searchParams }: { searchParams?: P
     q: cleanParam(params.q), page: parsePositiveInteger(params.page, 1),
     page_size: [10, 25, 50, 100].includes(requestedPageSize) ? requestedPageSize : 25
   };
-  const [browserPage, options] = await Promise.all([
+  const [browserPage, options, freshnessRead] = await Promise.all([
     getArtifactBrowserPage(filters),
-    getArtifactBrowserFilterOptions()
+    getArtifactBrowserFilterOptions(),
+    readFreshnessMetadata(() => getArtifactBrowserLatestIncludedExecutionAt(filters)),
   ]);
   const activeFilters = activeFilterEntries(filters);
   const invalidRows = await getInvalidArmRunRowsByRunLabels(
     Array.from(new Set(browserPage.groups.map((group) => group.run_label)))
   );
   const invalidByRun = new Map(invalidRows.map((row) => [row.run_label, row]));
+  const freshness = buildRegisteredOperationalFreshness(
+    INDEX_ROUTE_FRESHNESS_SOURCES.artifacts,
+    freshnessRead,
+    new Date().toISOString(),
+  );
 
   return (
     <AppShell
@@ -137,6 +147,7 @@ export default async function ArtifactsPage({ searchParams }: { searchParams?: P
       <section className="quality-context-panel">
         This audit view may include invalid or quarantined runs. Filtering selects matching evidence groups and then expands every artifact in each group. It never changes stored rewards, pass rates, denominators, or quality flags.
       </section>
+      <DataFreshnessNotice freshness={freshness} />
 
       <ArtifactEvidenceGuide />
 

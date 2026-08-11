@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { TermInfo } from "../../components/TermInfo";
 import { AppShell } from "../../components/AppShell";
+import { DataFreshnessNotice } from "../../components/DataFreshnessNotice";
 import { QualityBadge, QualityPassRate, buildSuspectNoopHref } from "../../components/QualityContext";
 import { InvalidReason, ValidityBadge } from "../../components/ValidityContext";
 import { buildArtifactHref } from "../../lib/links";
@@ -12,6 +13,9 @@ import {
   getArmRunRows,
   getInvalidArmRunRowsByRunLabels
 } from "../../lib/dashboard-data";
+import { findLatestIncludedExecutionAt } from "../../lib/data-freshness";
+import { INDEX_ROUTE_FRESHNESS_SOURCES } from "../../lib/data-freshness-sources";
+import { buildRegisteredOperationalFreshness } from "../../lib/data-freshness-server";
 import { formatRecordedCost, formatNumber, formatSeconds } from "../../lib/format";
 
 export const dynamic = "force-dynamic";
@@ -137,12 +141,22 @@ export default async function RunsPage() {
 
   const fullRows = rows.filter((row) => row.logical_mode === "full");
   const diagnosticRows = rows.filter((row) => row.logical_mode !== "full");
+  const latestExecution = findLatestIncludedExecutionAt(rows.map((row) => row.finished_at));
+  const freshness = buildRegisteredOperationalFreshness(
+    INDEX_ROUTE_FRESHNESS_SOURCES.runs,
+    { queryStatus: "available", value: latestExecution.latestTimestamp },
+    new Date().toISOString(),
+    latestExecution.invalidTimestampCount
+      ? `${latestExecution.invalidTimestampCount} displayed run completion timestamp(s) were invalid and excluded from the latest-execution calculation.`
+      : null,
+  );
 
   return (
     <AppShell title="Runs">
       <section className="quality-context-panel">
         Invalid/quarantined runs are retained for audit but excluded from valid-only comparison views.
       </section>
+      <DataFreshnessNotice freshness={freshness} />
 
       <section className="panel">
         <div className="panel-heading">

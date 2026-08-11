@@ -1,13 +1,24 @@
 import Link from "next/link";
 import { AppShell } from "../../components/AppShell";
 import { CorpusScopeNotice } from "../../components/CorpusScopeNotice";
-import { getEvalRows } from "../../lib/dashboard-data";
+import { DataFreshnessNotice } from "../../components/DataFreshnessNotice";
+import { getEvalRows, getValidImportedEvalLatestIncludedExecutionAt } from "../../lib/dashboard-data";
+import { INDEX_ROUTE_FRESHNESS_SOURCES } from "../../lib/data-freshness-sources";
+import { buildRegisteredOperationalFreshness, readFreshnessMetadata } from "../../lib/data-freshness-server";
 import { formatCurrency, formatNumber, formatPercent, formatSeconds } from "../../lib/format";
 
 export const dynamic = "force-dynamic";
 
 export default async function EvalsPage() {
-  const rows = await getEvalRows();
+  const [rows, freshnessRead] = await Promise.all([
+    getEvalRows(),
+    readFreshnessMetadata(() => getValidImportedEvalLatestIncludedExecutionAt()),
+  ]);
+  const freshness = buildRegisteredOperationalFreshness(
+    INDEX_ROUTE_FRESHNESS_SOURCES.evals,
+    freshnessRead,
+    new Date().toISOString(),
+  );
   const observedCounts = rows.reduce(
     (counts, row) => ({
       trialCount: counts.trialCount + row.trial_count,
@@ -22,6 +33,7 @@ export default async function EvalsPage() {
       description="Task-level inventory across valid imported run classes; it is not a fixed full-suite leaderboard denominator."
     >
       <CorpusScopeNotice scopeId="valid-imported" observedCounts={observedCounts} />
+      <DataFreshnessNotice freshness={freshness} />
       <section className="panel">
         <div className="panel-heading">
           <h2>Eval comparison index</h2>

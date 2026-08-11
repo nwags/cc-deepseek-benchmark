@@ -11,8 +11,16 @@ const source = await readFile(join(here, "data-freshness.ts"), "utf8");
 const compiled = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
 }).outputText;
-const freshness = await import(
-  `data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`
+const freshnessModuleUrl = `data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`;
+const freshness = await import(freshnessModuleUrl);
+const serverSource = await readFile(join(here, "data-freshness-server.ts"), "utf8");
+const serverCompiled = ts
+  .transpileModule(serverSource, {
+    compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
+  })
+  .outputText.replace('"./data-freshness"', JSON.stringify(freshnessModuleUrl));
+const freshnessServer = await import(
+  `data:text/javascript;base64,${Buffer.from(serverCompiled).toString("base64")}`
 );
 
 const operationalBase = {
@@ -27,6 +35,87 @@ const operationalBase = {
   warningMessage: null,
 };
 const expectedSelectedLabels = Array.from({ length: 16 }, (_, index) => `arm-${index + 1}/run`);
+const registeredOperationalSource = Object.freeze({
+  sourceKind: "operational",
+  sourceLabel: "Registered operational test source",
+  sourceRelations: Object.freeze(["benchmark.v_test"]),
+  populationLabel: "Registered test population",
+  reviewedAt: null,
+  schemaVersion: null,
+  provenanceIdentifier: null,
+});
+
+test("freshness metadata reads preserve success and isolate secondary read failure", async () => {
+  const available = await freshnessServer.readFreshnessMetadata(async () =>
+    "2026-08-10T11:00:00Z"
+  );
+  assert.deepEqual(available, {
+    queryStatus: "available",
+    value: "2026-08-10T11:00:00Z",
+  });
+
+  const unavailable = await freshnessServer.readFreshnessMetadata(async () => {
+    throw new Error("database unavailable");
+  });
+  assert.deepEqual(unavailable, { queryStatus: "unavailable", value: null });
+});
+
+test("arm-run identity coverage warns about unresolved stored execution evidence", () => {
+  const warning = freshnessServer.armRunFreshnessCoverageWarning({
+    expectedIdentityCount: 4,
+    resolvedIdentityCount: 2,
+    unresolvedIdentities: [{}],
+    duplicateIdentities: [{}],
+    missingFinishedAtIdentities: [{}],
+  });
+  assert.match(warning, /resolved exactly for 2 of 4 displayed arm-run identities/);
+  assert.match(warning, /could not be resolved/);
+  assert.match(warning, /matched more than one Phase 3 arm run/);
+  assert.match(warning, /no usable execution completion timestamp/);
+  assert.match(warning, /No substitute run was selected/);
+
+  assert.equal(freshnessServer.armRunFreshnessCoverageWarning({
+    expectedIdentityCount: 1,
+    resolvedIdentityCount: 1,
+    unresolvedIdentities: [],
+    duplicateIdentities: [],
+    missingFinishedAtIdentities: [],
+  }), null);
+});
+
+test("registered operational freshness keeps canonical publication and threshold unset", () => {
+  const result = freshnessServer.buildRegisteredOperationalFreshness(
+    registeredOperationalSource,
+    { queryStatus: "available", value: "2026-08-10T11:00:00Z" },
+    "2026-08-10T12:00:00Z",
+  );
+  assert.equal(result.queryStatus, "available");
+  assert.equal(result.freshnessStatus, "unknown");
+  assert.equal(result.freshnessReason, "threshold_not_configured");
+  assert.equal(result.canonicalPublicationStatus, "not_recorded");
+  assert.equal(result.latestCanonicalPublishedAt, null);
+  assert.equal(result.publicationLagSeconds, null);
+});
+
+test("failed or timestamp-free metadata never becomes current", () => {
+  const unavailable = freshnessServer.buildRegisteredOperationalFreshness(
+    registeredOperationalSource,
+    { queryStatus: "unavailable", value: null },
+    "2026-08-10T12:00:00Z",
+  );
+  assert.equal(unavailable.queryStatus, "unavailable");
+  assert.equal(unavailable.freshnessStatus, "unavailable");
+
+  const unknown = freshnessServer.buildRegisteredOperationalFreshness(
+    registeredOperationalSource,
+    { queryStatus: "available", value: null },
+    "2026-08-10T12:00:00Z",
+  );
+  assert.equal(unknown.queryStatus, "available");
+  assert.equal(unknown.freshnessStatus, "unknown");
+  assert.equal(unknown.freshnessReason, "execution_timestamp_missing");
+  assert.equal(unknown.dataAgeSeconds, null);
+});
 
 test("exact-label coverage accepts 16 unique expected labels", () => {
   const coverage = freshness.summarizeExpectedLabelCoverage(

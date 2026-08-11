@@ -167,6 +167,30 @@ export async function getTaskRows(): Promise<TaskRow[]> {
   `);
 }
 
+export async function getAllImportedArmLatestIncludedExecutionAt(): Promise<string | null> {
+  const rows = await queryRows<LatestIncludedExecutionRow>(`
+    select max(r.finished_at)::text as latest_included_execution_at
+    from benchmark.benchmark_trials t
+    join benchmark.benchmark_arms a
+      on a.arm_id = t.arm_id
+    join benchmark.benchmark_runs r
+      on r.id = t.run_id
+  `);
+  return rows[0]?.latest_included_execution_at ?? null;
+}
+
+export async function getAllImportedTaskLatestIncludedExecutionAt(): Promise<string | null> {
+  const rows = await queryRows<LatestIncludedExecutionRow>(`
+    select max(r.finished_at)::text as latest_included_execution_at
+    from benchmark.benchmark_trials t
+    join benchmark.benchmark_tasks task
+      on task.task_id = t.task_id
+    join benchmark.benchmark_runs r
+      on r.id = t.run_id
+  `);
+  return rows[0]?.latest_included_execution_at ?? null;
+}
+
 export async function getRecentRuns(): Promise<RecentRunRow[]> {
   return queryRows<RecentRunRow>(`
     select
@@ -568,6 +592,7 @@ function artifactBrowserQueryParts(filters: ArtifactBrowserFilters = {}) {
         r.id::text as run_id,
         r.run_label,
         r.started_at,
+        r.finished_at,
         coalesce(t.arm_run_id, ar.id)::text as arm_run_id,
         coalesce(q.suite_id, ar.suite_id) as suite_id,
         coalesce(q.logical_mode, ar.logical_mode) as logical_mode,
@@ -736,6 +761,20 @@ export async function getArtifactBrowserPage(
     expanded_artifact_count: rows.length,
     total_pages: totalPages
   };
+}
+
+export async function getArtifactBrowserLatestIncludedExecutionAt(
+  filters: ArtifactBrowserFilters = {},
+): Promise<string | null> {
+  const { ctes, params } = artifactBrowserQueryParts(filters);
+  const rows = await queryRows<LatestIncludedExecutionRow>(
+    `${ctes}
+      select max(finished_at)::text as latest_included_execution_at
+      from matching_artifacts
+    `,
+    params,
+  );
+  return rows[0]?.latest_included_execution_at ?? null;
 }
 
 export async function getArtifactBrowserFilterOptions(): Promise<ArtifactBrowserFilterOptions> {
@@ -1183,6 +1222,17 @@ export async function getEvalSuites(): Promise<EvalSuiteRow[]> {
   `);
 }
 
+export async function getPhase3EvalSuiteLatestIncludedExecutionAt(): Promise<string | null> {
+  const rows = await queryRows<LatestIncludedExecutionRow>(`
+    select max(arm_run.finished_at)::text as latest_included_execution_at
+    from benchmark.v_valid_arm_run_summary arm_run
+    join benchmark.benchmark_eval_suites suite
+      on suite.suite_id = arm_run.suite_id
+    where suite.phase = 'phase3'
+  `);
+  return rows[0]?.latest_included_execution_at ?? null;
+}
+
 export async function getSuiteArmComparison(suiteId: string): Promise<SuiteArmComparisonRow[]> {
   return queryRows<SuiteArmComparisonRow>(
     `
@@ -1548,6 +1598,15 @@ export async function getEvalRows(): Promise<EvalSummaryRow[]> {
   `);
 }
 
+export async function getValidImportedEvalLatestIncludedExecutionAt(): Promise<string | null> {
+  const rows = await queryRows<LatestIncludedExecutionRow>(`
+    select max(finished_at)::text as latest_included_execution_at
+    from benchmark.v_valid_arm_run_summary
+    where trial_count > 0
+  `);
+  return rows[0]?.latest_included_execution_at ?? null;
+}
+
 export async function getEvalArmComparison(taskId: string): Promise<EvalArmComparisonRow[]> {
   return queryRows<EvalArmComparisonRow>(
     `
@@ -1708,6 +1767,50 @@ export type SuspectNoopTrialFilters = {
   task_id?: string;
 };
 
+export type DisplayedArmRunFreshnessIdentity = Readonly<{
+  suite_id: string | null;
+  arm_id: string;
+  run_label: string;
+}>;
+
+type DisplayedArmRunFreshnessMatchRow = DisplayedArmRunFreshnessIdentity & {
+  match_count: number;
+  finished_at: string | null;
+};
+
+export type DisplayedArmRunFreshnessResolution = Readonly<{
+  latestIncludedExecutionAt: string | null;
+  expectedIdentityCount: number;
+  resolvedIdentityCount: number;
+  unresolvedIdentities: readonly DisplayedArmRunFreshnessIdentity[];
+  duplicateIdentities: readonly DisplayedArmRunFreshnessIdentity[];
+  missingFinishedAtIdentities: readonly DisplayedArmRunFreshnessIdentity[];
+}>;
+
+function displayedArmRunFreshnessIdentityKey(identity: DisplayedArmRunFreshnessIdentity) {
+  return JSON.stringify([identity.suite_id, identity.arm_id, identity.run_label]);
+}
+
+export function deduplicateDisplayedArmRunFreshnessIdentities(
+  identities: readonly DisplayedArmRunFreshnessIdentity[],
+): DisplayedArmRunFreshnessIdentity[] {
+  const byKey = new Map<string, DisplayedArmRunFreshnessIdentity>();
+  for (const identity of identities) {
+    if (!identity.arm_id || !identity.run_label) {
+      throw new Error("Displayed arm-run freshness identities require arm_id and run_label");
+    }
+    const retained = Object.freeze({
+      suite_id: identity.suite_id,
+      arm_id: identity.arm_id,
+      run_label: identity.run_label,
+    });
+    byKey.set(displayedArmRunFreshnessIdentityKey(retained), retained);
+  }
+  return [...byKey.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([, identity]) => identity);
+}
+
 export async function getArmRunQualitySummaryRows(limit = 100): Promise<ArmRunQualitySummaryRow[]> {
   return queryRows<ArmRunQualitySummaryRow>(
     `
@@ -1745,6 +1848,100 @@ export async function getArmRunQualitySummaryRows(limit = 100): Promise<ArmRunQu
     `,
     [limit]
   );
+}
+
+export async function getDisplayedArmRunFreshnessResolution(
+  identities: readonly DisplayedArmRunFreshnessIdentity[],
+): Promise<DisplayedArmRunFreshnessResolution> {
+  const expected = deduplicateDisplayedArmRunFreshnessIdentities(identities);
+  if (expected.length === 0) {
+    return Object.freeze({
+      latestIncludedExecutionAt: null,
+      expectedIdentityCount: 0,
+      resolvedIdentityCount: 0,
+      unresolvedIdentities: Object.freeze([]),
+      duplicateIdentities: Object.freeze([]),
+      missingFinishedAtIdentities: Object.freeze([]),
+    });
+  }
+
+  const rows = await queryRows<DisplayedArmRunFreshnessMatchRow>(
+    `
+      with requested as (
+        select suite_id, arm_id, run_label
+        from jsonb_to_recordset($1::jsonb)
+          as identity(suite_id text, arm_id text, run_label text)
+      )
+      select
+        requested.suite_id,
+        requested.arm_id,
+        requested.run_label,
+        matched.match_count::int,
+        matched.finished_at
+      from requested
+      cross join lateral (
+        select
+          count(*)::int as match_count,
+          case
+            when count(*) = 1 then max(summary.finished_at)::text
+            else null
+          end as finished_at
+        from benchmark.v_arm_run_summary summary
+        where summary.phase = 'phase3'
+          and summary.suite_id is not distinct from requested.suite_id
+          and summary.arm_id = requested.arm_id
+          and summary.run_label = requested.run_label
+      ) matched
+      order by requested.suite_id nulls first, requested.arm_id, requested.run_label
+    `,
+    [JSON.stringify(expected)],
+  );
+
+  const rowsByIdentity = new Map(
+    rows.map((row) => [displayedArmRunFreshnessIdentityKey(row), row]),
+  );
+  const unresolvedIdentities: DisplayedArmRunFreshnessIdentity[] = [];
+  const duplicateIdentities: DisplayedArmRunFreshnessIdentity[] = [];
+  const missingFinishedAtIdentities: DisplayedArmRunFreshnessIdentity[] = [];
+  let resolvedIdentityCount = 0;
+  let latestIncludedExecutionAt: string | null = null;
+  let latestMilliseconds = Number.NEGATIVE_INFINITY;
+
+  for (const identity of expected) {
+    const row = rowsByIdentity.get(displayedArmRunFreshnessIdentityKey(identity));
+    if (!row || row.match_count === 0) {
+      unresolvedIdentities.push(identity);
+      continue;
+    }
+    if (row.match_count !== 1) {
+      duplicateIdentities.push(identity);
+      continue;
+    }
+
+    resolvedIdentityCount += 1;
+    if (row.finished_at === null) {
+      missingFinishedAtIdentities.push(identity);
+      continue;
+    }
+    const milliseconds = Date.parse(row.finished_at);
+    if (!Number.isFinite(milliseconds)) {
+      missingFinishedAtIdentities.push(identity);
+      continue;
+    }
+    if (milliseconds > latestMilliseconds) {
+      latestMilliseconds = milliseconds;
+      latestIncludedExecutionAt = row.finished_at;
+    }
+  }
+
+  return Object.freeze({
+    latestIncludedExecutionAt,
+    expectedIdentityCount: expected.length,
+    resolvedIdentityCount,
+    unresolvedIdentities: Object.freeze(unresolvedIdentities),
+    duplicateIdentities: Object.freeze(duplicateIdentities),
+    missingFinishedAtIdentities: Object.freeze(missingFinishedAtIdentities),
+  });
 }
 
 export async function getSuspectNoopTrialRows(limit = 100): Promise<SuspectTrialRow[]> {

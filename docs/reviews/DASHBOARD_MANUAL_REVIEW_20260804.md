@@ -56,7 +56,7 @@ Migration 009 must not be rerun. No paid benchmark runs, provider probes, Supaba
 - [x] DR-008 Qualified Kimi K3 cost evidence integrated — implemented; second manual visual acceptance pending
 - [x] DR-009 Reviewed Phase 3 extended comparison defaulted with core alternate — implemented; second manual visual acceptance pending
 - [x] DR-012 Frozen reviewed-run identity and cost reconciliation on Overview — implemented; second manual visual acceptance pending
-- [ ] DR-010 freshness foundation and Overview integration are implemented, but remaining dynamic-route rollout is pending; DR-011 and DR-013 through DR-015 remain open
+- [ ] DR-010 freshness foundation, Overview integration, and primary cloud-backed index/inventory rollout are implemented, but detail, artifact-byte, live, and API rollout remains pending; DR-011 and DR-013 through DR-015 remain open
 
 ## Observations versus confirmed defects
 
@@ -89,6 +89,7 @@ The Implementation log below preserves the “manual acceptance pending” state
 | 2026-08-09 | DR-012 — Group G1 | Added a deterministic reviewed run-selection contract containing one frozen complete valid full-suite run label for each F1 core/extended arm, with Kimi provider-log allocation limitations retained separately. | `results/phase3/reporting/phase3_reviewed_run_selection_20260809.json`; `apps/dashboard/src/generated/phase3-reviewed-run-selection-data.ts`; `apps/dashboard/src/lib/phase3-reviewed-run-selection.ts`; generator and focused tests | Focused generator/loader tests; typecheck; production build; repository checks | Passed; integration proceeded to Group G2. |
 | 2026-08-10 | DR-012 — Group G2 | Replaced Overview's mutable suite/arm aggregate leaderboard and latest-20 health population with F1 reviewed facts, G1 frozen run identities, and explicit reconciliation against exact-label valid arm-run and adjusted-cost evidence. Added encoded run links, selected-run cost/source/confidence presentation, unavailable/error states, and distinct labeling for the retained dynamic heatmap and difficulty aggregates. | `apps/dashboard/src/app/page.tsx`; `apps/dashboard/src/lib/dashboard-data.ts`; `apps/dashboard/src/lib/overview-reviewed-comparison.ts`; focused tests; specification and this record | Focused Node/Python tests; typecheck; production build; `make check`; secret scan; diff/protected-path checks | Passed; DR-012 implementation is complete pending second manual visual acceptance. |
 | 2026-08-10 | DR-010 — Group G3 | Added the typed freshness/provenance contract, central Overview source registry, explicit snapshot semantics, deterministic age calculations, unavailable/unknown states, and separate Overview notices for reviewed comparison facts, reviewed run selection, exact-label stored evidence, valid-imported inventory, and dynamic suite aggregates. Canonical publication remains explicitly not recorded and no general stale threshold was invented. | `apps/dashboard/src/lib/data-freshness.ts`; `apps/dashboard/src/lib/data-freshness-sources.ts`; `apps/dashboard/src/components/DataFreshnessNotice.tsx`; Overview/data-loader integration; focused tests; specification and this record | Focused Node/Python tests; typecheck; production build; repository checks | Freshness foundation and Overview integration implemented; remaining dynamic-route rollout pending Group G4, so DR-010 remains globally incomplete. |
+| 2026-08-11 | DR-010 — Group G4a | Rolled the shared freshness contract out to the primary cloud-backed index and inventory routes with central source definitions, population-aligned `finished_at` metadata, explicit unrecorded canonical publication, and isolated secondary-metadata failure handling. Corrected Tasks to its all-imported population and Eval Suites to distinct-arm valid-only comparison semantics. | `/arms`; `/artifacts`; `/eval-suites`; `/evals`; `/runs`; `/tasks`; `/trial-quality`; `apps/dashboard/src/lib/data-freshness-sources.ts`; `apps/dashboard/src/lib/data-freshness-server.ts`; dashboard loaders and focused tests; specification and this record | Focused Node/Python tests; typecheck; production build; repository checks | Primary index/inventory rollout implemented; detail, artifact-byte, live, and API route rollout remains pending, so DR-010 remains globally incomplete. |
 
 Commit Group C used source inspection only. No provider, LiteLLM, Claude Code, Harbor, router, runner, or infrastructure probes were run, and no external operational service was queried.
 
@@ -272,15 +273,15 @@ Dynamic pages must expose their data source, latest included evidence, canonical
 ### Blockers
 
 - DR-008, DR-009, and DR-012 are implemented pending the second manual visual acceptance pass.
-- DR-010 has an implemented freshness foundation and Overview integration, but remains open pending rollout to the other dynamic routes; DR-011 and DR-013 through DR-015 remain open.
+- DR-010 has an implemented freshness foundation, Overview integration, and primary cloud-backed index/inventory rollout, but remains open pending detail, artifact-byte, live, and API route coverage; DR-011 and DR-013 through DR-015 remain open.
 - DR-007 remains pending until the corrective work and second visual acceptance pass are recorded.
 
 ### Misleading representations
 
 - No regression requiring rollback of Commit Groups B–D was found.
 - Cross-phase and Cost Coverage now default to the reviewed extended comparison; their revised presentation still requires second-pass visual acceptance.
-- Overview now distinguishes reviewed snapshot provenance from three operational populations, but the remaining dynamic views do not yet provide complete freshness contracts.
-- Freshness rollout beyond Overview, layout, charting, Architecture detail, Data Model coverage, and contextual glossary links require the remaining corrective work in DR-010, DR-011, and DR-013 through DR-015.
+- Overview distinguishes reviewed snapshot provenance from three operational populations, and the primary cloud-backed index/inventory routes now disclose population-specific sources and execution freshness. Detail, artifact-byte, live, and API views do not yet have complete freshness contracts.
+- Freshness rollout to the remaining detail, artifact-byte, live, and API routes, plus layout, charting, Architecture detail, Data Model coverage, and contextual glossary links, requires the remaining corrective work in DR-010, DR-011, and DR-013 through DR-015.
 
 ### Usability findings
 
@@ -288,4 +289,4 @@ Dynamic pages must expose their data source, latest included evidence, canonical
 
 ### Acceptance decision
 
-Failed. DR-008, DR-009, and DR-012 are implemented pending review; DR-010 has an implemented foundation and Overview integration but remains open pending the remaining dynamic-route rollout; DR-011 and DR-013 through DR-015 remain open; and DR-007 remains pending until a second visual acceptance pass is recorded.
+Failed. DR-008, DR-009, and DR-012 are implemented pending review; DR-010 has an implemented foundation, Overview integration, and primary index/inventory rollout but remains open pending detail, artifact-byte, live, and API coverage; DR-011 and DR-013 through DR-015 remain open; and DR-007 remains pending until a second visual acceptance pass is recorded.

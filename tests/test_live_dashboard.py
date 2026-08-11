@@ -512,6 +512,103 @@ def test_overview_has_population_specific_freshness_and_snapshot_provenance() ->
     assert "data-freshness.test.mjs" in package
 
 
+def test_primary_cloud_indexes_use_population_specific_freshness_contracts() -> None:
+    page_sources = {
+        "arms": Path("apps/dashboard/src/app/arms/page.tsx").read_text(),
+        "artifacts": Path("apps/dashboard/src/app/artifacts/page.tsx").read_text(),
+        "evalSuites": Path("apps/dashboard/src/app/eval-suites/page.tsx").read_text(),
+        "evals": Path("apps/dashboard/src/app/evals/page.tsx").read_text(),
+        "runs": Path("apps/dashboard/src/app/runs/page.tsx").read_text(),
+        "tasks": Path("apps/dashboard/src/app/tasks/page.tsx").read_text(),
+        "trialQuality": Path("apps/dashboard/src/app/trial-quality/page.tsx").read_text(),
+    }
+    sources = Path("apps/dashboard/src/lib/data-freshness-sources.ts").read_text()
+    server = Path("apps/dashboard/src/lib/data-freshness-server.ts").read_text()
+    data = Path("apps/dashboard/src/lib/dashboard-data.ts").read_text()
+
+    for source_key, page in page_sources.items():
+        assert "DataFreshnessNotice" in page
+        assert f"INDEX_ROUTE_FRESHNESS_SOURCES.{source_key}" in page
+        assert "buildRegisteredOperationalFreshness" in page
+        assert "new Date().toISOString()" in page
+
+    for relation in (
+        "benchmark.v_dashboard_arms",
+        "benchmark.benchmark_artifacts",
+        "benchmark.benchmark_eval_suites",
+        "benchmark.benchmark_eval_suite_items",
+        "benchmark.v_valid_suite_arm_comparison",
+        "benchmark.v_valid_eval_arm_comparison",
+        "benchmark.v_arm_run_summary",
+        "benchmark.v_dashboard_tasks",
+        "benchmark.v_arm_run_quality_summary",
+        "benchmark.v_trial_quality_flags",
+        "benchmark.benchmark_invalid_arm_runs",
+    ):
+        assert relation in sources
+
+    assert "latestCanonicalPublishedAt: null" in server
+    assert "staleAfterSeconds: null" in server
+    assert 'queryStatus: "unavailable", value: null' in server
+    assert "armRunFreshnessCoverageWarning" in server
+    assert "90" not in server
+
+    assert (
+        "All registered arms; latest execution is derived from imported "
+        "trial-bearing runs across run classes"
+    ) in sources
+    assert (
+        "All registered tasks; latest execution is derived from imported "
+        "trial-bearing runs across run classes"
+    ) in sources
+
+    latest_execution_section = data[data.index(
+        "export async function getAllImportedArmLatestIncludedExecutionAt"
+    ) :]
+    assert "max(r.finished_at)::text as latest_included_execution_at" in latest_execution_section
+    assert "max(arm_run.finished_at)::text as latest_included_execution_at" in latest_execution_section
+    assert "max(finished_at)::text as latest_included_execution_at" in latest_execution_section
+    assert "max(r.created_at)" not in latest_execution_section
+    assert "max(r.updated_at)" not in latest_execution_section
+
+    tasks = page_sources["tasks"]
+    assert "Tasks — All imported" in tasks
+    assert "all imported run classes" in tasks
+    assert "full-suite, smoke, canary, diagnostic, legacy" in tasks
+    assert "imported canary and smoke trials" not in tasks
+
+    eval_suites = page_sources["evalSuites"]
+    assert "distinct arms represented by valid imported rows" in eval_suites
+    assert "invalid and quarantined arm runs are excluded" in eval_suites
+    assert "all imported arms" not in eval_suites
+
+    artifacts = page_sources["artifacts"]
+    assert "getArtifactBrowserLatestIncludedExecutionAt" in artifacts
+    assert "getArtifactContent" not in artifacts
+    assert "getLiveArtifactBytes" not in artifacts
+
+    assert "findLatestIncludedExecutionAt" in page_sources["runs"]
+    assert "row.finished_at" in page_sources["runs"]
+    trial_quality = page_sources["trialQuality"]
+    assert "getDisplayedArmRunFreshnessResolution" in trial_quality
+    assert "deduplicateDisplayedArmRunFreshnessIdentities" in trial_quality
+    assert "displayedArmRunIdentities" in trial_quality
+    assert "armRunFreshnessCoverageWarning" in trial_quality
+    assert "getRunLabelsLatestIncludedExecutionAt" not in trial_quality
+    assert "getRunLabelsLatestIncludedExecutionAt" not in data
+    assert "from benchmark.v_arm_run_summary summary" in data
+    assert "summary.phase = 'phase3'" in data
+    assert "summary.suite_id is not distinct from requested.suite_id" in data
+    assert "summary.arm_id = requested.arm_id" in data
+    assert "summary.run_label = requested.run_label" in data
+    trial_quality_freshness = data[data.index(
+        "export async function getDisplayedArmRunFreshnessResolution"
+    ) : data.index("export async function getSuspectNoopTrialRows")]
+    assert "benchmark.benchmark_runs" not in trial_quality_freshness
+    for metadata_timestamp in ("created_at", "updated_at", "invalidated_at", "uploaded_at"):
+        assert metadata_timestamp not in trial_quality_freshness
+
+
 def test_stale_operational_pages_are_removed_from_primary_navigation() -> None:
     shell = Path("apps/dashboard/src/components/AppShell.tsx").read_text()
 

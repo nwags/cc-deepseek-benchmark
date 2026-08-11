@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { AppShell } from "../../components/AppShell";
 import { CorpusScopeNotice } from "../../components/CorpusScopeNotice";
-import { getArmRows } from "../../lib/dashboard-data";
+import { DataFreshnessNotice } from "../../components/DataFreshnessNotice";
+import { getAllImportedArmLatestIncludedExecutionAt, getArmRows } from "../../lib/dashboard-data";
+import { INDEX_ROUTE_FRESHNESS_SOURCES } from "../../lib/data-freshness-sources";
+import { buildRegisteredOperationalFreshness, readFreshnessMetadata } from "../../lib/data-freshness-server";
 import { buildArtifactHref } from "../../lib/links";
 import { formatCurrency, formatNumber, formatPercent, formatSeconds } from "../../lib/format";
 
@@ -36,7 +39,15 @@ function recordedCostLowerBound(
 }
 
 export default async function ArmsPage() {
-  const arms = await getArmRows();
+  const [arms, freshnessRead] = await Promise.all([
+    getArmRows(),
+    readFreshnessMetadata(() => getAllImportedArmLatestIncludedExecutionAt()),
+  ]);
+  const freshness = buildRegisteredOperationalFreshness(
+    INDEX_ROUTE_FRESHNESS_SOURCES.arms,
+    freshnessRead,
+    new Date().toISOString(),
+  );
   const observedCounts = arms.reduce(
     (counts, row) => ({
       trialCount: counts.trialCount + row.trial_count,
@@ -51,6 +62,7 @@ export default async function ArmsPage() {
         scopeId="all-imported"
         observedCounts={{ armCount: arms.length, ...observedCounts }}
       />
+      <DataFreshnessNotice freshness={freshness} />
       <section className="panel">
         <div className="panel-heading">
           <h2>Arm comparison</h2>
