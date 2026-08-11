@@ -444,6 +444,74 @@ def test_overview_uses_frozen_reviewed_runs_and_exact_database_reconciliation() 
     assert "overview-reviewed-comparison.test.mjs" in package
 
 
+def test_overview_has_population_specific_freshness_and_snapshot_provenance() -> None:
+    overview = Path("apps/dashboard/src/app/page.tsx").read_text()
+    freshness = Path("apps/dashboard/src/lib/data-freshness.ts").read_text()
+    sources = Path("apps/dashboard/src/lib/data-freshness-sources.ts").read_text()
+    notice = Path("apps/dashboard/src/components/DataFreshnessNotice.tsx").read_text()
+    data = Path("apps/dashboard/src/lib/dashboard-data.ts").read_text()
+    package = Path("apps/dashboard/package.json").read_text()
+
+    assert "DataFreshnessNotice" in overview
+    assert "buildReviewedSnapshotFreshness" in overview
+    assert "PHASE3_REVIEWED_COMPARISON" in overview
+    assert "PHASE3_REVIEWED_RUN_SELECTION" in overview
+    assert "reviewedComparisonFreshness" in overview
+    assert "reviewedRunSelectionFreshness" in overview
+    assert "selectedRunEvidenceFreshness" in overview
+    assert "validImportedFreshness" in overview
+    assert "dynamicSuiteFreshness" in overview
+    assert "selectedRunRead.value ?? []" in overview
+    assert ".map((row) => row.finished_at)" in overview
+    assert "getValidSuiteLatestIncludedExecutionAt" in overview
+    assert "summarizeExpectedLabelCoverage" in overview
+    assert "expectedLabelCoverageWarning" in overview
+    assert "selectedRunCoverage" in overview
+    assert "selectedCostCoverage" in overview
+    assert "selectedQualityCoverage" in overview
+    assert 'expectedLabelCoverageWarning("Stored run-summary evidence"' in overview
+    assert 'expectedLabelCoverageWarning("Stored adjusted-cost evidence"' in overview
+    assert 'expectedLabelCoverageWarning("Stored quality context"' in overview
+
+    for relation in (
+        "benchmark.v_valid_arm_run_summary",
+        "benchmark.benchmark_trials",
+        "benchmark.v_trial_adjusted_cost_coverage",
+        "benchmark.v_arm_run_quality_summary",
+        "benchmark.v_dashboard_runs",
+        "benchmark.v_valid_eval_arm_comparison",
+    ):
+        assert relation in sources
+    assert "PHASE3_REVIEWED_COMPARISON.reviewedAt" in sources
+    assert "PHASE3_REVIEWED_RUN_SELECTION.reviewedAt" in sources
+    assert "phase3-reviewed-comparison-v1" in Path(
+        "apps/dashboard/src/lib/phase3-reviewed-comparison.ts"
+    ).read_text()
+    assert "phase3-reviewed-run-selection-v1" in Path(
+        "apps/dashboard/src/lib/phase3-reviewed-run-selection.ts"
+    ).read_text()
+
+    assert "Canonical publication:" in notice
+    assert "canonicalPublicationText" in notice
+    assert 'return "Not recorded"' in freshness
+    assert 'canonicalPublicationStatus: "not_recorded"' not in overview
+    assert "latestCanonicalPublishedAt: null" in overview
+    assert "Reviewed snapshot, not live inventory" in notice
+    assert 'queryStatus === "unavailable"' in notice
+    assert "Operational data is unavailable" in notice
+    assert "threshold_not_configured" in freshness
+    assert "staleAfterSeconds: null" in overview
+    assert "90" not in freshness
+    assert "90" not in overview
+
+    freshness_section = data[data.index("export async function getOverview") :]
+    assert "max(runs.finished_at)::text as latest_included_execution_at" in freshness_section
+    assert "max(finished_at)::text as latest_included_execution_at" in freshness_section
+    assert "max(runs.created_at)" not in freshness_section
+    assert "max(runs.updated_at)" not in freshness_section
+    assert "data-freshness.test.mjs" in package
+
+
 def test_stale_operational_pages_are_removed_from_primary_navigation() -> None:
     shell = Path("apps/dashboard/src/components/AppShell.tsx").read_text()
 

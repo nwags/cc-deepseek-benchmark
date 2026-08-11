@@ -2,6 +2,7 @@ import Link from "next/link";
 import { TermInfo } from "../components/TermInfo";
 import { AppShell } from "../components/AppShell";
 import { CorpusScopeNotice } from "../components/CorpusScopeNotice";
+import { DataFreshnessNotice } from "../components/DataFreshnessNotice";
 import { MetricCard } from "../components/MetricCard";
 import { SuiteHeatmap } from "../components/SuiteHeatmap";
 import { QualityPassRate, QualityBadge, buildSuspectNoopHref } from "../components/QualityContext";
@@ -12,8 +13,17 @@ import {
   getSuiteTaskDifficulty,
   getSuiteHeatmapCells,
   getArmRunQualityByRunLabels,
-  getInvalidArmRunRows
+  getInvalidArmRunRows,
+  getValidSuiteLatestIncludedExecutionAt,
 } from "../lib/dashboard-data";
+import {
+  buildOperationalFreshness,
+  buildReviewedSnapshotFreshness,
+  expectedLabelCoverageWarning,
+  findLatestIncludedExecutionAt,
+  summarizeExpectedLabelCoverage,
+} from "../lib/data-freshness";
+import { OVERVIEW_FRESHNESS_SOURCES } from "../lib/data-freshness-sources";
 import {
   PHASE3_REVIEWED_COMPARISON,
   getReviewedPhase3Scope,
@@ -56,6 +66,15 @@ function evidenceLabel(value: string): string {
   return value.replaceAll("_", " ");
 }
 
+function readGroupStatus(...statuses: DatabaseReadStatus[]): "available" | "unavailable" {
+  return statuses.every((status) => status === "available") ? "available" : "unavailable";
+}
+
+function warningText(messages: Array<string | null>): string | null {
+  const retained = messages.filter((message): message is string => Boolean(message));
+  return retained.length ? retained.join(" ") : null;
+}
+
 export default async function DashboardPage() {
   const reviewedScope = getReviewedPhase3Scope("phase3-extended");
   const runSelectionScope = getReviewedRunSelectionScope("phase3-extended");
@@ -68,6 +87,7 @@ export default async function DashboardPage() {
     heatmapCellsRead,
     selectedQualityRead,
     invalidRowsRead,
+    suiteLatestExecutionRead,
   ] = await Promise.all([
     readDatabaseEvidence(getOverview()),
     readDatabaseEvidence(getReviewedSelectedArmRunRows(selectedRunLabels)),
@@ -76,7 +96,10 @@ export default async function DashboardPage() {
     readDatabaseEvidence(getSuiteHeatmapCells("phase3-full-20")),
     readDatabaseEvidence(getArmRunQualityByRunLabels([...selectedRunLabels])),
     readDatabaseEvidence(getInvalidArmRunRows()),
+    readDatabaseEvidence(getValidSuiteLatestIncludedExecutionAt("phase3-full-20")),
   ]);
+
+  const renderedAt = new Date().toISOString();
 
   const reviewedComparison = buildOverviewReviewedComparison({
     scope: reviewedScope,
@@ -96,6 +119,91 @@ export default async function DashboardPage() {
   const selectedQualityByRun = new Map(
     (selectedQualityRead.value ?? []).map((row) => [row.run_label, row]),
   );
+  const selectedExecution = findLatestIncludedExecutionAt(
+    (selectedRunRead.value ?? []).map((row) => row.finished_at),
+  );
+  const selectedRunCoverage = summarizeExpectedLabelCoverage(
+    selectedRunLabels,
+    (selectedRunRead.value ?? []).map((row) => row.run_label),
+  );
+  const selectedCostCoverage = summarizeExpectedLabelCoverage(
+    selectedRunLabels,
+    (selectedCostRead.value ?? []).map((row) => row.run_label),
+  );
+  const selectedQualityCoverage = summarizeExpectedLabelCoverage(
+    selectedRunLabels,
+    (selectedQualityRead.value ?? []).map((row) => row.run_label),
+  );
+  const selectedEvidenceWarning = warningText([
+    selectedRunRead.status === "available"
+      ? expectedLabelCoverageWarning("Stored run-summary evidence", selectedRunCoverage)
+      : null,
+    selectedCostRead.status === "available"
+      ? expectedLabelCoverageWarning("Stored adjusted-cost evidence", selectedCostCoverage)
+      : null,
+    selectedQualityRead.status === "available"
+      ? expectedLabelCoverageWarning("Stored quality context", selectedQualityCoverage)
+      : null,
+    selectedExecution.invalidTimestampCount
+      ? `${selectedExecution.invalidTimestampCount} stored run completion timestamp(s) were invalid and excluded from the latest-execution calculation.`
+      : null,
+  ]);
+
+  const reviewedComparisonFreshness = buildReviewedSnapshotFreshness({
+    sourceLabel: OVERVIEW_FRESHNESS_SOURCES.reviewedComparison.sourceLabel,
+    populationLabel: OVERVIEW_FRESHNESS_SOURCES.reviewedComparison.populationLabel,
+    reviewedAt: OVERVIEW_FRESHNESS_SOURCES.reviewedComparison.reviewedAt,
+    schemaVersion: OVERVIEW_FRESHNESS_SOURCES.reviewedComparison.schemaVersion,
+    provenanceIdentifier: OVERVIEW_FRESHNESS_SOURCES.reviewedComparison.provenanceIdentifier,
+  });
+  const reviewedRunSelectionFreshness = buildReviewedSnapshotFreshness({
+    sourceLabel: OVERVIEW_FRESHNESS_SOURCES.reviewedRunSelection.sourceLabel,
+    populationLabel: OVERVIEW_FRESHNESS_SOURCES.reviewedRunSelection.populationLabel,
+    reviewedAt: OVERVIEW_FRESHNESS_SOURCES.reviewedRunSelection.reviewedAt,
+    schemaVersion: OVERVIEW_FRESHNESS_SOURCES.reviewedRunSelection.schemaVersion,
+    provenanceIdentifier: OVERVIEW_FRESHNESS_SOURCES.reviewedRunSelection.provenanceIdentifier,
+  });
+  const selectedRunEvidenceFreshness = buildOperationalFreshness({
+    sourceLabel: OVERVIEW_FRESHNESS_SOURCES.selectedRunEvidence.sourceLabel,
+    sourceRelations: OVERVIEW_FRESHNESS_SOURCES.selectedRunEvidence.sourceRelations,
+    populationLabel: OVERVIEW_FRESHNESS_SOURCES.selectedRunEvidence.populationLabel,
+    queryStatus: readGroupStatus(
+      selectedRunRead.status,
+      selectedCostRead.status,
+      selectedQualityRead.status,
+    ),
+    queriedAt: renderedAt,
+    latestIncludedExecutionAt: selectedExecution.latestTimestamp,
+    latestCanonicalPublishedAt: null,
+    staleAfterSeconds: null,
+    warningMessage: selectedEvidenceWarning,
+  });
+  const validImportedFreshness = buildOperationalFreshness({
+    sourceLabel: OVERVIEW_FRESHNESS_SOURCES.validImportedInventory.sourceLabel,
+    sourceRelations: OVERVIEW_FRESHNESS_SOURCES.validImportedInventory.sourceRelations,
+    populationLabel: OVERVIEW_FRESHNESS_SOURCES.validImportedInventory.populationLabel,
+    queryStatus: overviewRead.status,
+    queriedAt: renderedAt,
+    latestIncludedExecutionAt: overview?.latest_included_execution_at ?? null,
+    latestCanonicalPublishedAt: null,
+    staleAfterSeconds: null,
+    warningMessage: null,
+  });
+  const dynamicSuiteFreshness = buildOperationalFreshness({
+    sourceLabel: OVERVIEW_FRESHNESS_SOURCES.dynamicSuiteAggregates.sourceLabel,
+    sourceRelations: OVERVIEW_FRESHNESS_SOURCES.dynamicSuiteAggregates.sourceRelations,
+    populationLabel: OVERVIEW_FRESHNESS_SOURCES.dynamicSuiteAggregates.populationLabel,
+    queryStatus: readGroupStatus(
+      hardestFullEvalsRead.status,
+      heatmapCellsRead.status,
+      suiteLatestExecutionRead.status,
+    ),
+    queriedAt: renderedAt,
+    latestIncludedExecutionAt: suiteLatestExecutionRead.value,
+    latestCanonicalPublishedAt: null,
+    staleAfterSeconds: null,
+    warningMessage: null,
+  });
 
   return (
     <AppShell title="Coding Agent Benchmark Dashboard">
@@ -108,6 +216,8 @@ export default async function DashboardPage() {
           successCount: reviewedComparison.successCount,
         }}
       />
+      <DataFreshnessNotice freshness={reviewedComparisonFreshness} />
+      <DataFreshnessNotice freshness={reviewedRunSelectionFreshness} />
       <section className="metric-grid">
         <MetricCard label="Reviewed arms" value={formatNumber(reviewedComparison.armCount)} detail="Frozen reviewed comparison membership" />
         <MetricCard label="Reviewed trials" value={formatNumber(reviewedComparison.trialCount)} detail="20 tasks × 3 attempts × 16 selected runs" />
@@ -122,6 +232,7 @@ export default async function DashboardPage() {
         {invalidFullSuiteCount === null ? "Unavailable" : formatNumber(invalidFullSuiteCount)}.{" "}
         <Link href="/trial-quality">Open trial quality audit</Link>.
       </section>
+      <DataFreshnessNotice freshness={selectedRunEvidenceFreshness} />
 
       {(reviewedComparison.databaseEvidenceWarnings.length > 0
         || selectedRunRead.status === "unavailable"
@@ -270,6 +381,7 @@ export default async function DashboardPage() {
           <p role="alert">The current dynamic suite aggregates are unavailable; no reviewed-run values were substituted.</p>
         )}
       </section>
+      <DataFreshnessNotice freshness={dynamicSuiteFreshness} />
 
       <SuiteHeatmap
         rows={heatmapCells}
@@ -390,6 +502,7 @@ export default async function DashboardPage() {
         scopeId="valid-imported"
         observedCounts={overview ? { trialCount: overview.trial_count } : {}}
       />
+      <DataFreshnessNotice freshness={validImportedFreshness} />
       <section className="metric-grid">
         <MetricCard label="Valid imported trials" value={overview ? formatNumber(overview.trial_count) : "Unavailable"} detail="Canary + smoke + full valid arm runs" />
         <MetricCard label="Valid-run R2 artifacts" value={overview ? formatNumber(overview.artifact_count) : "Unavailable"} detail="Tracked evidence rows" />

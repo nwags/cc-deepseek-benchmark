@@ -56,7 +56,7 @@ Migration 009 must not be rerun. No paid benchmark runs, provider probes, Supaba
 - [x] DR-008 Qualified Kimi K3 cost evidence integrated — implemented; second manual visual acceptance pending
 - [x] DR-009 Reviewed Phase 3 extended comparison defaulted with core alternate — implemented; second manual visual acceptance pending
 - [x] DR-012 Frozen reviewed-run identity and cost reconciliation on Overview — implemented; second manual visual acceptance pending
-- [ ] DR-010, DR-011, and DR-013 through DR-015 remain open
+- [ ] DR-010 freshness foundation and Overview integration are implemented, but remaining dynamic-route rollout is pending; DR-011 and DR-013 through DR-015 remain open
 
 ## Observations versus confirmed defects
 
@@ -88,6 +88,7 @@ The Implementation log below preserves the “manual acceptance pending” state
 | 2026-08-08 | DR-008; DR-009 — Group F2 | Made the reviewed extended scope the default for Cross-phase and Cost Coverage, added an accessible query-parameter selector for the historical core alternate, removed the Cost Coverage split-source Supabase path, and exposed qualified Kimi cost limitations and partial outcome coverage. | `apps/dashboard/src/app/cross-phase/page.tsx`; `apps/dashboard/src/app/cost-coverage/page.tsx`; `apps/dashboard/src/components/CorpusScopeSelector.tsx`; `apps/dashboard/src/components/CorpusScopeNotice.tsx`; `apps/dashboard/src/lib/cross-phase-reporting.ts`; focused tests; specification and this record | Focused Node/Python tests; typecheck; production build; `make check`; secret scan; diff/protected-path checks | Passed; DR-008 and DR-009 implementation is complete pending second manual visual acceptance. |
 | 2026-08-09 | DR-012 — Group G1 | Added a deterministic reviewed run-selection contract containing one frozen complete valid full-suite run label for each F1 core/extended arm, with Kimi provider-log allocation limitations retained separately. | `results/phase3/reporting/phase3_reviewed_run_selection_20260809.json`; `apps/dashboard/src/generated/phase3-reviewed-run-selection-data.ts`; `apps/dashboard/src/lib/phase3-reviewed-run-selection.ts`; generator and focused tests | Focused generator/loader tests; typecheck; production build; repository checks | Passed; integration proceeded to Group G2. |
 | 2026-08-10 | DR-012 — Group G2 | Replaced Overview's mutable suite/arm aggregate leaderboard and latest-20 health population with F1 reviewed facts, G1 frozen run identities, and explicit reconciliation against exact-label valid arm-run and adjusted-cost evidence. Added encoded run links, selected-run cost/source/confidence presentation, unavailable/error states, and distinct labeling for the retained dynamic heatmap and difficulty aggregates. | `apps/dashboard/src/app/page.tsx`; `apps/dashboard/src/lib/dashboard-data.ts`; `apps/dashboard/src/lib/overview-reviewed-comparison.ts`; focused tests; specification and this record | Focused Node/Python tests; typecheck; production build; `make check`; secret scan; diff/protected-path checks | Passed; DR-012 implementation is complete pending second manual visual acceptance. |
+| 2026-08-10 | DR-010 — Group G3 | Added the typed freshness/provenance contract, central Overview source registry, explicit snapshot semantics, deterministic age calculations, unavailable/unknown states, and separate Overview notices for reviewed comparison facts, reviewed run selection, exact-label stored evidence, valid-imported inventory, and dynamic suite aggregates. Canonical publication remains explicitly not recorded and no general stale threshold was invented. | `apps/dashboard/src/lib/data-freshness.ts`; `apps/dashboard/src/lib/data-freshness-sources.ts`; `apps/dashboard/src/components/DataFreshnessNotice.tsx`; Overview/data-loader integration; focused tests; specification and this record | Focused Node/Python tests; typecheck; production build; repository checks | Freshness foundation and Overview integration implemented; remaining dynamic-route rollout pending Group G4, so DR-010 remains globally incomplete. |
 
 Commit Group C used source inspection only. No provider, LiteLLM, Claude Code, Harbor, router, runner, or infrastructure probes were run, and no external operational service was queried.
 
@@ -271,15 +272,15 @@ Dynamic pages must expose their data source, latest included evidence, canonical
 ### Blockers
 
 - DR-008, DR-009, and DR-012 are implemented pending the second manual visual acceptance pass.
-- DR-010, DR-011, and DR-013 through DR-015 remain open.
+- DR-010 has an implemented freshness foundation and Overview integration, but remains open pending rollout to the other dynamic routes; DR-011 and DR-013 through DR-015 remain open.
 - DR-007 remains pending until the corrective work and second visual acceptance pass are recorded.
 
 ### Misleading representations
 
 - No regression requiring rollback of Commit Groups B–D was found.
 - Cross-phase and Cost Coverage now default to the reviewed extended comparison; their revised presentation still requires second-pass visual acceptance.
-- Dynamic views do not yet provide complete freshness contracts.
-- Freshness, layout, charting, Architecture detail, Data Model coverage, and contextual glossary links require the remaining corrective work in DR-010, DR-011, and DR-013 through DR-015.
+- Overview now distinguishes reviewed snapshot provenance from three operational populations, but the remaining dynamic views do not yet provide complete freshness contracts.
+- Freshness rollout beyond Overview, layout, charting, Architecture detail, Data Model coverage, and contextual glossary links require the remaining corrective work in DR-010, DR-011, and DR-013 through DR-015.
 
 ### Usability findings
 
@@ -287,4 +288,4 @@ Dynamic pages must expose their data source, latest included evidence, canonical
 
 ### Acceptance decision
 
-Failed. DR-008, DR-009, and DR-012 are implemented pending review; DR-010, DR-011, and DR-013 through DR-015 remain open, and DR-007 remains pending until a second visual acceptance pass is recorded.
+Failed. DR-008, DR-009, and DR-012 are implemented pending review; DR-010 has an implemented foundation and Overview integration but remains open pending the remaining dynamic-route rollout; DR-011 and DR-013 through DR-015 remain open; and DR-007 remains pending until a second visual acceptance pass is recorded.

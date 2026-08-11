@@ -170,3 +170,36 @@ test("reviewed Overview loaders reject repeated requested run labels", async () 
     /must be unique/,
   );
 });
+
+test("Overview freshness loaders use execution completion rather than row metadata", async () => {
+  const calls = [];
+  globalThis.__dashboardQueryHandler = async (sql, params) => {
+    calls.push({ sql, params });
+    if (params.length) {
+      return [{ latest_included_execution_at: "2026-08-10T00:00:00Z" }];
+    }
+    return [{
+      run_count: 1,
+      trial_count: 60,
+      artifact_count: 1,
+      cost_usd: 1,
+      cost_row_count: 60,
+      missing_cost_count: 0,
+      completed_runs: 1,
+      noncompleted_runs: 0,
+      latest_included_execution_at: "2026-08-09T00:00:00Z",
+    }];
+  };
+
+  const overview = await dashboardData.getOverview();
+  const suiteLatest = await dashboardData.getValidSuiteLatestIncludedExecutionAt("phase3-full-20");
+
+  assert.equal(overview.latest_included_execution_at, "2026-08-09T00:00:00Z");
+  assert.equal(suiteLatest, "2026-08-10T00:00:00Z");
+  assert.match(calls[0].sql, /max\(runs\.finished_at\)::text as latest_included_execution_at/);
+  assert.doesNotMatch(calls[0].sql, /max\(runs\.(created_at|updated_at)\)/);
+  assert.match(calls[1].sql, /max\(finished_at\)::text as latest_included_execution_at/);
+  assert.match(calls[1].sql, /from benchmark\.v_valid_arm_run_summary/);
+  assert.deepEqual(calls[1].params, ["phase3-full-20"]);
+  assert.doesNotMatch(calls[1].sql, /created_at|updated_at/);
+});

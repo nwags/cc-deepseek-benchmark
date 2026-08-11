@@ -9,6 +9,11 @@ export type OverviewRow = {
   missing_cost_count: number;
   completed_runs: number;
   noncompleted_runs: number;
+  latest_included_execution_at: string | null;
+};
+
+export type LatestIncludedExecutionRow = {
+  latest_included_execution_at: string | null;
 };
 
 export type ModeStatusRow = {
@@ -79,7 +84,8 @@ export async function getOverview(): Promise<OverviewRow> {
       coalesce(sum(cost_row_count), 0)::int as cost_row_count,
       coalesce(sum(missing_cost_count), 0)::int as missing_cost_count,
       count(*) filter (where status = 'completed')::int as completed_runs,
-      count(*) filter (where status <> 'completed')::int as noncompleted_runs
+      count(*) filter (where status <> 'completed')::int as noncompleted_runs,
+      max(runs.finished_at)::text as latest_included_execution_at
     from benchmark.v_dashboard_runs runs
     join valid_runs
       on valid_runs.run_id = runs.run_id
@@ -87,6 +93,20 @@ export async function getOverview(): Promise<OverviewRow> {
   `);
 
   return rows[0];
+}
+
+export async function getValidSuiteLatestIncludedExecutionAt(
+  suiteId: string,
+): Promise<string | null> {
+  const rows = await queryRows<LatestIncludedExecutionRow>(
+    `
+      select max(finished_at)::text as latest_included_execution_at
+      from benchmark.v_valid_arm_run_summary
+      where suite_id = $1
+    `,
+    [suiteId],
+  );
+  return rows[0]?.latest_included_execution_at ?? null;
 }
 
 export async function getModeStatusRows(): Promise<ModeStatusRow[]> {

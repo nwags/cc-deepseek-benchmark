@@ -393,7 +393,7 @@ Acceptance criteria:
 
 ## 6A. Corrective requirements confirmed by the 2026-08-05 manual review
 
-These requirements record the corrective work required before a second manual visual acceptance pass. DR-008 and DR-009 are implemented through Commit Groups F1/F2, and DR-012 is implemented through Commit Groups G1/G2; all await second manual visual acceptance. DR-010, DR-011, and DR-013 through DR-015 remain open.
+These requirements record the corrective work required before a second manual visual acceptance pass. DR-008 and DR-009 are implemented through Commit Groups F1/F2, and DR-012 is implemented through Commit Groups G1/G2; all await second manual visual acceptance. Group G3 implements the shared freshness foundation and its population-specific Overview integration, but the remaining dynamic-route rollout keeps DR-010 globally open. DR-011 and DR-013 through DR-015 remain open.
 
 ### DR-008 — Reconcile and integrate Kimi K3 cost evidence
 
@@ -432,6 +432,8 @@ Required outcome:
 
 **Priority:** P0
 
+**Implementation status:** Freshness foundation and Overview integration implemented in Group G3; remaining dynamic-route rollout pending Group G4. DR-010 is not globally complete.
+
 Every dynamic Supabase-backed page must expose:
 
 - source or view name;
@@ -442,6 +444,8 @@ Every dynamic Supabase-backed page must expose:
 - warning state for stale or publication-lagged data.
 
 Do not label data “live” without these qualifications.
+
+Group G3 establishes the shared contract without inventing a repository-wide age threshold or canonical-publication timestamp. Overview now presents the F1 and G1 reviewed layers as dated snapshots rather than live inventory, and presents separate operational notices for exact selected-run evidence, valid-imported inventory, and dynamic heatmap/difficulty aggregates. Ordinary imported data remains `unknown` when no staleness threshold is configured; failed reads remain `unavailable`; and canonical publication is explicitly `not_recorded` because the current schema has no authoritative field.
 
 ### DR-011 — Restore the requested interactive cost/performance chart
 
@@ -754,7 +758,7 @@ Show:
 
 1. Scope selection and qualified Kimi pricing-provenance/cost integration (`DR-008`, `DR-009`) were completed in Commit Groups F1/F2 and now provide the stable reviewed inputs.
 2. The reviewed run-selection and Overview run/cost contract (`DR-012`) was completed in Commit Groups G1/G2 against those stable inputs.
-3. Complete the freshness contract (`DR-010`) for dynamic data.
+3. Roll out the Group G3 freshness foundation from Overview to the remaining dynamic routes (`DR-010`, Group G4); do not treat the Overview-only integration as global completion.
 4. Implement the single interactive cost/performance chart specified jointly by `DR-011` and `DR-301` after its scope and cost inputs are stable.
 5. Complete the required layout, Architecture/Data Model, and glossary-link corrections (`DR-013` through `DR-015`).
 6. Run the second manual visual acceptance pass and finish `DR-007` only after the chart and other corrective P0 work are complete.

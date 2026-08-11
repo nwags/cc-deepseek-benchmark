@@ -1,0 +1,235 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { Buffer } from "node:buffer";
+import { readFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import ts from "typescript";
+
+const here = dirname(fileURLToPath(import.meta.url));
+const source = await readFile(join(here, "data-freshness.ts"), "utf8");
+const compiled = ts.transpileModule(source, {
+  compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
+}).outputText;
+const freshness = await import(
+  `data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`
+);
+
+const operationalBase = {
+  sourceLabel: "Supabase/Postgres test source",
+  sourceRelations: ["benchmark.v_test"],
+  populationLabel: "Test population",
+  queryStatus: "available",
+  queriedAt: "2026-08-10T12:00:00Z",
+  latestIncludedExecutionAt: "2026-08-10T11:00:00Z",
+  latestCanonicalPublishedAt: null,
+  staleAfterSeconds: null,
+  warningMessage: null,
+};
+const expectedSelectedLabels = Array.from({ length: 16 }, (_, index) => `arm-${index + 1}/run`);
+
+test("exact-label coverage accepts 16 unique expected labels", () => {
+  const coverage = freshness.summarizeExpectedLabelCoverage(
+    expectedSelectedLabels,
+    expectedSelectedLabels,
+  );
+  assert.deepEqual(coverage, {
+    expectedCount: 16,
+    returnedRowCount: 16,
+    uniqueExpectedReturnedCount: 16,
+    missingLabels: [],
+    duplicateLabels: [],
+    unexpectedLabels: [],
+    isComplete: true,
+  });
+  assert.equal(freshness.expectedLabelCoverageWarning("Stored run-summary evidence", coverage), null);
+});
+
+test("exact-label coverage reports a missing selected label", () => {
+  const coverage = freshness.summarizeExpectedLabelCoverage(
+    expectedSelectedLabels,
+    expectedSelectedLabels.slice(0, 15),
+  );
+  assert.equal(coverage.uniqueExpectedReturnedCount, 15);
+  assert.deepEqual(coverage.missingLabels, [expectedSelectedLabels[15]]);
+  assert.equal(coverage.isComplete, false);
+  assert.match(
+    freshness.expectedLabelCoverageWarning("Stored run-summary evidence", coverage),
+    /available for 15 of 16 selected labels.*Missing labels:/,
+  );
+});
+
+test("equal row count remains incomplete with one missing and one duplicate label", () => {
+  const returned = [...expectedSelectedLabels.slice(0, 15), expectedSelectedLabels[0]];
+  const coverage = freshness.summarizeExpectedLabelCoverage(expectedSelectedLabels, returned);
+  assert.equal(coverage.returnedRowCount, 16);
+  assert.equal(coverage.uniqueExpectedReturnedCount, 15);
+  assert.deepEqual(coverage.missingLabels, [expectedSelectedLabels[15]]);
+  assert.deepEqual(coverage.duplicateLabels, [expectedSelectedLabels[0]]);
+  assert.equal(coverage.isComplete, false);
+});
+
+test("unexpected labels are warned and do not satisfy expected coverage", () => {
+  const returned = [...expectedSelectedLabels.slice(0, 15), "unexpected-arm/run"];
+  const coverage = freshness.summarizeExpectedLabelCoverage(expectedSelectedLabels, returned);
+  assert.equal(coverage.returnedRowCount, 16);
+  assert.equal(coverage.uniqueExpectedReturnedCount, 15);
+  assert.deepEqual(coverage.missingLabels, [expectedSelectedLabels[15]]);
+  assert.deepEqual(coverage.unexpectedLabels, ["unexpected-arm/run"]);
+  assert.match(
+    freshness.expectedLabelCoverageWarning("Stored run-summary evidence", coverage),
+    /Unexpected labels: unexpected-arm\/run/,
+  );
+});
+
+test("partial adjusted-cost and quality evidence produce distinct warnings without zero fabrication", () => {
+  const partialCost = freshness.summarizeExpectedLabelCoverage(
+    expectedSelectedLabels,
+    expectedSelectedLabels.slice(0, 14),
+  );
+  const qualityRows = expectedSelectedLabels.slice(0, 15).map((run_label) => ({
+    run_label,
+    suspect_noop_count: 0,
+  }));
+  const partialQuality = freshness.summarizeExpectedLabelCoverage(
+    expectedSelectedLabels,
+    qualityRows.map((row) => row.run_label),
+  );
+  const qualityByLabel = new Map(qualityRows.map((row) => [row.run_label, row]));
+
+  assert.match(
+    freshness.expectedLabelCoverageWarning("Stored adjusted-cost evidence", partialCost),
+    /available for 14 of 16 selected labels/,
+  );
+  const qualityWarning = freshness.expectedLabelCoverageWarning(
+    "Stored quality context",
+    partialQuality,
+  );
+  assert.match(qualityWarning, /Stored quality context is available for 15 of 16 selected labels/);
+  assert.equal(qualityByLabel.get(expectedSelectedLabels[15]), undefined);
+  assert.notEqual(qualityByLabel.get(expectedSelectedLabels[15]), 0);
+
+  const operational = freshness.buildOperationalFreshness({
+    ...operationalBase,
+    warningMessage: `${freshness.expectedLabelCoverageWarning("Stored adjusted-cost evidence", partialCost)} ${qualityWarning}`,
+  });
+  assert.equal(operational.queryStatus, "available");
+  assert.equal(operational.freshnessStatus, "unknown");
+  assert.equal(operational.freshnessReason, "threshold_not_configured");
+  assert.match(operational.warningMessage, /14 of 16/);
+  assert.match(operational.warningMessage, /15 of 16/);
+});
+
+test("reviewed provenance remains a snapshot rather than live freshness", () => {
+  const result = freshness.buildReviewedSnapshotFreshness({
+    sourceLabel: "Reviewed source",
+    populationLabel: "Frozen population",
+    reviewedAt: "2026-08-05",
+    schemaVersion: "reviewed-v1",
+    provenanceIdentifier: "results/reviewed.json",
+  });
+  assert.equal(result.freshnessStatus, "snapshot");
+  assert.equal(result.freshnessReason, "reviewed_snapshot");
+  assert.equal(result.queryStatus, "not_applicable");
+  assert.equal(result.canonicalPublicationStatus, "not_applicable");
+  assert.equal(result.dataAgeSeconds, null);
+});
+
+test("available operational evidence has unknown freshness without repository policy", () => {
+  const result = freshness.buildOperationalFreshness(operationalBase);
+  assert.equal(result.queryStatus, "available");
+  assert.equal(result.freshnessStatus, "unknown");
+  assert.equal(result.freshnessReason, "threshold_not_configured");
+  assert.equal(result.dataAgeSeconds, 3600);
+  assert.equal(result.canonicalPublicationStatus, "not_recorded");
+  assert.equal(result.latestCanonicalPublishedAt, null);
+  assert.equal(result.publicationLagSeconds, null);
+  assert.equal(freshness.canonicalPublicationText(result), "Not recorded");
+});
+
+test("unavailable operational query cannot become current", () => {
+  const result = freshness.buildOperationalFreshness({
+    ...operationalBase,
+    queryStatus: "unavailable",
+    latestIncludedExecutionAt: null,
+  });
+  assert.equal(result.queryStatus, "unavailable");
+  assert.equal(result.freshnessStatus, "unavailable");
+  assert.equal(result.freshnessReason, "query_unavailable");
+  assert.equal(result.dataAgeSeconds, null);
+  assert.match(result.warningMessage, /database read was unavailable/);
+});
+
+test("missing and malformed timestamps fail safely", () => {
+  const missing = freshness.buildOperationalFreshness({
+    ...operationalBase,
+    latestIncludedExecutionAt: null,
+  });
+  assert.equal(missing.freshnessStatus, "unknown");
+  assert.equal(missing.freshnessReason, "execution_timestamp_missing");
+  assert.equal(missing.dataAgeSeconds, null);
+
+  const malformedExecution = freshness.buildOperationalFreshness({
+    ...operationalBase,
+    latestIncludedExecutionAt: "not-a-timestamp",
+  });
+  assert.equal(malformedExecution.freshnessReason, "execution_timestamp_invalid");
+  assert.equal(malformedExecution.dataAgeSeconds, null);
+
+  const malformedQuery = freshness.buildOperationalFreshness({
+    ...operationalBase,
+    queriedAt: "2026-08-10",
+  });
+  assert.equal(malformedQuery.freshnessReason, "query_timestamp_invalid");
+  assert.equal(malformedQuery.dataAgeSeconds, null);
+});
+
+test("future execution completion reports possible clock skew without negative age", () => {
+  const result = freshness.buildOperationalFreshness({
+    ...operationalBase,
+    latestIncludedExecutionAt: "2026-08-10T12:00:01Z",
+  });
+  assert.equal(result.freshnessStatus, "unknown");
+  assert.equal(result.freshnessReason, "execution_timestamp_in_future");
+  assert.equal(result.dataAgeSeconds, null);
+  assert.match(result.warningMessage, /clock skew/);
+});
+
+test("a test-only threshold can classify current and stale without setting repository policy", () => {
+  const current = freshness.buildOperationalFreshness({
+    ...operationalBase,
+    staleAfterSeconds: 3600,
+  });
+  assert.equal(current.freshnessStatus, "current");
+  assert.equal(current.freshnessReason, "within_configured_threshold");
+
+  const stale = freshness.buildOperationalFreshness({
+    ...operationalBase,
+    staleAfterSeconds: 3599,
+  });
+  assert.equal(stale.freshnessStatus, "stale");
+  assert.equal(stale.freshnessReason, "exceeds_configured_threshold");
+});
+
+test("created_at input cannot stand in for canonical publication", () => {
+  const result = freshness.buildOperationalFreshness({
+    ...operationalBase,
+    created_at: "2026-08-10T11:30:00Z",
+  });
+  assert.equal(result.canonicalPublicationStatus, "not_recorded");
+  assert.equal(result.latestCanonicalPublishedAt, null);
+  assert.equal(freshness.canonicalPublicationText(result), "Not recorded");
+});
+
+test("latest execution selection is deterministic and reports malformed values", () => {
+  const result = freshness.findLatestIncludedExecutionAt([
+    "2026-08-09T00:00:00Z",
+    null,
+    "invalid",
+    "2026-08-10T00:00:00Z",
+  ]);
+  assert.deepEqual(result, {
+    latestTimestamp: "2026-08-10T00:00:00Z",
+    invalidTimestampCount: 1,
+  });
+});
