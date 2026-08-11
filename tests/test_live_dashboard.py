@@ -391,6 +391,59 @@ def test_comparative_pages_disclose_their_distinct_corpus_scopes() -> None:
     assert "getAdjustedCostOverview" in data
 
 
+def test_overview_uses_frozen_reviewed_runs_and_exact_database_reconciliation() -> None:
+    overview = Path("apps/dashboard/src/app/page.tsx").read_text()
+    data = Path("apps/dashboard/src/lib/dashboard-data.ts").read_text()
+    reconciliation = Path(
+        "apps/dashboard/src/lib/overview-reviewed-comparison.ts"
+    ).read_text()
+    package = Path("apps/dashboard/package.json").read_text()
+
+    assert "PHASE3_REVIEWED_COMPARISON" in overview
+    assert "getReviewedPhase3Scope" in overview
+    assert "PHASE3_REVIEWED_RUN_SELECTION" in overview
+    assert "getReviewedRunSelectionScope" in overview
+    assert "getReviewedSelectedRunLabels" in overview
+    assert "buildOverviewReviewedComparison" in overview
+    assert "getSuiteArmComparison" not in overview
+    assert "getValidSuiteArmRunRows" not in overview
+
+    assert "getReviewedSelectedArmRunRows" in overview
+    assert "getReviewedSelectedRunAdjustedCostRows" in overview
+    assert "from benchmark.v_valid_arm_run_summary" in data
+    assert "from benchmark.v_trial_adjusted_cost_coverage" in data
+    assert "where run_label = any($1::text[])" in data
+    assert "group by run_label, arm_id, suite_id" in data
+
+    assert "The reviewed comparison freezes one complete valid full-suite run per arm" in overview
+    assert "do not automatically change when" in overview
+    assert "the database does not select a newer run" in overview
+    assert "no mutable suite/arm aggregate is used as a fallback" in overview
+    assert "href={row.selectedRunHref}" in overview
+    assert "encodeURIComponent(runLabel)" in reconciliation
+    assert "/runs/router-kimi-k3%2F2026-07-22__17-51-05" in Path(
+        "apps/dashboard/src/lib/overview-reviewed-comparison.test.mjs"
+    ).read_text()
+
+    assert "16 selected runs" in overview
+    assert 'scopeId="valid-imported"' in overview
+    assert "Valid imported evidence inventory" in overview
+    assert "Qualified retained-rate estimate" in overview
+    assert "Adjusted known cost: Unavailable" in overview
+    assert "Pricing-source provenance incomplete" in overview
+    assert "Provider-log allocation confidence low" in overview
+    assert "Provider-log exclusivity not proven" in overview
+    assert "Trial allocation unresolved" in overview
+    assert "Not invoice-level or provider-billed spend" in overview
+    assert "Missing recorded" in overview
+    assert "Unresolved adjusted" in overview
+
+    assert "Dynamic valid-imported full-suite heatmap" in overview
+    assert "not restricted to the frozen" in overview
+    assert "can combine multiple valid imports for an arm" in overview
+    assert "overview-reviewed-comparison.test.mjs" in package
+
+
 def test_stale_operational_pages_are_removed_from_primary_navigation() -> None:
     shell = Path("apps/dashboard/src/components/AppShell.tsx").read_text()
 

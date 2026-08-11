@@ -1022,6 +1022,47 @@ export type ArmRunSummaryRow = {
   r2_artifact_count: number;
 };
 
+export type ReviewedSelectedArmRunDbRow = {
+  arm_run_id: string;
+  run_id: string;
+  run_label: string;
+  arm_id: string;
+  provider_family: string | null;
+  backend_model: string | null;
+  router_model: string | null;
+  suite_id: string | null;
+  suite_type: string | null;
+  logical_mode: string;
+  storage_mode: string | null;
+  status: string;
+  started_at: string | null;
+  finished_at: string | null;
+  task_count: number;
+  trial_count: number;
+  success_count: number;
+  failure_count: number;
+  median_runtime_seconds: number | null;
+  trial_cost_usd: string | null;
+  cost_row_count: number;
+  missing_cost_count: number;
+  artifact_count: number;
+  r2_artifact_count: number;
+};
+
+export type ReviewedSelectedRunAdjustedCostDbRow = {
+  run_label: string;
+  arm_id: string;
+  suite_id: string | null;
+  trial_count: number;
+  recorded_cost_usd: string | null;
+  adjusted_known_cost_usd: string | null;
+  accounting_gap_usd: string | null;
+  missing_recorded_cost_count: number;
+  unresolved_adjusted_cost_count: number;
+  adjusted_cost_sources: string[];
+  adjusted_cost_confidences: string[];
+};
+
 export type InvalidArmRunRow = {
   suite_id: string;
   arm_id: string;
@@ -1226,6 +1267,115 @@ export async function getValidSuiteArmRunRows(suiteId: string, limit = 100): Pro
       limit $2
     `,
     [suiteId, limit]
+  );
+}
+
+export async function getReviewedSelectedArmRunRows(
+  runLabels: readonly string[]
+): Promise<ReviewedSelectedArmRunDbRow[]> {
+  if (runLabels.length === 0) return [];
+  if (new Set(runLabels).size !== runLabels.length) {
+    throw new Error("Reviewed selected run labels must be unique");
+  }
+
+  return queryRows<ReviewedSelectedArmRunDbRow>(
+    `
+      with selected_runs as (
+        select *
+        from benchmark.v_valid_arm_run_summary
+        where run_label = any($1::text[])
+      ),
+      task_counts as (
+        select
+          t.arm_run_id,
+          count(distinct t.task_id)::int as task_count
+        from benchmark.benchmark_trials t
+        join selected_runs selected
+          on selected.arm_run_id = t.arm_run_id
+        group by t.arm_run_id
+      )
+      select
+        selected.arm_run_id::text,
+        selected.run_id::text,
+        selected.run_label,
+        selected.arm_id,
+        selected.provider_family,
+        selected.backend_model,
+        selected.router_model,
+        selected.suite_id,
+        selected.suite_type,
+        selected.logical_mode,
+        selected.storage_mode,
+        selected.status,
+        selected.started_at::text,
+        selected.finished_at::text,
+        coalesce(tasks.task_count, 0)::int as task_count,
+        selected.trial_count::int,
+        selected.success_count::int,
+        selected.failure_count::int,
+        selected.median_runtime_seconds::float8,
+        case
+          when selected.cost_row_count = 0 then null
+          else selected.trial_cost_usd::text
+        end as trial_cost_usd,
+        selected.cost_row_count::int,
+        selected.missing_cost_count::int,
+        selected.artifact_count::int,
+        selected.r2_artifact_count::int
+      from selected_runs selected
+      left join task_counts tasks
+        on tasks.arm_run_id = selected.arm_run_id
+      order by selected.run_label, selected.arm_id
+    `,
+    [runLabels]
+  );
+}
+
+export async function getReviewedSelectedRunAdjustedCostRows(
+  runLabels: readonly string[]
+): Promise<ReviewedSelectedRunAdjustedCostDbRow[]> {
+  if (runLabels.length === 0) return [];
+  if (new Set(runLabels).size !== runLabels.length) {
+    throw new Error("Reviewed selected run labels must be unique");
+  }
+
+  return queryRows<ReviewedSelectedRunAdjustedCostDbRow>(
+    `
+      select
+        run_label,
+        arm_id,
+        suite_id,
+        count(*)::int as trial_count,
+        case
+          when count(recorded_cost_usd) = 0 then null
+          else sum(recorded_cost_usd)::text
+        end as recorded_cost_usd,
+        case
+          when count(adjusted_cost_usd) = 0 then null
+          else sum(adjusted_cost_usd)::text
+        end as adjusted_known_cost_usd,
+        case
+          when count(recorded_cost_usd) = 0 or count(adjusted_cost_usd) = 0 then null
+          else (sum(adjusted_cost_usd) - sum(recorded_cost_usd))::text
+        end as accounting_gap_usd,
+        count(*) filter (where recorded_cost_usd is null)::int as missing_recorded_cost_count,
+        count(*) filter (where adjusted_cost_usd is null)::int as unresolved_adjusted_cost_count,
+        coalesce(
+          array_agg(distinct cost_source order by cost_source)
+            filter (where cost_source is not null),
+          array[]::text[]
+        ) as adjusted_cost_sources,
+        coalesce(
+          array_agg(distinct cost_confidence order by cost_confidence)
+            filter (where cost_confidence is not null),
+          array[]::text[]
+        ) as adjusted_cost_confidences
+      from benchmark.v_trial_adjusted_cost_coverage
+      where run_label = any($1::text[])
+      group by run_label, arm_id, suite_id
+      order by run_label, arm_id, suite_id
+    `,
+    [runLabels]
   );
 }
 

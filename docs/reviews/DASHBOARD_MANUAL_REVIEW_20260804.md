@@ -51,6 +51,13 @@ Migration 009 must not be rerun. No paid benchmark runs, provider probes, Supaba
 
 - [ ] DR-007 This record contains the first visual-review outcome, but remains incomplete until corrective work and a second acceptance pass are recorded
 
+### Corrective implementation status
+
+- [x] DR-008 Qualified Kimi K3 cost evidence integrated — implemented; second manual visual acceptance pending
+- [x] DR-009 Reviewed Phase 3 extended comparison defaulted with core alternate — implemented; second manual visual acceptance pending
+- [x] DR-012 Frozen reviewed-run identity and cost reconciliation on Overview — implemented; second manual visual acceptance pending
+- [ ] DR-010, DR-011, and DR-013 through DR-015 remain open
+
 ## Observations versus confirmed defects
 
 | ID | Observation | Status | Evidence | Resolution |
@@ -79,6 +86,8 @@ The Implementation log below preserves the “manual acceptance pending” state
 | 2026-08-05 | DR-008 | Recorded sanitized provider-log token arithmetic, pricing-provenance limitations, allocation confidence, and duplicate-export provenance without retaining raw request logs. Dashboard integration remains open. | `docs/reports/phase3/KIMI_K3_PROVIDER_LOG_RECONCILIATION_20260805.md`; `docs/reports/phase3/KIMI_K3_PROVIDER_EXPORT_DUPLICATE_CHECK_20260805.md`; `results/phase3/reporting/kimi_k3_provider_log_reconciliation_20260805.csv` | Sanitized evidence review; repository validation | Evidence recorded; DR-008 implementation remains open |
 | 2026-08-07 | DR-008; DR-009 — Group F1 | Added one validated, deterministic reviewed Phase 3 data layer containing immutable core and qualified extended scopes, exact source hashes, separate cost/provenance/allocation fields, and partial outcome-cost coverage semantics. | `results/phase3/reporting/phase3_extended_reviewed_comparison_20260805.json`; `apps/dashboard/src/generated/phase3-reviewed-comparison-data.ts`; `apps/dashboard/src/lib/phase3-reviewed-comparison.ts`; generator and focused tests | Focused generator/loader tests; typecheck; production build; repository checks | Passed; integration proceeded to Group F2 |
 | 2026-08-08 | DR-008; DR-009 — Group F2 | Made the reviewed extended scope the default for Cross-phase and Cost Coverage, added an accessible query-parameter selector for the historical core alternate, removed the Cost Coverage split-source Supabase path, and exposed qualified Kimi cost limitations and partial outcome coverage. | `apps/dashboard/src/app/cross-phase/page.tsx`; `apps/dashboard/src/app/cost-coverage/page.tsx`; `apps/dashboard/src/components/CorpusScopeSelector.tsx`; `apps/dashboard/src/components/CorpusScopeNotice.tsx`; `apps/dashboard/src/lib/cross-phase-reporting.ts`; focused tests; specification and this record | Focused Node/Python tests; typecheck; production build; `make check`; secret scan; diff/protected-path checks | Passed; DR-008 and DR-009 implementation is complete pending second manual visual acceptance. |
+| 2026-08-09 | DR-012 — Group G1 | Added a deterministic reviewed run-selection contract containing one frozen complete valid full-suite run label for each F1 core/extended arm, with Kimi provider-log allocation limitations retained separately. | `results/phase3/reporting/phase3_reviewed_run_selection_20260809.json`; `apps/dashboard/src/generated/phase3-reviewed-run-selection-data.ts`; `apps/dashboard/src/lib/phase3-reviewed-run-selection.ts`; generator and focused tests | Focused generator/loader tests; typecheck; production build; repository checks | Passed; integration proceeded to Group G2. |
+| 2026-08-10 | DR-012 — Group G2 | Replaced Overview's mutable suite/arm aggregate leaderboard and latest-20 health population with F1 reviewed facts, G1 frozen run identities, and explicit reconciliation against exact-label valid arm-run and adjusted-cost evidence. Added encoded run links, selected-run cost/source/confidence presentation, unavailable/error states, and distinct labeling for the retained dynamic heatmap and difficulty aggregates. | `apps/dashboard/src/app/page.tsx`; `apps/dashboard/src/lib/dashboard-data.ts`; `apps/dashboard/src/lib/overview-reviewed-comparison.ts`; focused tests; specification and this record | Focused Node/Python tests; typecheck; production build; `make check`; secret scan; diff/protected-path checks | Passed; DR-012 implementation is complete pending second manual visual acceptance. |
 
 Commit Group C used source inspection only. No provider, LiteLLM, Claude Code, Harbor, router, runner, or infrastructure probes were run, and no external operational service was queried.
 
@@ -261,8 +270,8 @@ Dynamic pages must expose their data source, latest included evidence, canonical
 
 ### Blockers
 
-- DR-008 and DR-009 are implemented pending the second manual visual acceptance pass.
-- DR-010 through DR-015 remain open.
+- DR-008, DR-009, and DR-012 are implemented pending the second manual visual acceptance pass.
+- DR-010, DR-011, and DR-013 through DR-015 remain open.
 - DR-007 remains pending until the corrective work and second visual acceptance pass are recorded.
 
 ### Misleading representations
@@ -270,7 +279,7 @@ Dynamic pages must expose their data source, latest included evidence, canonical
 - No regression requiring rollback of Commit Groups B–D was found.
 - Cross-phase and Cost Coverage now default to the reviewed extended comparison; their revised presentation still requires second-pass visual acceptance.
 - Dynamic views do not yet provide complete freshness contracts.
-- Run identity, freshness, layout, charting, Architecture detail, Data Model coverage, and contextual glossary links require the remaining corrective work in DR-010 through DR-015.
+- Freshness, layout, charting, Architecture detail, Data Model coverage, and contextual glossary links require the remaining corrective work in DR-010, DR-011, and DR-013 through DR-015.
 
 ### Usability findings
 
@@ -278,4 +287,4 @@ Dynamic pages must expose their data source, latest included evidence, canonical
 
 ### Acceptance decision
 
-Failed. DR-008 and DR-009 are implemented pending review; DR-010 through DR-015 remain open, and DR-007 remains pending until a second visual acceptance pass is recorded.
+Failed. DR-008, DR-009, and DR-012 are implemented pending review; DR-010, DR-011, and DR-013 through DR-015 remain open, and DR-007 remains pending until a second visual acceptance pass is recorded.

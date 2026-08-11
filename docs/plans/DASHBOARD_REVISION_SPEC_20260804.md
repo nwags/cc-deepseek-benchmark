@@ -125,7 +125,7 @@ Canonical IDs remain available in details, tooltips, URLs, and exports.
 | P0 | Kimi cost integration and current extended comparison | Reviewed cost evidence and the 16-arm corpus become the current comparison inputs |
 | P0 | Dashboard freshness contracts (`DR-010`) | Dynamic pages disclose source, included evidence, publication freshness, render time, age, and stale state |
 | P0 | Interactive cost/performance chart (`DR-011` / `DR-301`) | The requested accessible chart is complete before the second manual acceptance pass |
-| P0 | Overview selected-run and cost contracts (`DR-012`) | The canonical selected run and recorded-versus-adjusted cost evidence are explicit and linked |
+| P0 | Overview selected-run and cost contracts (`DR-012`) | The frozen reviewed run and recorded-versus-reviewed cost evidence are explicit, linked, and reconciled against exact-label stored evidence |
 | P1 | Navigation consolidation | Tasks/Evals, Runner Fleet, Route Readiness, and Arm Scaffold have clear homes |
 | P1 | Failure taxonomy and no-op retirement | Current diagnoses replace legacy “suspected no-op” language |
 | P1 | Evidence-aware deep links | Arm, run, trial, and cost links land on the relevant filtered evidence |
@@ -393,7 +393,7 @@ Acceptance criteria:
 
 ## 6A. Corrective requirements confirmed by the 2026-08-05 manual review
 
-These requirements record the corrective work required before a second manual visual acceptance pass. DR-008 and DR-009 are implemented through Commit Groups F1/F2 and await that second visual acceptance; DR-010 through DR-015 remain open.
+These requirements record the corrective work required before a second manual visual acceptance pass. DR-008 and DR-009 are implemented through Commit Groups F1/F2, and DR-012 is implemented through Commit Groups G1/G2; all await second manual visual acceptance. DR-010, DR-011, and DR-013 through DR-015 remain open.
 
 ### DR-008 — Reconcile and integrate Kimi K3 cost evidence
 
@@ -462,13 +462,18 @@ Required outcome:
 
 **Priority:** P0
 
+**Implementation status:** Implemented in Commit Groups G1/G2; pending second manual visual acceptance.
+
 Required outcome:
 
-- Identify the selected canonical arm run, not just the arm.
+- Identify the frozen selected reviewed arm run, not just the arm, without implying a database canonical-run flag.
 - Link rows to run detail.
-- Disclose the run-selection rule.
-- Show both recorded cost and adjusted known cost.
-- Show missing-cost count, accounting gap, source, and confidence.
+- Disclose the reviewed run-selection rule and its frozen 2026-08-09 labels.
+- Resolve current stored evidence only for those exact run labels; never substitute a newer run.
+- Show recorded cost and the applicable reviewed cost basis: adjusted known cost for core arms or the qualified retained-rate estimate for Kimi K3.
+- Show missing-cost count, unresolved-cost count, accounting gap, source, confidence, and reconciliation state.
+- Keep missing, duplicate, wrong-arm, wrong-suite, count, and cost reconciliation states explicit.
+- Preserve Kimi K3 pricing-provenance, provider-log exclusivity, allocation-confidence, trial-allocation, and non-invoice/provider-billed qualifications.
 
 ### DR-013 — Correct visual layout defects
 
@@ -748,10 +753,11 @@ Show:
 ### Corrective pre-second-acceptance sequence
 
 1. Scope selection and qualified Kimi pricing-provenance/cost integration (`DR-008`, `DR-009`) were completed in Commit Groups F1/F2 and now provide the stable reviewed inputs.
-2. Complete freshness and Overview run/cost contracts (`DR-010`, `DR-012`) against those stable inputs.
-3. Implement the single interactive cost/performance chart specified jointly by `DR-011` and `DR-301` after its scope and cost inputs are stable.
-4. Complete the required layout, Architecture/Data Model, and glossary-link corrections (`DR-013` through `DR-015`).
-5. Run the second manual visual acceptance pass and finish `DR-007` only after the chart and other corrective P0 work are complete.
+2. The reviewed run-selection and Overview run/cost contract (`DR-012`) was completed in Commit Groups G1/G2 against those stable inputs.
+3. Complete the freshness contract (`DR-010`) for dynamic data.
+4. Implement the single interactive cost/performance chart specified jointly by `DR-011` and `DR-301` after its scope and cost inputs are stable.
+5. Complete the required layout, Architecture/Data Model, and glossary-link corrections (`DR-013` through `DR-015`).
+6. Run the second manual visual acceptance pass and finish `DR-007` only after the chart and other corrective P0 work are complete.
 
 Additional taxonomy, failure-composition, and spend-decomposition work may follow later; the DR-011/DR-301 chart no longer waits until after P0 acceptance.
 
@@ -791,8 +797,8 @@ This matrix preserves the implemented first-pass baseline for Commit Groups B–
 | Kimi K3 cost inclusion | Qualified retained-rate estimate is included with visible allocation-confidence and pricing-provenance caveats |
 | Historical evidence | No frozen historical input is rewritten |
 | Freshness contract | Source/view, latest included run, canonical publication time, render/query time, data age, and warning state are visible |
-| Overview run identity | Selected canonical arm run is identified and linked |
-| Overview cost evidence | Recorded cost, adjusted known cost, missing-cost count, accounting gap, source, and confidence are visible |
+| Overview run identity | Frozen selected reviewed arm run is identified and linked; current database evidence is resolved only for that exact label |
+| Overview cost evidence | Recorded cost, applicable reviewed cost basis, missing/unresolved counts, accounting gap, source, confidence, and reconciliation state are visible |
 | Cost/performance chart | The DR-011/DR-301 chart is present and accessible without pointer hover |
 | Layout corrections | Required heatmap, phase-card, table, overflow, and alignment fixes are complete |
 | Architecture and Data Model | Required explanations and `/data-model` are complete |
@@ -828,8 +834,8 @@ At 1920×1080 and a narrower desktop width:
 - [ ] Confirm Cross-phase and Cost Coverage default to the reviewed Phase 3 extended corpus and provide an explicit Phase 3 core historical alternate.
 - [ ] Confirm Kimi K3 is included with qualified retained-rate wording, low arm-run/provider-log allocation confidence, unresolved trial allocation, incomplete pricing-source provenance, and a clear statement that the estimate is not invoice-level/provider-billed spend.
 - [ ] Confirm dynamic pages show source/view, latest included run, canonical publication time, render/query time, data age, and stale or publication-lag warning state.
-- [ ] Confirm Overview identifies and links each selected canonical arm run and discloses the run-selection rule.
-- [ ] Confirm Overview distinguishes recorded cost from adjusted known cost and shows missing-cost count, accounting gap, source, and confidence.
+- [ ] Confirm Overview identifies and links each frozen selected reviewed arm run, discloses the run-selection rule, and does not substitute newer database runs.
+- [ ] Confirm Overview distinguishes recorded cost from adjusted known or qualified retained-rate cost and shows missing/unresolved counts, accounting gap, source, confidence, and reconciliation state.
 - [ ] Exercise the DR-011/DR-301 chart controls, arm/run links, cost basis, confidence and accounting-gap disclosure, keyboard navigation, and accessible non-hover equivalent.
 - [ ] Confirm heatmap headers wrap and phase-summary cards, tables, overflow, right-edge content, and Runner Fleet body content remain readable and aligned.
 - [ ] Confirm Architecture explains held-out tests in plain language, names concrete Harbor result/artifact evidence, and identifies `scripts/publish_phase3_run.py` as the final publisher.

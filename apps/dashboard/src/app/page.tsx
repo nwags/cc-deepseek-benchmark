@@ -6,45 +6,96 @@ import { MetricCard } from "../components/MetricCard";
 import { SuiteHeatmap } from "../components/SuiteHeatmap";
 import { QualityPassRate, QualityBadge, buildSuspectNoopHref } from "../components/QualityContext";
 import {
-  getValidSuiteArmRunRows,
-  getEvalSuites,
+  getReviewedSelectedArmRunRows,
+  getReviewedSelectedRunAdjustedCostRows,
   getOverview,
-  getSuiteArmComparison,
   getSuiteTaskDifficulty,
   getSuiteHeatmapCells,
-  getSuiteArmQualityRows,
   getArmRunQualityByRunLabels,
   getInvalidArmRunRows
 } from "../lib/dashboard-data";
+import {
+  PHASE3_REVIEWED_COMPARISON,
+  getReviewedPhase3Scope,
+} from "../lib/phase3-reviewed-comparison";
+import {
+  PHASE3_REVIEWED_RUN_SELECTION,
+  getReviewedRunSelectionScope,
+  getReviewedSelectedRunLabels,
+} from "../lib/phase3-reviewed-run-selection";
+import {
+  buildOverviewReviewedComparison,
+  type DatabaseReadStatus,
+} from "../lib/overview-reviewed-comparison";
 import { formatRecordedCost, formatNumber, formatPercent, formatSeconds } from "../lib/format";
 
 export const dynamic = "force-dynamic";
 
-function runHealthLabel(status: string, trialCount: number, logicalMode: string) {
-  if (status === "completed") return "completed";
-  if (status === "errors" && trialCount > 0) {
-    return logicalMode === "full" ? "imported with trial errors" : "trial errors";
+async function readDatabaseEvidence<T>(promise: Promise<T>): Promise<{
+  status: DatabaseReadStatus;
+  value: T | null;
+}> {
+  try {
+    return { status: "available", value: await promise };
+  } catch {
+    return { status: "unavailable", value: null };
   }
-  return status;
+}
+
+function formatReviewedUsd(value: string | null): string {
+  if (value === null) return "Unavailable";
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return "Unavailable";
+  return `$${numeric.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 9,
+  })}`;
+}
+
+function evidenceLabel(value: string): string {
+  return value.replaceAll("_", " ");
 }
 
 export default async function DashboardPage() {
-  const [overview, suites, fullArmRuns, fullSuiteRows, hardestFullEvals, heatmapCells, fullSuiteQualityRows, invalidRows] = await Promise.all([
-    getOverview(),
-    getEvalSuites(),
-    getValidSuiteArmRunRows("phase3-full-20", 20),
-    getSuiteArmComparison("phase3-full-20"),
-    getSuiteTaskDifficulty("phase3-full-20", 8),
-    getSuiteHeatmapCells("phase3-full-20"),
-    getSuiteArmQualityRows("phase3-full-20"),
-    getInvalidArmRunRows()
+  const reviewedScope = getReviewedPhase3Scope("phase3-extended");
+  const runSelectionScope = getReviewedRunSelectionScope("phase3-extended");
+  const selectedRunLabels = getReviewedSelectedRunLabels("phase3-extended");
+  const [
+    overviewRead,
+    selectedRunRead,
+    selectedCostRead,
+    hardestFullEvalsRead,
+    heatmapCellsRead,
+    selectedQualityRead,
+    invalidRowsRead,
+  ] = await Promise.all([
+    readDatabaseEvidence(getOverview()),
+    readDatabaseEvidence(getReviewedSelectedArmRunRows(selectedRunLabels)),
+    readDatabaseEvidence(getReviewedSelectedRunAdjustedCostRows(selectedRunLabels)),
+    readDatabaseEvidence(getSuiteTaskDifficulty("phase3-full-20", 8)),
+    readDatabaseEvidence(getSuiteHeatmapCells("phase3-full-20")),
+    readDatabaseEvidence(getArmRunQualityByRunLabels([...selectedRunLabels])),
+    readDatabaseEvidence(getInvalidArmRunRows()),
   ]);
 
-  const fullSuite = suites.find((suite) => suite.suite_id === "phase3-full-20");
-  const invalidFullSuiteCount = invalidRows.filter((row) => row.suite_id === "phase3-full-20").length;
-  const fullQualityByArm = new Map(fullSuiteQualityRows.map((row) => [row.arm_id, row]));
-  const fullRunQualityRows = await getArmRunQualityByRunLabels(fullArmRuns.map((row) => row.run_label));
-  const fullQualityByRun = new Map(fullRunQualityRows.map((row) => [row.run_label, row]));
+  const reviewedComparison = buildOverviewReviewedComparison({
+    scope: reviewedScope,
+    runSelectionScope,
+    comparisonReviewedAt: PHASE3_REVIEWED_COMPARISON.reviewedAt,
+    runSelectionReviewedAt: PHASE3_REVIEWED_RUN_SELECTION.reviewedAt,
+    databaseRunReadStatus: selectedRunRead.status,
+    databaseRunRows: selectedRunRead.value ?? [],
+    databaseCostReadStatus: selectedCostRead.status,
+    databaseAdjustedCostRows: selectedCostRead.value ?? [],
+  });
+  const overview = overviewRead.value;
+  const hardestFullEvals = hardestFullEvalsRead.value ?? [];
+  const heatmapCells = heatmapCellsRead.value ?? [];
+  const invalidFullSuiteCount = invalidRowsRead.value
+    ?.filter((row) => row.suite_id === "phase3-full-20").length ?? null;
+  const selectedQualityByRun = new Map(
+    (selectedQualityRead.value ?? []).map((row) => [row.run_label, row]),
+  );
 
   return (
     <AppShell title="Coding Agent Benchmark Dashboard">
@@ -52,32 +103,54 @@ export default async function DashboardPage() {
       <CorpusScopeNotice
         scopeId="phase3-extended"
         observedCounts={{
-          armCount: fullSuite?.arm_run_count ?? 0,
-          trialCount: fullSuite?.trial_count ?? 0,
-          successCount: fullSuite?.success_count ?? 0,
+          armCount: reviewedComparison.armCount,
+          trialCount: reviewedComparison.trialCount,
+          successCount: reviewedComparison.successCount,
         }}
       />
       <section className="metric-grid">
-        <MetricCard label="Full-suite arms" value={formatNumber(fullSuite?.arm_run_count ?? 0)} detail="Imported into phase3-full-20" />
-        <MetricCard label="Full-suite trials" value={formatNumber(fullSuite?.trial_count ?? 0)} detail="20 evals × 3 attempts × imported arms" />
-        <MetricCard label="Full-suite pass rate" value={formatPercent(fullSuite?.pass_rate ?? null)} detail="Across imported full arms" />
+        <MetricCard label="Reviewed arms" value={formatNumber(reviewedComparison.armCount)} detail="Frozen reviewed comparison membership" />
+        <MetricCard label="Reviewed trials" value={formatNumber(reviewedComparison.trialCount)} detail="20 tasks × 3 attempts × 16 selected runs" />
+        <MetricCard label="Reviewed pass rate" value={formatPercent(reviewedScope.passRate)} detail={`${formatNumber(reviewedComparison.successCount)} reviewed successes`} />
       </section>
 
       <section className="quality-context-panel">
-        <strong>Data provenance and validity:</strong> Primary comparison uses valid-only views.
-        Invalid/quarantined runs are preserved in the audit layer.
-        Current invalid/quarantined full-suite runs: {formatNumber(invalidFullSuiteCount)}.{" "}
+        <strong>Reviewed comparison provenance:</strong> Arm-level facts and cost evidence come from the reviewed
+        2026-08-05 comparison layer. Exact run labels come from the 2026-08-09 reviewed run-selection contract.
+        Database evidence is resolved only for those labels; the database does not select a newer run.
+        Current invalid/quarantined full-suite records remain visible in the audit layer:{" "}
+        {invalidFullSuiteCount === null ? "Unavailable" : formatNumber(invalidFullSuiteCount)}.{" "}
         <Link href="/trial-quality">Open trial quality audit</Link>.
       </section>
+
+      {(reviewedComparison.databaseEvidenceWarnings.length > 0
+        || selectedRunRead.status === "unavailable"
+        || selectedCostRead.status === "unavailable"
+        || selectedQualityRead.status === "unavailable") && (
+        <section className="quality-context-panel" role="alert">
+          <strong>Stored-evidence reconciliation is incomplete.</strong>{" "}
+          The checked-in reviewed facts and exact selected run identities remain available; no alternate database
+          run was substituted.
+          {reviewedComparison.databaseEvidenceWarnings.map((warning) => (
+            <p key={warning}>{warning}</p>
+          ))}
+        </section>
+      )}
 
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <h2>Full-suite leaderboard</h2>
+            <h2>Reviewed full-suite comparison</h2>
             <p>
-              Current imported full-sweep arms in{" "}
-              <Link href="/eval-suites/phase3-full-20">phase3-full-20</Link>.
-              Costs are recorded costs; rows with missing cost coverage should be treated as lower bounds.
+              The reviewed comparison freezes one complete valid full-suite run per arm. These run labels are
+              recorded by the 2026-08-09 reviewed run-selection contract and do not automatically change when
+              newer runs are imported.
+            </p>
+            <p>
+              Database evidence shown here is resolved for those exact run labels. Reviewed facts remain visible
+              when current stored evidence is missing, and no mutable suite/arm aggregate is used as a fallback.
+              Stored reconciliation reads <code>benchmark.v_valid_arm_run_summary</code> and{" "}
+              <code>benchmark.v_trial_adjusted_cost_coverage</code> for the exact labels.
             </p>
           </div>
           <Link href="/eval-suites/phase3-full-20">Open suite →</Link>
@@ -87,47 +160,100 @@ export default async function DashboardPage() {
             <thead>
               <tr>
                 <th>Rank</th>
-                <th>Arm</th>
-                <th>Tasks</th>
-                <th>Trials</th>
-                <th>Successes</th>
-                <th><span className="term-label">Pass rate <TermInfo term="Pass rate" /></span></th>
-                <th>Suspect no-op</th>
-                <th><span className="term-label">Median runtime <TermInfo term="Median runtime" /></span></th>
-                <th><span className="term-label">Recorded cost <TermInfo term="Recorded cost" /></span></th>
+                <th>Arm and selected reviewed run</th>
+                <th>Reviewed result</th>
+                <th>Recorded cost</th>
+                <th>Reviewed cost and basis</th>
+                <th>Accounting gap</th>
+                <th>Cost coverage</th>
+                <th>Source and confidence</th>
+                <th>Stored-evidence reconciliation</th>
               </tr>
             </thead>
             <tbody>
-              {fullSuiteRows.map((row, index) => {
-                const quality = fullQualityByArm.get(row.arm_id);
+              {reviewedComparison.rows.map((row) => {
+                const quality = selectedQualityByRun.get(row.selectedRunLabel);
                 const suspectNoopCount = quality?.suspect_noop_count ?? 0;
+                const isKimi = row.armId === "router-kimi-k3";
                 return (
-                  <tr key={row.arm_id}>
-                    <td>{index + 1}</td>
-                    <td className="mono">{row.arm_id}</td>
-                    <td>{formatNumber(row.task_count)}</td>
-                    <td>{formatNumber(row.trial_count)}</td>
-                    <td>{formatNumber(row.success_count)}</td>
-                    <td><QualityPassRate row={quality ?? {
-                      raw_pass_rate: row.pass_rate,
-                      trial_count: row.trial_count,
-                      success_count: row.success_count,
-                      qualified_pass_rate: row.pass_rate,
-                      qualified_trial_count: row.trial_count,
-                      qualified_success_count: row.success_count,
-                      suspect_noop_count: 0
-                    }} /></td>
+                  <tr key={row.selectedRunLabel}>
+                    <td>{row.rank}</td>
                     <td>
-                      {suspectNoopCount > 0 ? (
-                        <Link href={buildSuspectNoopHref({ suite_id: "phase3-full-20", arm_id: row.arm_id })}>
+                      <div className="mono">{row.armId}</div>
+                      <Link className="mono" href={row.selectedRunHref}>{row.selectedRunLabel}</Link>
+                      <div>Selected reviewed run · reviewed full-suite run</div>
+                    </td>
+                    <td>
+                      <div>Reviewed pass rate: {formatPercent(row.reviewedPassRate)}</div>
+                      <div>{formatNumber(row.reviewedSuccessCount)} / {formatNumber(row.reviewedTrialCount)} successes</div>
+                      {quality ? <QualityPassRate row={quality} /> : <div>Stored quality context: Unavailable</div>}
+                      {quality && suspectNoopCount > 0 ? (
+                        <Link href={buildSuspectNoopHref({ run_label: row.selectedRunLabel })}>
                           <QualityBadge count={suspectNoopCount} />
                         </Link>
-                      ) : (
+                      ) : quality ? (
                         <QualityBadge count={suspectNoopCount} />
+                      ) : <div>Suspect no-op: Unavailable</div>}
+                    </td>
+                    <td>{formatReviewedUsd(row.reviewedRecordedCostUsd)}</td>
+                    <td>
+                      {isKimi ? (
+                        <>
+                          <strong>Qualified retained-rate estimate:</strong>{" "}
+                          {formatReviewedUsd(row.reviewedQualifiedRetainedRateCostUsd)}
+                          <div>Adjusted known cost: Unavailable</div>
+                        </>
+                      ) : (
+                        <>
+                          <strong>Adjusted known cost:</strong>{" "}
+                          {formatReviewedUsd(row.reviewedAdjustedKnownCostUsd)}
+                        </>
                       )}
                     </td>
-                    <td>{formatSeconds(row.median_runtime_seconds)}</td>
-                    <td>{formatRecordedCost(row.trial_cost_usd, row.cost_row_count, row.missing_cost_count)}</td>
+                    <td>{formatReviewedUsd(row.reviewedAccountingGapUsd)}</td>
+                    <td>
+                      <div>Missing recorded: {formatNumber(row.missingRecordedCostCount)}</div>
+                      <div>Unresolved adjusted: {formatNumber(row.unresolvedAdjustedCostCount)}</div>
+                    </td>
+                    <td>
+                      <div>{row.costSources.join(", ")}</div>
+                      <div>Confidence: {row.costConfidence}</div>
+                      {isKimi && (
+                        <>
+                          <div>Pricing-source provenance incomplete</div>
+                          <div>Provider-log allocation confidence low</div>
+                          <div>Provider-log exclusivity not proven</div>
+                          <div>Trial allocation unresolved</div>
+                          <div>Not invoice-level or provider-billed spend</div>
+                        </>
+                      )}
+                    </td>
+                    <td>
+                      <strong>{evidenceLabel(row.reconciliationStatus)}</strong>
+                      <div>Run evidence: {evidenceLabel(row.databaseRunEvidenceStatus)}</div>
+                      <div>Cost evidence: {evidenceLabel(row.databaseCostEvidenceStatus)}</div>
+                      {row.databaseRunEvidence && (
+                        <div>
+                          Stored result: {formatNumber(row.databaseRunEvidence.success_count)} /{" "}
+                          {formatNumber(row.databaseRunEvidence.trial_count)} successes ·{" "}
+                          {row.databaseRunEvidence.suite_id ?? "suite unavailable"}
+                        </div>
+                      )}
+                      {!isKimi && row.databaseAdjustedCostEvidence && (
+                        <>
+                          <div>Stored recorded evidence: {formatReviewedUsd(row.databaseAdjustedCostEvidence.recorded_cost_usd)}</div>
+                          <div>Stored adjusted evidence: {formatReviewedUsd(row.databaseAdjustedCostEvidence.adjusted_known_cost_usd)}</div>
+                          <div>
+                            Stored sources/confidence:{" "}
+                            {row.databaseAdjustedCostEvidence.adjusted_cost_sources.join(", ") || "Unavailable"} /{" "}
+                            {row.databaseAdjustedCostEvidence.adjusted_cost_confidences.join(", ") || "Unavailable"}
+                          </div>
+                        </>
+                      )}
+                      {row.reconciliationMessages.map((message) => (
+                        <div key={message}>{message}</div>
+                      ))}
+                    </td>
                   </tr>
                 );
               })}
@@ -136,17 +262,29 @@ export default async function DashboardPage() {
         </div>
       </section>
 
+      <section className="quality-context-panel">
+        <strong>Different population below:</strong> the heatmap and hardest-task sections use current dynamic
+        valid-imported <code>phase3-full-20</code> suite/arm aggregates. They are not restricted to the frozen
+        16 selected reviewed run labels and can combine multiple valid imports for an arm.
+        {(heatmapCellsRead.status === "unavailable" || hardestFullEvalsRead.status === "unavailable") && (
+          <p role="alert">The current dynamic suite aggregates are unavailable; no reviewed-run values were substituted.</p>
+        )}
+      </section>
+
       <SuiteHeatmap
         rows={heatmapCells}
-        title="Full-suite pass/fail heatmap"
-        description="Rows are evals, columns are imported full-suite arms. Heatmap cells show successes/trials. Suspect no-op detail is available through Trial Quality drilldowns."
+        title="Dynamic valid-imported full-suite heatmap"
+        description="Rows are evals and columns are current valid-imported suite/arm aggregates, not the frozen reviewed-run cohort. Heatmap cells show successes/trials."
       />
 
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <h2>Hardest full-suite evals</h2>
-            <p>Tasks where the imported full-sweep arms struggle most. These are the best starting points for trajectory review.</p>
+            <h2>Dynamic valid-imported hardest full-suite evals</h2>
+            <p>
+              Tasks where the current valid-imported suite aggregates struggle most. This population can include
+              more than one valid run per arm and is not the frozen reviewed-run cohort.
+            </p>
           </div>
           <Link href="/evals">All evals →</Link>
         </div>
@@ -184,61 +322,80 @@ export default async function DashboardPage() {
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <h2>Full arm-run health</h2>
-            <p>These are complete imported arm executions. “Trial errors” means failures occurred inside the 60 attempts, not that ingestion failed.</p>
+            <h2>Selected reviewed run evidence</h2>
+            <p>
+              Current stored evidence for the same 16 frozen reviewed run labels used in the comparison above.
+              Missing database evidence stays unavailable; a newer run is never substituted.
+            </p>
           </div>
           <Link href="/arm-runs">All arm runs →</Link>
         </div>
         <div className="run-list">
-          {fullArmRuns.map((row) => (
-            <article className="run-card" key={row.arm_run_id}>
-              <div>
-                <h3>
-                  <Link href={`/arm-runs/${row.arm_run_id}`}>{row.arm_id}</Link>
-                </h3>
-                <p>{row.logical_mode} / {row.storage_mode ?? "—"} · {row.suite_id ?? "no suite"} · {runHealthLabel(row.status, row.trial_count, row.logical_mode)}</p>
-                <p className="mono">{row.run_label}</p>
-              </div>
-              <dl>
-                <div><dt>Trials</dt><dd>{formatNumber(row.trial_count)}</dd></div>
-                <div><dt>Raw / qualified pass</dt><dd><QualityPassRate compact row={fullQualityByRun.get(row.run_label) ?? {
-                  raw_pass_rate: row.pass_rate,
-                  trial_count: row.trial_count,
-                  success_count: row.success_count,
-                  qualified_pass_rate: row.pass_rate,
-                  qualified_trial_count: row.trial_count,
-                  qualified_success_count: row.success_count,
-                  suspect_noop_count: 0
-                }} /></dd></div>
+          {reviewedComparison.rows.map((row) => {
+            const databaseRun = row.databaseRunEvidence;
+            const quality = selectedQualityByRun.get(row.selectedRunLabel);
+            return (
+              <article className="run-card" key={row.selectedRunLabel}>
                 <div>
-                  <dt>Suspect no-op</dt>
-                  <dd>
-                    {(fullQualityByRun.get(row.run_label)?.suspect_noop_count ?? 0) > 0 ? (
-                      <Link href={buildSuspectNoopHref({ run_label: row.run_label })}>
-                        <QualityBadge count={fullQualityByRun.get(row.run_label)?.suspect_noop_count ?? 0} />
-                      </Link>
-                    ) : (
-                      <QualityBadge count={fullQualityByRun.get(row.run_label)?.suspect_noop_count ?? 0} />
-                    )}
-                  </dd>
+                  <h3>
+                    <Link href={row.selectedRunHref}>{row.armId}</Link>
+                  </h3>
+                  <p>Reviewed full-suite run · stored evidence {evidenceLabel(row.databaseRunEvidenceStatus)}</p>
+                  <p className="mono">{row.selectedRunLabel}</p>
+                  {databaseRun?.arm_run_id && (
+                    <Link href={`/arm-runs/${databaseRun.arm_run_id}`}>Open stored arm-run evidence →</Link>
+                  )}
                 </div>
-                <div><dt><span className="term-label">Recorded cost <TermInfo term="Recorded cost" /></span></dt><dd>{formatRecordedCost(row.trial_cost_usd, row.cost_row_count, row.missing_cost_count)}</dd></div>
-                <div><dt>R2 artifacts</dt><dd>{formatNumber(row.r2_artifact_count)} / {formatNumber(row.artifact_count)}</dd></div>
-              </dl>
-            </article>
-          ))}
+                <dl>
+                  <div><dt>Reviewed trials</dt><dd>{formatNumber(row.reviewedTrialCount)}</dd></div>
+                  <div><dt>Reviewed pass rate</dt><dd>{formatPercent(row.reviewedPassRate)}</dd></div>
+                  <div><dt>Stored raw / qualified pass</dt><dd>{quality
+                    ? <QualityPassRate compact row={quality} />
+                    : "Unavailable"}</dd></div>
+                  <div>
+                    <dt>Suspect no-op</dt>
+                    <dd>
+                      {quality && quality.suspect_noop_count > 0 ? (
+                        <Link href={buildSuspectNoopHref({ run_label: row.selectedRunLabel })}>
+                          <QualityBadge count={quality.suspect_noop_count} />
+                        </Link>
+                      ) : quality ? (
+                        <QualityBadge count={quality.suspect_noop_count} />
+                      ) : "Unavailable"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Stored completion</dt>
+                    <dd>{databaseRun?.finished_at ?? "Unavailable"}</dd>
+                  </div>
+                  <div>
+                    <dt>Stored median runtime</dt>
+                    <dd>{databaseRun ? formatSeconds(databaseRun.median_runtime_seconds) : "Unavailable"}</dd>
+                  </div>
+                  <div>
+                    <dt>R2 artifacts</dt>
+                    <dd>{databaseRun
+                      ? `${formatNumber(databaseRun.r2_artifact_count)} / ${formatNumber(databaseRun.artifact_count)}`
+                      : "Unavailable"}</dd>
+                  </div>
+                </dl>
+              </article>
+            );
+          })}
         </div>
       </section>
 
       <h2>Valid imported evidence inventory</h2>
       <CorpusScopeNotice
         scopeId="valid-imported"
-        observedCounts={{ trialCount: overview.trial_count }}
+        observedCounts={overview ? { trialCount: overview.trial_count } : {}}
       />
       <section className="metric-grid">
-        <MetricCard label="Valid imported trials" value={formatNumber(overview.trial_count)} detail="Canary + smoke + full valid arm runs" />
-        <MetricCard label="Valid-run R2 artifacts" value={formatNumber(overview.artifact_count)} detail="Tracked evidence rows" />
-        <MetricCard label="Recorded cost" value={formatRecordedCost(overview.cost_usd, overview.cost_row_count, overview.missing_cost_count)} detail="Known cost rows only; not the reviewed adjusted-cost total" />
+        <MetricCard label="Valid imported trials" value={overview ? formatNumber(overview.trial_count) : "Unavailable"} detail="Canary + smoke + full valid arm runs" />
+        <MetricCard label="Valid-run R2 artifacts" value={overview ? formatNumber(overview.artifact_count) : "Unavailable"} detail="Tracked evidence rows" />
+        <MetricCard label="Recorded cost" value={overview
+          ? formatRecordedCost(overview.cost_usd, overview.cost_row_count, overview.missing_cost_count)
+          : "Unavailable"} detail="Known cost rows only; not the reviewed adjusted-cost total" />
       </section>
     </AppShell>
   );

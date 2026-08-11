@@ -134,3 +134,39 @@ test("snapshot/live comparison reports only changed diagnosis axes", () => {
   assert.deepEqual(trialAnalysis.changedAnalysisAxes(snapshot, live), ["activity_subtype", "telemetry_status"]);
   assert.deepEqual(trialAnalysis.changedAnalysisAxes(snapshot, { ...snapshot }), []);
 });
+
+test("reviewed Overview loaders resolve only supplied exact run labels", async () => {
+  const calls = [];
+  globalThis.__dashboardQueryHandler = async (sql, params) => {
+    calls.push({ sql, params });
+    return [];
+  };
+  const labels = [
+    "router-anthropic-haiku-sanitized/2026-07-12__03-25-22",
+    "router-kimi-k3/2026-07-22__17-51-05",
+  ];
+
+  await dashboardData.getReviewedSelectedArmRunRows(labels);
+  await dashboardData.getReviewedSelectedRunAdjustedCostRows(labels);
+
+  assert.equal(calls.length, 2);
+  assert.deepEqual(calls[0].params, [labels]);
+  assert.match(calls[0].sql, /from benchmark\.v_valid_arm_run_summary/);
+  assert.match(calls[0].sql, /where run_label = any\(\$1::text\[\]\)/);
+  assert.doesNotMatch(calls[0].sql, /limit|row_number|started_at desc/i);
+  assert.match(calls[1].sql, /from benchmark\.v_trial_adjusted_cost_coverage/);
+  assert.match(calls[1].sql, /where run_label = any\(\$1::text\[\]\)/);
+  assert.match(calls[1].sql, /group by run_label, arm_id, suite_id/);
+});
+
+test("reviewed Overview loaders reject repeated requested run labels", async () => {
+  const labels = ["arm/run", "arm/run"];
+  await assert.rejects(
+    dashboardData.getReviewedSelectedArmRunRows(labels),
+    /must be unique/,
+  );
+  await assert.rejects(
+    dashboardData.getReviewedSelectedRunAdjustedCostRows(labels),
+    /must be unique/,
+  );
+});
