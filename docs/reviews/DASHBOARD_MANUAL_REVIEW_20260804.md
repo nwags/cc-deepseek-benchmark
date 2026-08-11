@@ -56,7 +56,7 @@ Migration 009 must not be rerun. No paid benchmark runs, provider probes, Supaba
 - [x] DR-008 Qualified Kimi K3 cost evidence integrated — implemented; second manual visual acceptance pending
 - [x] DR-009 Reviewed Phase 3 extended comparison defaulted with core alternate — implemented; second manual visual acceptance pending
 - [x] DR-012 Frozen reviewed-run identity and cost reconciliation on Overview — implemented; second manual visual acceptance pending
-- [ ] DR-010 freshness foundation, Overview, primary index/inventory, detail-route metadata, and artifact-byte provenance are implemented, but live, live-artifact, and API rollout remains pending; DR-011 and DR-013 through DR-015 remain open
+- [x] DR-010 freshness/provenance is implemented across Overview, index/inventory, detail, artifact-byte, live, live-artifact, raw-download, and API health routes; second manual visual acceptance remains pending
 
 ## Observations versus confirmed defects
 
@@ -91,6 +91,7 @@ The Implementation log below preserves the “manual acceptance pending” state
 | 2026-08-10 | DR-010 — Group G3 | Added the typed freshness/provenance contract, central Overview source registry, explicit snapshot semantics, deterministic age calculations, unavailable/unknown states, and separate Overview notices for reviewed comparison facts, reviewed run selection, exact-label stored evidence, valid-imported inventory, and dynamic suite aggregates. Canonical publication remains explicitly not recorded and no general stale threshold was invented. | `apps/dashboard/src/lib/data-freshness.ts`; `apps/dashboard/src/lib/data-freshness-sources.ts`; `apps/dashboard/src/components/DataFreshnessNotice.tsx`; Overview/data-loader integration; focused tests; specification and this record | Focused Node/Python tests; typecheck; production build; repository checks | Freshness foundation and Overview integration implemented; remaining dynamic-route rollout pending Group G4, so DR-010 remains globally incomplete. |
 | 2026-08-11 | DR-010 — Group G4a | Rolled the shared freshness contract out to the primary cloud-backed index and inventory routes with central source definitions, population-aligned `finished_at` metadata, explicit unrecorded canonical publication, and isolated secondary-metadata failure handling. Corrected Tasks to its all-imported population and Eval Suites to distinct-arm valid-only comparison semantics. | `/arms`; `/artifacts`; `/eval-suites`; `/evals`; `/runs`; `/tasks`; `/trial-quality`; `apps/dashboard/src/lib/data-freshness-sources.ts`; `apps/dashboard/src/lib/data-freshness-server.ts`; dashboard loaders and focused tests; specification and this record | Focused Node/Python tests; typecheck; production build; repository checks | Primary index/inventory rollout implemented; detail, artifact-byte, live, and API route rollout remains pending, so DR-010 remains globally incomplete. |
 | 2026-08-11 | DR-010 — Group G4b | Added exact-identity freshness/provenance to artifact, trial, run, eval-suite, and eval/task detail routes; separated Supabase metadata from bounded R2 byte evidence; exposed retrieval completeness and supportable integrity facts; and made duplicate Phase 3 run-label matches fail closed. The arm-run route remains an exact-ID compatibility redirect. | Detail routes; `apps/dashboard/src/components/ArtifactProvenanceNotice.tsx`; freshness source registry; artifact-content and dashboard-data helpers; focused tests; specification and this record | Focused Node/Python tests; typecheck; production build; repository checks | Detail metadata and artifact-byte provenance implemented; live, live-artifact, and API rollout remains pending, so DR-010 remains globally incomplete. |
+| 2026-08-11 | DR-010 — Group G4c | Completed the production-route freshness rollout for Live Runs, live-artifact metadata and bounded R2 bytes, raw live-artifact download source/failure semantics, and API health. Added a pure live-heartbeat liveness contract whose 90-second threshold is confined to live reporting, and kept explicitly enabled local NDJSON fallback separate from unavailable cloud state. | `/runs/live`; `/live-artifacts/[artifactId]`; `/live-artifacts/[artifactId]/download`; `/api/health`; live source registry and liveness notice; focused tests; specification and this record | Focused Node/Python tests; typecheck; production build; repository checks | DR-010 implementation complete pending second manual visual acceptance; no overall acceptance is claimed. |
 
 Commit Group C used source inspection only. No provider, LiteLLM, Claude Code, Harbor, router, runner, or infrastructure probes were run, and no external operational service was queried.
 
@@ -274,15 +275,15 @@ Dynamic pages must expose their data source, latest included evidence, canonical
 ### Blockers
 
 - DR-008, DR-009, and DR-012 are implemented pending the second manual visual acceptance pass.
-- DR-010 has an implemented freshness foundation plus Overview, primary index/inventory, detail-route metadata, and artifact-byte provenance coverage, but remains open pending live, live-artifact, and API route coverage; DR-011 and DR-013 through DR-015 remain open.
+- DR-010 is implementation-complete through Groups G3/G4a/G4b/G4c and pending second manual visual acceptance; DR-011 and DR-013 through DR-015 remain open.
 - DR-007 remains pending until the corrective work and second visual acceptance pass are recorded.
 
 ### Misleading representations
 
 - No regression requiring rollback of Commit Groups B–D was found.
 - Cross-phase and Cost Coverage now default to the reviewed extended comparison; their revised presentation still requires second-pass visual acceptance.
-- Overview distinguishes reviewed snapshot provenance from three operational populations; primary cloud-backed index/inventory routes disclose population-specific execution freshness; and detail routes now distinguish exact database metadata from bounded artifact-byte evidence. Live, live-artifact, and API views do not yet have complete freshness contracts.
-- Freshness rollout to the remaining live, live-artifact, and API routes, plus layout, charting, Architecture detail, Data Model coverage, and contextual glossary links, requires the remaining corrective work in DR-010, DR-011, and DR-013 through DR-015.
+- Overview distinguishes reviewed snapshot provenance from operational populations; index/inventory and detail routes disclose population-specific execution freshness; artifact routes distinguish database metadata from bounded R2 evidence; and Live Runs keeps cloud state, heartbeat liveness, and local fallback separate. API health names its ordinary database source without borrowing the live threshold.
+- Layout, charting, Architecture detail, Data Model coverage, and contextual glossary links require the remaining corrective work in DR-011 and DR-013 through DR-015.
 
 ### Usability findings
 
@@ -290,4 +291,4 @@ Dynamic pages must expose their data source, latest included evidence, canonical
 
 ### Acceptance decision
 
-Failed. DR-008, DR-009, and DR-012 are implemented pending review; DR-010 has an implemented foundation plus Overview, primary index/inventory, detail-route metadata, and artifact-byte provenance coverage but remains open pending live, live-artifact, and API coverage; DR-011 and DR-013 through DR-015 remain open; and DR-007 remains pending until a second visual acceptance pass is recorded.
+Failed. DR-008, DR-009, DR-010, and DR-012 are implemented pending review; DR-011 and DR-013 through DR-015 remain open; and DR-007 remains pending until a second visual acceptance pass is recorded.

@@ -322,3 +322,70 @@ test("latest execution selection is deterministic and reports malformed values",
     invalidTimestampCount: 1,
   });
 });
+
+test("live heartbeat threshold is an explicit liveness-only boundary", () => {
+  const atBoundary = freshness.buildLiveHeartbeatLiveness({
+    queryStatus: "available",
+    observedAt: "2026-08-11T12:01:30Z",
+    latestHeartbeatAt: "2026-08-11T12:00:00Z",
+    latestEventAt: "2026-08-11T12:00:30Z",
+    heartbeatThresholdSeconds: 90,
+  });
+  assert.equal(atBoundary.livenessStatus, "active");
+  assert.equal(atBoundary.heartbeatAgeSeconds, 90);
+  assert.equal(atBoundary.livenessReason, "heartbeat_within_live_threshold");
+
+  const delayed = freshness.buildLiveHeartbeatLiveness({
+    ...atBoundary,
+    observedAt: "2026-08-11T12:01:30.001Z",
+  });
+  assert.equal(delayed.livenessStatus, "delayed");
+  assert.ok(delayed.heartbeatAgeSeconds > 90);
+  assert.equal(delayed.livenessReason, "heartbeat_exceeds_live_threshold");
+
+  const ordinary = freshness.buildOperationalFreshness(operationalBase);
+  assert.equal(ordinary.freshnessStatus, "unknown");
+  assert.equal(ordinary.freshnessReason, "threshold_not_configured");
+});
+
+test("live heartbeat missing, malformed, future, and failed reads never become active", () => {
+  const base = {
+    queryStatus: "available",
+    observedAt: "2026-08-11T12:00:00Z",
+    latestHeartbeatAt: "2026-08-11T11:59:30Z",
+    latestEventAt: null,
+    heartbeatThresholdSeconds: 90,
+  };
+  const missing = freshness.buildLiveHeartbeatLiveness({ ...base, latestHeartbeatAt: null });
+  assert.equal(missing.livenessStatus, "unknown");
+  assert.equal(missing.livenessReason, "heartbeat_missing");
+
+  const malformed = freshness.buildLiveHeartbeatLiveness({ ...base, latestHeartbeatAt: "invalid" });
+  assert.equal(malformed.livenessStatus, "unknown");
+  assert.equal(malformed.livenessReason, "heartbeat_timestamp_invalid");
+
+  const future = freshness.buildLiveHeartbeatLiveness({ ...base, latestHeartbeatAt: "2026-08-11T12:00:01Z" });
+  assert.equal(future.livenessStatus, "unknown");
+  assert.equal(future.livenessReason, "heartbeat_timestamp_in_future");
+  assert.equal(future.heartbeatAgeSeconds, null);
+
+  const unavailable = freshness.buildLiveHeartbeatLiveness({
+    ...base,
+    queryStatus: "unavailable",
+    latestHeartbeatAt: null,
+  });
+  assert.equal(unavailable.livenessStatus, "unavailable");
+  assert.equal(unavailable.livenessReason, "live_query_unavailable");
+});
+
+test("latest live observation selection ignores null and reports malformed timestamps", () => {
+  assert.deepEqual(freshness.findLatestObservedTimestamp([
+    null,
+    "2026-08-11T11:00:00Z",
+    "malformed",
+    "2026-08-11T12:00:00Z",
+  ]), {
+    latestTimestamp: "2026-08-11T12:00:00Z",
+    invalidTimestampCount: 1,
+  });
+});

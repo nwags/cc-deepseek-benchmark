@@ -72,6 +72,79 @@ def test_live_dashboard_exposes_artifact_content_and_tool_lifecycle() -> None:
     assert "IncrementalToolEventParser" in supervision
 
 
+def test_live_and_api_routes_complete_freshness_provenance_without_threshold_leakage() -> None:
+    live_page = Path("apps/dashboard/src/app/runs/live/page.tsx").read_text()
+    live_artifact = Path("apps/dashboard/src/app/live-artifacts/[artifactId]/page.tsx").read_text()
+    live_download = Path("apps/dashboard/src/app/live-artifacts/[artifactId]/download/route.ts").read_text()
+    health = Path("apps/dashboard/src/app/api/health/route.ts").read_text()
+    live_data = Path("apps/dashboard/src/lib/live-data.ts").read_text()
+    freshness = Path("apps/dashboard/src/lib/data-freshness.ts").read_text()
+    freshness_server = Path("apps/dashboard/src/lib/data-freshness-server.ts").read_text()
+    sources = Path("apps/dashboard/src/lib/data-freshness-sources.ts").read_text()
+    liveness_notice = Path("apps/dashboard/src/components/LiveLivenessNotice.tsx").read_text()
+
+    for relation in (
+        "benchmark.live_runs",
+        "benchmark.live_run_events",
+        "benchmark.live_trials",
+        "benchmark.live_artifacts",
+        "benchmark.v_dashboard_runs",
+    ):
+        assert relation in sources
+
+    assert "LiveLivenessNotice" in live_page
+    assert "LIVE_ROUTE_FRESHNESS_SOURCES.liveRunsCloud" in live_page
+    assert "LIVE_ROUTE_FRESHNESS_SOURCES.localFallback" in live_page
+    assert 'queryStatus: errorState ? "unavailable" : "available"' in live_page
+    assert 'queryStatus: "available"' in live_page
+    assert "DASHBOARD_LIVE_LOCAL_FALLBACK" in live_page
+    assert "explicitly enabled local-development fallback" in live_page
+    assert "Cloud operational database" in liveness_notice
+    assert "Local development fallback, not cloud state" in liveness_notice
+    assert "applies only to live reporting liveness" in liveness_notice
+    assert "Canonical publication time:" in liveness_notice
+    assert "Not recorded" in liveness_notice
+    assert "heartbeatThresholdSeconds: LIVE_STALE_AFTER_SECONDS" in live_page
+    assert "cloudActiveRuns.map((run) => run.last_heartbeat_at)" in live_page
+    assert "active.map((run) => run.last_heartbeat_at)" in live_page
+    assert "LIVE_STALE_AFTER_SECONDS = 90" in live_data
+    assert "heartbeat_within_live_threshold" in freshness
+    assert "heartbeat_timestamp_in_future" in freshness
+    assert "No live heartbeat timestamp is available; the run is not classified as active" in freshness
+    assert "90" not in freshness
+    assert "staleAfterSeconds: null" in freshness_server
+
+    assert "DataFreshnessNotice" in live_artifact
+    assert "ArtifactProvenanceNotice" in live_artifact
+    assert "LIVE_ROUTE_FRESHNESS_SOURCES.liveArtifactMetadata" in live_artifact
+    assert "buildArtifactProvenance" in live_artifact
+    assert "readFreshnessMetadata(() => getLiveRun(artifact.live_run_id))" in live_artifact
+    assert "artifact metadata remains visible" in live_artifact.lower()
+    assert "Artifact upload time" in live_artifact
+    assert "not canonical publication time" in live_artifact
+    assert "R2 indexed" in live_artifact
+    assert "R2 available" not in live_artifact
+
+    assert "getLiveArtifact" in live_download
+    assert "fetchArtifactDownload" in live_download
+    assert "previewArtifactContent" not in live_download
+    assert "DASHBOARD_ENABLE_LOCAL_ARTIFACT_PREVIEW" not in live_download
+    assert "relative_local_path" in live_download
+    assert "new Response(upstream.body" in live_download
+    assert "redact" not in live_download.lower()
+
+    assert "LIVE_ROUTE_FRESHNESS_SOURCES.apiHealth" in health
+    assert "benchmark.v_dashboard_runs" in health
+    assert "max(finished_at)::text as latest_included_execution_at" in health
+    assert 'canonical_publication_status: freshness.canonicalPublicationStatus' in health
+    assert 'query_status: freshness.queryStatus' in health
+    assert "status: 503" in health
+    assert "LIVE_STALE_AFTER_SECONDS" not in health
+    assert "90" not in health
+    for metadata_timestamp in ("created_at", "updated_at", "uploaded_at", "invalidated_at"):
+        assert metadata_timestamp not in health
+
+
 def test_artifact_browser_paginates_complete_evidence_groups() -> None:
     data = Path("apps/dashboard/src/lib/dashboard-data.ts").read_text()
     page = Path("apps/dashboard/src/app/artifacts/page.tsx").read_text()

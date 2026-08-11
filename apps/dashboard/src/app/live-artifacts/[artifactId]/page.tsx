@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "../../../components/AppShell";
-import { previewArtifactContent } from "../../../lib/artifact-content";
+import { ArtifactProvenanceNotice } from "../../../components/ArtifactProvenanceNotice";
+import { DataFreshnessNotice } from "../../../components/DataFreshnessNotice";
+import { buildArtifactProvenance, previewArtifactContent } from "../../../lib/artifact-content";
+import { buildRegisteredOperationalFreshness, readFreshnessMetadata } from "../../../lib/data-freshness-server";
+import { LIVE_ROUTE_FRESHNESS_SOURCES } from "../../../lib/data-freshness-sources";
 import { formatBytes } from "../../../lib/format";
 import { getLiveArtifact, getLiveRun } from "../../../lib/live-data";
 import { redactSecretsInText, sanitizeDisplayedUri } from "../../../lib/safe-display";
@@ -23,8 +27,8 @@ export default async function LiveArtifactPage({
   const artifact = await getLiveArtifact(decodeURIComponent(artifactId));
   if (!artifact) notFound();
 
-  const [run, preview] = await Promise.all([
-    getLiveRun(artifact.live_run_id),
+  const [runRead, preview] = await Promise.all([
+    readFreshnessMetadata(() => getLiveRun(artifact.live_run_id)),
     previewArtifactContent({
       artifact_id: artifact.artifact_id,
       artifact_type: artifact.artifact_type,
@@ -34,12 +38,34 @@ export default async function LiveArtifactPage({
       size_bytes: artifact.size_bytes
     })
   ]);
+  const run = runRead.value;
+  const observedAt = new Date().toISOString();
+  const metadataFreshness = buildRegisteredOperationalFreshness(
+    LIVE_ROUTE_FRESHNESS_SOURCES.liveArtifactMetadata,
+    { queryStatus: runRead.queryStatus, value: run?.finished_at ?? null },
+    observedAt,
+    runRead.queryStatus === "unavailable"
+      ? "Live artifact metadata remains visible, but the associated live-run metadata read is unavailable."
+      : run === null
+        ? "The associated live-run metadata row was not found; no substitute run was selected."
+        : null,
+  );
+  const artifactProvenance = buildArtifactProvenance({
+    artifact_id: artifact.artifact_id,
+    artifact_type: artifact.artifact_type,
+    local_path: artifact.relative_local_path,
+    r2_uri: artifact.r2_uri,
+    sha256: artifact.sha256,
+    size_bytes: artifact.size_bytes,
+  }, preview, observedAt);
 
   return (
     <AppShell
       title="Live artifact"
       description="Read-only preview of an immutable progressive artifact version. R2 content is fetched server-side."
     >
+      <DataFreshnessNotice freshness={metadataFreshness} />
+      <ArtifactProvenanceNotice provenance={artifactProvenance} />
       <section className="quality-context-panel">
         This row represents one stable uploaded version. Growing active files are observed separately for structured tool activity and are not exposed as mutable downloads.
       </section>
@@ -51,7 +77,7 @@ export default async function LiveArtifactPage({
             <p className="mono">{sanitizeDisplayedUri(artifact.relative_local_path)}</p>
           </div>
           <span className={artifact.r2_uri ? "quality-badge" : "quality-badge quality-badge-warn"}>
-            {artifact.r2_uri ? "R2 available" : "metadata only"}
+            {artifact.r2_uri ? "R2 indexed" : "metadata only"}
           </span>
         </div>
         <div className="detail-grid">
@@ -60,11 +86,12 @@ export default async function LiveArtifactPage({
           <div><span>Trial</span><strong className="mono">{artifact.trial_key ?? "run root"}</strong></div>
           <div><span>Artifact id</span><strong className="mono">{artifact.artifact_id}</strong></div>
           <div><span>State</span><strong>{artifact.stability_state}</strong></div>
-          <div><span>Uploaded</span><strong>{fmtDate(artifact.uploaded_at)}</strong></div>
+          <div><span>Artifact upload time</span><strong>{fmtDate(artifact.uploaded_at)}</strong></div>
           <div><span>Size</span><strong>{formatBytes(artifact.size_bytes)}</strong></div>
           <div><span>SHA256</span><strong className="mono">{artifact.sha256}</strong></div>
           <div><span>Preview source</span><strong>{preview.source}</strong></div>
         </div>
+        <p className="muted">Artifact upload time is progressive-storage metadata, not canonical publication time.</p>
         <div className="artifact-link-bar">
           <Link href={`/runs/live?live_run_id=${encodeURIComponent(artifact.live_run_id)}`}>Back to Live Runs</Link>
           {artifact.r2_uri ? <a href={`/live-artifacts/${encodeURIComponent(artifact.artifact_id)}/download`}>Download immutable R2 object</a> : null}

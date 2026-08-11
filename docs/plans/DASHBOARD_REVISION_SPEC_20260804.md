@@ -393,7 +393,7 @@ Acceptance criteria:
 
 ## 6A. Corrective requirements confirmed by the 2026-08-05 manual review
 
-These requirements record the corrective work required before a second manual visual acceptance pass. DR-008 and DR-009 are implemented through Commit Groups F1/F2, and DR-012 is implemented through Commit Groups G1/G2; all await second manual visual acceptance. Group G3 implements the shared freshness foundation and its population-specific Overview integration, Group G4a extends it to the primary cloud-backed index and inventory routes, and Group G4b covers detail-route metadata and artifact-byte provenance. Live, live-artifact, and API route rollout remains pending, so DR-010 is still globally open. DR-011 and DR-013 through DR-015 remain open.
+These requirements record the corrective work required before a second manual visual acceptance pass. DR-008 and DR-009 are implemented through Commit Groups F1/F2, DR-012 is implemented through Commit Groups G1/G2, and DR-010 is implemented through Groups G3/G4a/G4b/G4c; all await second manual visual acceptance. Group G4c completes the freshness/provenance implementation across live supervision, live-artifact metadata and bytes, raw live-artifact download semantics, and API health. DR-011 and DR-013 through DR-015 remain open.
 
 ### DR-008 — Reconcile and integrate Kimi K3 cost evidence
 
@@ -432,7 +432,7 @@ Required outcome:
 
 **Priority:** P0
 
-**Implementation status:** Freshness foundation and Overview integration implemented in Group G3; primary cloud-backed index/inventory rollout implemented in Group G4a; detail-route metadata and artifact-byte provenance implemented in Group G4b. Live, live-artifact, and API route rollout remains pending. DR-010 is not globally complete.
+**Implementation status:** Implemented through Groups G3/G4a/G4b/G4c; pending second manual visual acceptance.
 
 Every dynamic Supabase-backed page must expose:
 
@@ -450,6 +450,8 @@ Group G3 establishes the shared contract without inventing a repository-wide age
 Group G4a applies that contract to `/arms`, `/artifacts`, `/eval-suites`, `/evals`, `/runs`, `/tasks`, and `/trial-quality`. Each notice names the page's actual operational relations and population, derives latest included execution from `finished_at` for that same population, keeps canonical publication explicitly unrecorded, and leaves the ordinary staleness threshold unconfigured. A failed secondary freshness-metadata read does not hide otherwise available page data.
 
 Group G4b applies exact-identity metadata provenance to artifact, trial, run, eval-suite, and eval/task detail pages. It separates Supabase metadata from bounded Cloudflare R2 byte retrieval, exposes complete/partial/unavailable and verified/mismatch/not-checked evidence without treating an R2 URI as verification, and fails closed when a Phase 3 run label matches multiple storage modes. `/arm-runs/[armRunId]` remains an exact-ID compatibility redirect; the destination run page retains the ambiguity guard. Canonical publication remains unrecorded and the ordinary stale threshold remains unconfigured.
+
+Group G4c completes the production-route rollout. `/runs/live` names the exact live Supabase relations, keeps failed cloud reads unavailable when an explicitly enabled local NDJSON fallback is shown, and applies the existing 90-second threshold only to live heartbeat liveness. `/live-artifacts/[artifactId]` separates exact live metadata from R2-first bounded byte provenance and labels `uploaded_at` only as artifact upload time. Its raw download route remains an exact-metadata, fail-closed, unredacted R2 response with no local fallback. `/api/health` reports its actual `benchmark.v_dashboard_runs` source and ordinary threshold-unconfigured freshness without borrowing live heartbeat policy. The route inventory found no remaining production cloud route without source/freshness semantics; reviewed, historical, configuration, static, redirect, raw download, and development routes retain their appropriate non-operational contracts.
 
 ### DR-011 — Restore the requested interactive cost/performance chart
 
@@ -762,7 +764,7 @@ Show:
 
 1. Scope selection and qualified Kimi pricing-provenance/cost integration (`DR-008`, `DR-009`) were completed in Commit Groups F1/F2 and now provide the stable reviewed inputs.
 2. The reviewed run-selection and Overview run/cost contract (`DR-012`) was completed in Commit Groups G1/G2 against those stable inputs.
-3. Continue the Group G3 freshness rollout after Group G4a's index/inventory coverage and Group G4b's detail/artifact-byte coverage to the remaining live, live-artifact, and API routes (`DR-010`, later Group G4 subgroups); do not treat the current partial rollout as global completion.
+3. The Group G3/G4a/G4b/G4c freshness rollout (`DR-010`) is implementation-complete; retain it for the second manual visual acceptance pass.
 4. Implement the single interactive cost/performance chart specified jointly by `DR-011` and `DR-301` after its scope and cost inputs are stable.
 5. Complete the required layout, Architecture/Data Model, and glossary-link corrections (`DR-013` through `DR-015`).
 6. Run the second manual visual acceptance pass and finish `DR-007` only after the chart and other corrective P0 work are complete.

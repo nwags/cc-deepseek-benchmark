@@ -87,6 +87,37 @@ export type ExpectedLabelCoverage = Readonly<{
   isComplete: boolean;
 }>;
 
+export type LiveLivenessStatus = "active" | "delayed" | "unavailable" | "unknown";
+
+export type LiveLivenessReason =
+  | "heartbeat_within_live_threshold"
+  | "heartbeat_exceeds_live_threshold"
+  | "live_query_unavailable"
+  | "heartbeat_missing"
+  | "heartbeat_timestamp_invalid"
+  | "observation_timestamp_invalid"
+  | "heartbeat_timestamp_in_future";
+
+export type LiveHeartbeatLivenessContract = Readonly<{
+  queryStatus: "available" | "unavailable";
+  observedAt: string;
+  latestHeartbeatAt: string | null;
+  latestEventAt: string | null;
+  heartbeatAgeSeconds: number | null;
+  heartbeatThresholdSeconds: number;
+  livenessStatus: LiveLivenessStatus;
+  livenessReason: LiveLivenessReason;
+  warningMessage: string | null;
+}>;
+
+export type LiveHeartbeatLivenessInput = Readonly<{
+  queryStatus: "available" | "unavailable";
+  observedAt: string;
+  latestHeartbeatAt: string | null;
+  latestEventAt: string | null;
+  heartbeatThresholdSeconds: number;
+}>;
+
 const ISO_TIMESTAMP_PATTERN =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
 
@@ -94,6 +125,87 @@ function parseIsoTimestamp(value: string): number | null {
   if (!ISO_TIMESTAMP_PATTERN.test(value)) return null;
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function buildLiveHeartbeatLiveness(
+  input: LiveHeartbeatLivenessInput,
+): LiveHeartbeatLivenessContract {
+  if (!Number.isFinite(input.heartbeatThresholdSeconds) || input.heartbeatThresholdSeconds <= 0) {
+    throw new Error("Live heartbeat threshold must be a positive number");
+  }
+  const base = {
+    queryStatus: input.queryStatus,
+    observedAt: input.observedAt,
+    latestHeartbeatAt: input.latestHeartbeatAt,
+    latestEventAt: input.latestEventAt,
+    heartbeatThresholdSeconds: input.heartbeatThresholdSeconds,
+  };
+  if (input.queryStatus === "unavailable") {
+    return Object.freeze({
+      ...base,
+      heartbeatAgeSeconds: null,
+      livenessStatus: "unavailable",
+      livenessReason: "live_query_unavailable",
+      warningMessage: "The live source is unavailable; heartbeat liveness cannot be established.",
+    });
+  }
+  const observedMilliseconds = parseIsoTimestamp(input.observedAt);
+  if (observedMilliseconds === null) {
+    return Object.freeze({
+      ...base,
+      heartbeatAgeSeconds: null,
+      livenessStatus: "unknown",
+      livenessReason: "observation_timestamp_invalid",
+      warningMessage: "The liveness observation timestamp is malformed.",
+    });
+  }
+  if (input.latestHeartbeatAt === null) {
+    return Object.freeze({
+      ...base,
+      heartbeatAgeSeconds: null,
+      livenessStatus: "unknown",
+      livenessReason: "heartbeat_missing",
+      warningMessage: "No live heartbeat timestamp is available; the run is not classified as active.",
+    });
+  }
+  const heartbeatMilliseconds = parseIsoTimestamp(input.latestHeartbeatAt);
+  if (heartbeatMilliseconds === null) {
+    return Object.freeze({
+      ...base,
+      heartbeatAgeSeconds: null,
+      livenessStatus: "unknown",
+      livenessReason: "heartbeat_timestamp_invalid",
+      warningMessage: "The latest live heartbeat timestamp is malformed.",
+    });
+  }
+  if (heartbeatMilliseconds > observedMilliseconds) {
+    return Object.freeze({
+      ...base,
+      heartbeatAgeSeconds: null,
+      livenessStatus: "unknown",
+      livenessReason: "heartbeat_timestamp_in_future",
+      warningMessage: "The latest live heartbeat is in the future relative to observation time; possible clock skew prevents an active classification.",
+    });
+  }
+  const heartbeatAgeSeconds = (observedMilliseconds - heartbeatMilliseconds) / 1000;
+  const active = heartbeatAgeSeconds <= input.heartbeatThresholdSeconds;
+  return Object.freeze({
+    ...base,
+    heartbeatAgeSeconds,
+    livenessStatus: active ? "active" : "delayed",
+    livenessReason: active
+      ? "heartbeat_within_live_threshold"
+      : "heartbeat_exceeds_live_threshold",
+    warningMessage: active
+      ? null
+      : `The latest live heartbeat exceeds the ${input.heartbeatThresholdSeconds}-second live-liveness threshold.`,
+  });
+}
+
+export function findLatestObservedTimestamp(
+  timestamps: readonly (string | null)[],
+): LatestTimestampResult {
+  return findLatestIncludedExecutionAt(timestamps);
 }
 
 function joinWarnings(...warnings: Array<string | null>): string | null {

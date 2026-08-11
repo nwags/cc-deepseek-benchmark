@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AppShell } from "../../../components/AppShell";
 import { LiveAutoRefresh } from "../../../components/LiveAutoRefresh";
+import { LiveLivenessNotice } from "../../../components/LiveLivenessNotice";
 import {
   LIVE_STALE_AFTER_SECONDS,
   LiveArtifactRow,
@@ -18,6 +19,8 @@ import {
   getRecentLiveRuns,
   getStaleLiveRuns
 } from "../../../lib/live-data";
+import { buildLiveHeartbeatLiveness, findLatestObservedTimestamp } from "../../../lib/data-freshness";
+import { LIVE_ROUTE_FRESHNESS_SOURCES } from "../../../lib/data-freshness-sources";
 import { redactSecretsInText, sanitizeDisplayedUri } from "../../../lib/safe-display";
 
 export const dynamic = "force-dynamic";
@@ -146,6 +149,8 @@ export default async function LiveRunsPage({
   let errorState: "migration" | "database" | null = null;
   let usingLocalFallback = false;
   let localDirectory: string | null = null;
+  let cloudActiveRuns: LiveRunRow[] = [];
+  let cloudEvents: LiveEventRow[] = [];
 
   try {
     [runs, active, stale] = await Promise.all([
@@ -153,6 +158,7 @@ export default async function LiveRunsPage({
       getActiveLiveRuns(),
       getStaleLiveRuns()
     ]);
+    cloudActiveRuns = active;
     const selectedId = requestedId ?? runs[0]?.live_run_id;
     if (selectedId) {
       [selected, events, outputEvents, warningEvents, toolEvents, trials, artifacts] = await Promise.all([
@@ -164,6 +170,7 @@ export default async function LiveRunsPage({
         getLiveTrials(selectedId),
         getLiveArtifacts(selectedId)
       ]);
+      cloudEvents = [...events, ...outputEvents, ...toolEvents];
     }
   } catch (error) {
     const code = typeof error === "object" && error && "code" in error ? String(error.code) : "";
@@ -193,6 +200,33 @@ export default async function LiveRunsPage({
 
   const refreshEnabled = active.some((run) => !run.is_stale);
   const outputHistory = formatOutput(outputEvents);
+  const observedAt = new Date().toISOString();
+  const cloudHeartbeatAt = findLatestObservedTimestamp(
+    cloudActiveRuns.map((run) => run.last_heartbeat_at),
+  ).latestTimestamp;
+  const cloudEventAt = findLatestObservedTimestamp(
+    cloudEvents.map((event) => event.occurred_at),
+  ).latestTimestamp;
+  const cloudLiveness = buildLiveHeartbeatLiveness({
+    queryStatus: errorState ? "unavailable" : "available",
+    observedAt,
+    latestHeartbeatAt: errorState ? null : cloudHeartbeatAt,
+    latestEventAt: errorState ? null : cloudEventAt,
+    heartbeatThresholdSeconds: LIVE_STALE_AFTER_SECONDS,
+  });
+  const localLiveness = usingLocalFallback
+    ? buildLiveHeartbeatLiveness({
+        queryStatus: "available",
+        observedAt,
+        latestHeartbeatAt: findLatestObservedTimestamp(
+          active.map((run) => run.last_heartbeat_at),
+        ).latestTimestamp,
+        latestEventAt: findLatestObservedTimestamp(
+          events.map((event) => event.occurred_at),
+        ).latestTimestamp,
+        heartbeatThresholdSeconds: LIVE_STALE_AFTER_SECONDS,
+      })
+    : null;
 
   return (
     <AppShell
@@ -200,6 +234,17 @@ export default async function LiveRunsPage({
       description="Shared execution state published by remote benchmark runners to Supabase, with progressive artifact availability in R2."
     >
       <LiveAutoRefresh enabled={refreshEnabled} />
+
+      <LiveLivenessNotice
+        source={LIVE_ROUTE_FRESHNESS_SOURCES.liveRunsCloud}
+        liveness={cloudLiveness}
+      />
+      {localLiveness ? (
+        <LiveLivenessNotice
+          source={LIVE_ROUTE_FRESHNESS_SOURCES.localFallback}
+          liveness={localLiveness}
+        />
+      ) : null}
 
       <section className="quality-context-panel">
         <strong>Observable activity only.</strong> Process output, heartbeats, and artifact state shown here are not hidden or private model reasoning. Partial trial results can change until final canonical ingestion completes.

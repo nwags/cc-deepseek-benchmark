@@ -18,6 +18,14 @@ export type DashboardDataSourceDefinition = Readonly<{
   provenanceIdentifier: string | null;
 }>;
 
+export type LiveRouteSourceDefinition = Readonly<{
+  sourceKind: "cloud_operational" | "local_fallback";
+  sourceLabel: string;
+  sourceRelations: readonly string[];
+  populationLabel: string;
+  provenanceIdentifier: string | null;
+}>;
+
 export const OVERVIEW_FRESHNESS_SOURCES = Object.freeze({
   reviewedComparison: Object.freeze({
     sourceKind: "reviewed",
@@ -253,6 +261,58 @@ export const DETAIL_ROUTE_FRESHNESS_SOURCES = Object.freeze({
       "benchmark.benchmark_trials",
     ]),
     populationLabel: "Valid-imported comparison rows that contain the exact displayed task",
+    reviewedAt: null,
+    schemaVersion: null,
+    provenanceIdentifier: null,
+  } satisfies DashboardDataSourceDefinition),
+});
+
+export const LIVE_ROUTE_FRESHNESS_SOURCES = Object.freeze({
+  liveRunsCloud: Object.freeze({
+    sourceKind: "cloud_operational",
+    sourceLabel: "Supabase/Postgres live supervision state",
+    sourceRelations: Object.freeze([
+      "benchmark.live_runs",
+      "benchmark.benchmark_arms",
+      "benchmark.live_run_events",
+      "benchmark.live_trials",
+      "benchmark.live_artifacts",
+    ]),
+    populationLabel: "Recent shared live runs and selected-run evidence; heartbeat liveness is derived only from active live-run rows",
+    provenanceIdentifier: null,
+  } satisfies LiveRouteSourceDefinition),
+  localFallback: Object.freeze({
+    sourceKind: "local_fallback",
+    sourceLabel: "Explicit local-development NDJSON fallback",
+    sourceRelations: Object.freeze([]),
+    populationLabel: "Bounded local .run/live NDJSON observations used only after a failed cloud read when explicitly enabled",
+    provenanceIdentifier: ".run/live/*.ndjson",
+  } satisfies LiveRouteSourceDefinition),
+  liveArtifactMetadata: Object.freeze({
+    sourceKind: "operational",
+    sourceLabel: "Supabase/Postgres live artifact metadata",
+    sourceRelations: Object.freeze([
+      "benchmark.live_artifacts",
+      "benchmark.live_runs",
+      "benchmark.benchmark_arms",
+    ]),
+    populationLabel: "The exact live artifact row and its associated live-run metadata",
+    reviewedAt: null,
+    schemaVersion: null,
+    provenanceIdentifier: null,
+  } satisfies DashboardDataSourceDefinition),
+  liveArtifactDownload: Object.freeze({
+    sourceKind: "cloud_operational",
+    sourceLabel: "Live artifact raw download metadata and R2 bytes",
+    sourceRelations: Object.freeze(["benchmark.live_artifacts"]),
+    populationLabel: "The exact live artifact metadata row followed by its immutable R2 object",
+    provenanceIdentifier: null,
+  } satisfies LiveRouteSourceDefinition),
+  apiHealth: Object.freeze({
+    sourceKind: "operational",
+    sourceLabel: "Supabase/Postgres dashboard health inventory",
+    sourceRelations: Object.freeze(["benchmark.v_dashboard_runs"]),
+    populationLabel: "All imported Phase 3 run rows represented by the dashboard run view",
     reviewedAt: null,
     schemaVersion: null,
     provenanceIdentifier: null,
