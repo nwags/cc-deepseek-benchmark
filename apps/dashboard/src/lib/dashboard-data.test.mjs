@@ -338,3 +338,65 @@ test("duplicate requested arm-run identities are deterministically de-duplicated
   assert.equal(result.expectedIdentityCount, 1);
   assert.equal(result.resolvedIdentityCount, 1);
 });
+
+test("run detail resolution fails closed when a Phase 3 label is ambiguous", async () => {
+  const calls = [];
+  globalThis.__dashboardQueryHandler = async (sql, params) => {
+    calls.push({ sql, params });
+    return [
+      { run_id: "run-full", phase: "phase3", mode: "full", run_label: "shared/run" },
+      { run_id: "run-smoke", phase: "phase3", mode: "smoke", run_label: "shared/run" },
+    ];
+  };
+
+  const ambiguous = await dashboardData.getRunDetailResolution("shared/run");
+  assert.equal(ambiguous.status, "ambiguous");
+  assert.equal(ambiguous.matches.length, 2);
+  assert.match(calls[0].sql, /where phase = 'phase3'/);
+  assert.match(calls[0].sql, /run_label = \$1/);
+  assert.doesNotMatch(calls[0].sql, /limit 1|order by .*finished_at/i);
+  assert.deepEqual(calls[0].params, ["shared/run"]);
+
+  globalThis.__dashboardQueryHandler = async () => [];
+  assert.equal((await dashboardData.getRunDetailResolution("missing/run")).status, "not_found");
+  globalThis.__dashboardQueryHandler = async () => [
+    { run_id: "one", phase: "phase3", mode: "full", run_label: "one/run" },
+  ];
+  assert.equal((await dashboardData.getRunDetailResolution("one/run")).status, "found");
+});
+
+test("artifact and trial detail metadata expose exact parent execution completion", async () => {
+  const calls = [];
+  globalThis.__dashboardQueryHandler = async (sql, params) => {
+    calls.push({ sql, params });
+    return [];
+  };
+
+  await dashboardData.getArtifactDetail("00000000-0000-4000-8000-000000000001");
+  await dashboardData.getTrialEvidence("00000000-0000-4000-8000-000000000002");
+
+  assert.match(calls[0].sql, /r\.finished_at::text as run_finished_at/);
+  assert.match(calls[0].sql, /where art\.id = \$1::uuid/);
+  assert.match(calls[1].sql, /r\.finished_at::text as run_finished_at/);
+  assert.match(calls[1].sql, /where t\.id = \$1::uuid/);
+  for (const call of calls) {
+    assert.doesNotMatch(call.sql, /(created_at|updated_at|uploaded_at|invalidated_at)::text as run_finished_at/);
+  }
+});
+
+test("eval detail execution metadata is restricted to the exact displayed task population", async () => {
+  let captured;
+  globalThis.__dashboardQueryHandler = async (sql, params) => {
+    captured = { sql, params };
+    return [{ latest_included_execution_at: "2026-08-09T00:00:00Z" }];
+  };
+
+  const latest = await dashboardData.getValidEvalTaskLatestIncludedExecutionAt("terminal-bench-2.0:task");
+  assert.equal(latest, "2026-08-09T00:00:00Z");
+  assert.match(captured.sql, /max\(arm_run\.finished_at\)::text/);
+  assert.match(captured.sql, /from benchmark\.v_valid_arm_run_summary arm_run/);
+  assert.match(captured.sql, /join benchmark\.benchmark_trials trial/);
+  assert.match(captured.sql, /trial\.task_id = \$1/);
+  assert.deepEqual(captured.params, ["terminal-bench-2.0:task"]);
+  assert.doesNotMatch(captured.sql, /created_at|updated_at|uploaded_at|invalidated_at/);
+});

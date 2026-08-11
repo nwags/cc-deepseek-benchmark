@@ -370,6 +370,7 @@ export type ArtifactDetailRow = {
   retention_class: string | null;
   notes: string | null;
   run_label: string;
+  run_finished_at: string | null;
   suite_id: string | null;
   logical_mode: string | null;
   storage_mode: string | null;
@@ -426,12 +427,18 @@ export type TrialEvidenceRow = {
   invalidated_by: string | null;
   invalid_raw_metadata: Record<string, unknown> | null;
   run_started_at: string | null;
+  run_finished_at: string | null;
   provider_family: string | null;
   backend_model: string | null;
   router_model: string | null;
 };
 
-export async function getRunDetail(runLabel: string): Promise<RunDetailRow | null> {
+export type RunDetailResolution =
+  | Readonly<{ status: "not_found"; matches: readonly RunDetailRow[] }>
+  | Readonly<{ status: "found"; run: RunDetailRow; matches: readonly RunDetailRow[] }>
+  | Readonly<{ status: "ambiguous"; matches: readonly RunDetailRow[] }>;
+
+export async function getRunDetailResolution(runLabel: string): Promise<RunDetailResolution> {
   const rows = await queryRows<RunDetailRow>(
     `
       select
@@ -471,12 +478,14 @@ export async function getRunDetail(runLabel: string): Promise<RunDetailRow | nul
       from benchmark.v_dashboard_runs
       where phase = 'phase3'
         and run_label = $1
-      limit 1
+      order by mode, run_id
     `,
     [runLabel]
   );
 
-  return rows[0] ?? null;
+  if (rows.length === 0) return Object.freeze({ status: "not_found", matches: Object.freeze([]) });
+  if (rows.length > 1) return Object.freeze({ status: "ambiguous", matches: Object.freeze(rows) });
+  return Object.freeze({ status: "found", run: rows[0], matches: Object.freeze([rows[0]]) });
 }
 
 export async function getRunTrials(runId: string): Promise<RunTrialRow[]> {
@@ -844,6 +853,7 @@ const artifactDetailSelect = `
     art.retention_class,
     art.notes,
     r.run_label,
+    r.finished_at::text as run_finished_at,
     coalesce(q.suite_id, ar.suite_id) as suite_id,
     coalesce(q.logical_mode, ar.logical_mode) as logical_mode,
     coalesce(q.storage_mode, ar.storage_mode, r.mode) as storage_mode,
@@ -982,6 +992,7 @@ export async function getTrialEvidence(trialId: string): Promise<TrialEvidenceRo
         invalid.invalidated_by,
         invalid.raw_metadata as invalid_raw_metadata,
         r.started_at::text as run_started_at,
+        r.finished_at::text as run_finished_at,
         ar.provider_family,
         ar.backend_model,
         ar.router_model
@@ -1630,6 +1641,22 @@ export async function getEvalArmComparison(taskId: string): Promise<EvalArmCompa
     `,
     [taskId]
   );
+}
+
+export async function getValidEvalTaskLatestIncludedExecutionAt(
+  taskId: string,
+): Promise<string | null> {
+  const rows = await queryRows<LatestIncludedExecutionRow>(
+    `
+      select max(arm_run.finished_at)::text as latest_included_execution_at
+      from benchmark.v_valid_arm_run_summary arm_run
+      join benchmark.benchmark_trials trial
+        on trial.arm_run_id = arm_run.arm_run_id
+      where trial.task_id = $1
+    `,
+    [taskId],
+  );
+  return rows[0]?.latest_included_execution_at ?? null;
 }
 
 

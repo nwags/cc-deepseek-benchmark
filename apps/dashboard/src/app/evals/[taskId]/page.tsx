@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "../../../components/AppShell";
-import { getEvalArmComparison } from "../../../lib/dashboard-data";
+import { DataFreshnessNotice } from "../../../components/DataFreshnessNotice";
+import { getEvalArmComparison, getValidEvalTaskLatestIncludedExecutionAt } from "../../../lib/dashboard-data";
+import { buildRegisteredOperationalFreshness, readFreshnessMetadata } from "../../../lib/data-freshness-server";
+import { DETAIL_ROUTE_FRESHNESS_SOURCES } from "../../../lib/data-freshness-sources";
 import { formatRecordedCost, formatNumber, formatPercent, formatSeconds } from "../../../lib/format";
 
 export const dynamic = "force-dynamic";
@@ -13,19 +16,32 @@ export default async function EvalDetailPage({
 }) {
   const { taskId } = await params;
   const decodedTaskId = decodeURIComponent(taskId);
-  const rows = await getEvalArmComparison(decodedTaskId);
+  const [rows, executionRead] = await Promise.all([
+    getEvalArmComparison(decodedTaskId),
+    readFreshnessMetadata(() => getValidEvalTaskLatestIncludedExecutionAt(decodedTaskId)),
+  ]);
 
   if (rows.length === 0) {
     notFound();
   }
 
   const taskName = rows[0].task_name ?? decodedTaskId;
+  const queriedAt = new Date().toISOString();
+  const freshness = buildRegisteredOperationalFreshness(
+    DETAIL_ROUTE_FRESHNESS_SOURCES.evalTaskDetail,
+    executionRead,
+    queriedAt,
+    executionRead.queryStatus === "unavailable"
+      ? "Task comparison rows remain visible, but the secondary execution-completion lookup is unavailable."
+      : null,
+  );
 
   return (
     <AppShell
       title={taskName}
       description="Cross-arm comparison for one Terminal-Bench eval/task."
     >
+      <DataFreshnessNotice freshness={freshness} />
       <section className="panel">
         <div className="panel-heading">
           <div>

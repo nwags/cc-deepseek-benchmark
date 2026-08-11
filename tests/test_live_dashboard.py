@@ -609,6 +609,87 @@ def test_primary_cloud_indexes_use_population_specific_freshness_contracts() -> 
         assert metadata_timestamp not in trial_quality_freshness
 
 
+def test_cloud_detail_routes_expose_exact_freshness_and_artifact_provenance() -> None:
+    pages = {
+        "artifactMetadata": Path("apps/dashboard/src/app/artifacts/[artifactId]/page.tsx").read_text(),
+        "trialMetadata": Path("apps/dashboard/src/app/trials/[trialId]/page.tsx").read_text(),
+        "runDetail": Path("apps/dashboard/src/app/runs/[runLabel]/page.tsx").read_text(),
+        "evalSuiteDetail": Path("apps/dashboard/src/app/eval-suites/[suiteId]/page.tsx").read_text(),
+        "evalTaskDetail": Path("apps/dashboard/src/app/evals/[taskId]/page.tsx").read_text(),
+    }
+    arm_run_redirect = Path("apps/dashboard/src/app/arm-runs/[armRunId]/page.tsx").read_text()
+    sources = Path("apps/dashboard/src/lib/data-freshness-sources.ts").read_text()
+    notice = Path("apps/dashboard/src/components/DataFreshnessNotice.tsx").read_text()
+    artifact_notice = Path("apps/dashboard/src/components/ArtifactProvenanceNotice.tsx").read_text()
+    artifact_content = Path("apps/dashboard/src/lib/artifact-content.ts").read_text()
+    data = Path("apps/dashboard/src/lib/dashboard-data.ts").read_text()
+
+    for source_key, page in pages.items():
+        assert "DataFreshnessNotice" in page
+        assert f"DETAIL_ROUTE_FRESHNESS_SOURCES.{source_key}" in page
+        assert "buildRegisteredOperationalFreshness" in page
+        assert "new Date().toISOString()" in page
+
+    for relation in (
+        "benchmark.benchmark_artifacts",
+        "benchmark.benchmark_trials",
+        "benchmark.v_dashboard_runs",
+        "benchmark.v_valid_suite_arm_comparison",
+        "benchmark.v_valid_eval_arm_comparison",
+        "benchmark.v_valid_arm_run_summary",
+    ):
+        assert relation in sources
+
+    artifact_page = pages["artifactMetadata"]
+    assert "ArtifactProvenanceNotice" in artifact_page
+    assert "buildArtifactProvenance" in artifact_page
+    assert "artifact.run_finished_at" in artifact_page
+    assert "Artifact object storage" in artifact_notice
+    assert "Retrieval time is not benchmark execution or canonical publication time" in artifact_notice
+    assert 'freshness.sourceKind === "artifact"' in notice
+    assert "Artifact object storage" in notice
+    assert "R2 URI presence alone does not verify object bytes" in artifact_content
+    assert 'integrityStatus: "verified"' in artifact_content
+    assert '"bounded_preview"' in artifact_content
+
+    trial_page = pages["trialMetadata"]
+    assert "trial.run_finished_at" in trial_page
+    assert "Artifact-byte retrieval:</strong> not performed by this render" in trial_page
+    assert "bounded R2-first analysis was requested or used as fallback" in trial_page
+    assert "does not prove that bytes were read or verified" in trial_page
+
+    run_page = pages["runDetail"]
+    assert "getRunDetailResolution" in run_page
+    assert 'resolution.status === "ambiguous"' in run_page
+    assert "No latest row or alternate phase/mode was selected" in run_page
+    run_resolution = data[data.index("export async function getRunDetailResolution") : data.index("export async function getRunTrials")]
+    assert "where phase = 'phase3'" in run_resolution
+    assert "and run_label = $1" in run_resolution
+    assert "limit 1" not in run_resolution
+    assert "finished_at desc" not in run_resolution
+
+    assert "getRunLabelForArmRunId" in arm_run_redirect
+    assert "UUID_RE" in arm_run_redirect
+    assert "redirect(`/runs/${encodeURIComponent(runLabel)}`)" in arm_run_redirect
+
+    suite_page = pages["evalSuiteDetail"]
+    assert "getValidSuiteLatestIncludedExecutionAt(decodedSuiteId)" in suite_page
+    assert "valid-imported comparison population" in suite_page
+    task_page = pages["evalTaskDetail"]
+    assert "getValidEvalTaskLatestIncludedExecutionAt(decodedTaskId)" in task_page
+    eval_freshness = data[data.index("export async function getValidEvalTaskLatestIncludedExecutionAt") :]
+    assert "max(arm_run.finished_at)::text" in eval_freshness
+    assert "join benchmark.benchmark_trials trial" in eval_freshness
+    assert "where trial.task_id = $1" in eval_freshness
+    for metadata_timestamp in ("created_at", "updated_at", "uploaded_at", "invalidated_at"):
+        assert metadata_timestamp not in eval_freshness
+
+    assert "latestCanonicalPublishedAt: null" in Path("apps/dashboard/src/lib/data-freshness-server.ts").read_text()
+    assert "staleAfterSeconds: null" in Path("apps/dashboard/src/lib/data-freshness-server.ts").read_text()
+    assert "90" not in artifact_notice
+    assert "90" not in pages["runDetail"]
+
+
 def test_stale_operational_pages_are_removed_from_primary_navigation() -> None:
     shell = Path("apps/dashboard/src/components/AppShell.tsx").read_text()
 

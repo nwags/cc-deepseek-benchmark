@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "../../../components/AppShell";
+import { ArtifactProvenanceNotice } from "../../../components/ArtifactProvenanceNotice";
+import { DataFreshnessNotice } from "../../../components/DataFreshnessNotice";
 import { ArtifactTypeLabel, ArtifactTypesReference } from "../../../components/ArtifactTypeInfo";
 import { QualityBadge, buildSuspectNoopHref } from "../../../components/QualityContext";
 import { InvalidReason, ValidityBadge } from "../../../components/ValidityContext";
@@ -10,7 +12,9 @@ import {
   getArtifactDetail,
   getArtifactsForTrial
 } from "../../../lib/dashboard-data";
-import { getTaskInstructionPreview, previewArtifactContent } from "../../../lib/artifact-content";
+import { buildArtifactProvenance, getTaskInstructionPreview, previewArtifactContent } from "../../../lib/artifact-content";
+import { buildRegisteredOperationalFreshness } from "../../../lib/data-freshness-server";
+import { DETAIL_ROUTE_FRESHNESS_SOURCES } from "../../../lib/data-freshness-sources";
 import { buildArtifactHref } from "../../../lib/links";
 import { formatBytes, formatCurrency, formatNumber, formatSeconds } from "../../../lib/format";
 import { redactSecretsInText, sanitizeDisplayedUri } from "../../../lib/safe-display";
@@ -69,6 +73,13 @@ export default async function ArtifactDetailPage({
     previewArtifactContent(artifact),
     getTaskInstructionPreview(artifact.task_id)
   ]);
+  const queriedAt = new Date().toISOString();
+  const metadataFreshness = buildRegisteredOperationalFreshness(
+    DETAIL_ROUTE_FRESHNESS_SOURCES.artifactMetadata,
+    { queryStatus: "available", value: artifact.run_finished_at },
+    queriedAt,
+  );
+  const artifactProvenance = buildArtifactProvenance(artifact, preview, queriedAt);
   const invalidRow = invalidRowFromArtifact(artifact);
 
   return (
@@ -76,6 +87,8 @@ export default async function ArtifactDetailPage({
       title="Artifact detail"
       description="Read-only artifact evidence preview. Content is fetched server-side from R2 when configured."
     >
+      <DataFreshnessNotice freshness={metadataFreshness} />
+      <ArtifactProvenanceNotice provenance={artifactProvenance} />
       <section className="panel">
         <div className="panel-heading">
           <div>

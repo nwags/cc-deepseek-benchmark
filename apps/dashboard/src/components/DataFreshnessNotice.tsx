@@ -2,6 +2,7 @@ import {
   canonicalPublicationText,
   type DataFreshnessContract,
 } from "../lib/data-freshness";
+import { sanitizeDisplayedUri } from "../lib/safe-display";
 
 type DataFreshnessNoticeProps = {
   freshness: DataFreshnessContract;
@@ -28,6 +29,7 @@ function ageLabel(seconds: number | null): string {
 
 export function DataFreshnessNotice({ freshness }: DataFreshnessNoticeProps) {
   const reviewed = freshness.sourceKind === "reviewed";
+  const artifact = freshness.sourceKind === "artifact";
   const alert = freshness.queryStatus === "unavailable" || freshness.warningMessage !== null;
 
   return (
@@ -52,6 +54,14 @@ export function DataFreshnessNotice({ freshness }: DataFreshnessNoticeProps) {
           {freshness.provenanceIdentifier ? (
             <p className="muted"><strong>Provenance:</strong> <code>{freshness.provenanceIdentifier}</code></p>
           ) : null}
+        </>
+      ) : artifact ? (
+        <>
+          <p><strong>Source kind:</strong> Artifact object storage</p>
+          {freshness.provenanceIdentifier ? <p><strong>Object:</strong> <code>{sanitizeDisplayedUri(freshness.provenanceIdentifier) ?? "Unavailable"}</code></p> : null}
+          <p><strong>Retrieval status:</strong> {tokenLabel(freshness.queryStatus)}</p>
+          <p><strong>Queried/rendered at:</strong> {timestampLabel(freshness.queriedAt)}</p>
+          <p><strong>Freshness:</strong> {tokenLabel(freshness.freshnessStatus)} · {tokenLabel(freshness.freshnessReason)}</p>
         </>
       ) : (
         <>

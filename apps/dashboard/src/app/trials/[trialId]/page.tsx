@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "../../../components/AppShell";
+import { DataFreshnessNotice } from "../../../components/DataFreshnessNotice";
 import { ArtifactEvidenceGuide } from "../../../components/ArtifactEvidenceGuide";
 import { ArtifactTypeLabel } from "../../../components/ArtifactTypeInfo";
 import { InvalidReason, ValidityBadge } from "../../../components/ValidityContext";
@@ -19,6 +20,8 @@ import { buildArtifactHref } from "../../../lib/links";
 import { formatBytes, formatCurrency, formatNumber, formatSeconds } from "../../../lib/format";
 import { sanitizeDisplayedUri, sanitizeEvidenceText } from "../../../lib/safe-display";
 import { getComprehensiveTrialReview } from "../../../lib/review-data";
+import { buildRegisteredOperationalFreshness } from "../../../lib/data-freshness-server";
+import { DETAIL_ROUTE_FRESHNESS_SOURCES } from "../../../lib/data-freshness-sources";
 
 export const dynamic = "force-dynamic";
 
@@ -160,6 +163,12 @@ export default async function TrialEvidencePage({
   const liveDifferences = comprehensiveReview && liveAnalysis
     ? changedAnalysisAxes(comprehensiveReview, liveAnalysis)
     : [];
+  const queriedAt = new Date().toISOString();
+  const metadataFreshness = buildRegisteredOperationalFreshness(
+    DETAIL_ROUTE_FRESHNESS_SOURCES.trialMetadata,
+    { queryStatus: "available", value: trial.run_finished_at },
+    queriedAt,
+  );
 
   const readNext = [
     ["Start here: Harbor result", "result"],
@@ -175,6 +184,20 @@ export default async function TrialEvidencePage({
 
   return (
     <AppShell title="Trial evidence" description="Derived diagnosis with transparent links to one task attempt's immutable evidence.">
+      <DataFreshnessNotice freshness={metadataFreshness} />
+      <section className="quality-context-panel" aria-label="Trial artifact-byte boundary">
+        <p><strong>Artifact references:</strong> Supabase metadata lists {artifacts.length} related artifact row(s).</p>
+        {liveAnalysis ? (
+          <p>
+            <strong>Artifact-byte analysis:</strong> bounded R2-first analysis was requested or used as fallback. This page does not assert complete per-object retrieval or integrity; open an artifact detail page for object-specific provenance.
+          </p>
+        ) : (
+          <p>
+            <strong>Artifact-byte retrieval:</strong> not performed by this render. The validated review snapshot is shown, and artifact links are metadata references until opened.
+          </p>
+        )}
+        <p className="muted">An R2 URI or indexed artifact row does not prove that bytes were read or verified.</p>
+      </section>
       <section className="panel">
         <div className="panel-heading">
           <div>
