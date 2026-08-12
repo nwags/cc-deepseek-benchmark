@@ -387,7 +387,7 @@ export default async function TrialQualityPage({
                       <td>{Number(row.input_tokens ?? 0).toLocaleString()} in / {Number(row.output_tokens ?? 0).toLocaleString()} out</td>
                       <td>{money(row.cost_usd)}</td>
                       <td>{redactSecretsInText(row.exception_type ?? "—")}</td>
-                      <td>{redactSecretsInText(row.exception_summary ?? "—")}</td>
+                      <td className="table-cell-wrap">{redactSecretsInText(row.exception_summary ?? "—")}</td>
                       <td>
                         <Link
                           href={buildArtifactHref({

@@ -669,6 +669,86 @@ def test_cost_performance_chart_h2_renders_h1_view_on_overview() -> None:
         assert dependency not in package["dependencies"]
 
 
+def test_dr013_heatmap_headers_wrap_and_phase_summaries_are_structured() -> None:
+    heatmap = Path("apps/dashboard/src/components/SuiteHeatmap.tsx").read_text()
+    cross_phase = Path("apps/dashboard/src/app/cross-phase/page.tsx").read_text()
+    css = Path("apps/dashboard/src/app/globals.css").read_text()
+
+    assert 'className="heatmap-arm-heading"' in heatmap
+    assert 'className="heatmap-arm-label"' in heatmap
+    assert 'title={arm} aria-label={arm}' in heatmap
+    assert 'const arms = Array.from(new Set(rows.map((row) => row.arm_id))).sort();' in heatmap
+    assert heatmap.count("{arms.map((arm) =>") == 2
+    assert "const cell = task.cells.get(arm);" in heatmap
+    assert ".heatmap-table .heatmap-arm-heading" in css
+    assert "white-space: normal;" in css
+    assert ".heatmap-arm-label" in css
+    assert "overflow-wrap: anywhere;" in css
+    assert "text-overflow: ellipsis" not in css
+
+    assert '<section className="phase-summary-grid"' in cross_phase
+    assert 'className="metric-card phase-summary-card"' in cross_phase
+    assert '<dl className="phase-summary-details">' in cross_phase
+    for label in ("Population", "Results", "Reviewed cost", "Cost basis"):
+        assert f"<dt>{label}</dt>" in cross_phase
+    assert "summary.success_count}/{summary.trial_count} successes" in cross_phase
+    assert "summary.adjusted_cost_usd" in cross_phase
+    assert "grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));" in css
+
+
+def test_dr013_omits_only_meaningless_secondary_arm_labels_and_aligns_runner_body() -> None:
+    cost = Path("apps/dashboard/src/app/cost-coverage/page.tsx").read_text()
+    table = Path("apps/dashboard/src/components/CostPerformanceChartTable.tsx").read_text()
+    runners = Path("apps/dashboard/src/app/runners/page.tsx").read_text()
+    shell = Path("apps/dashboard/src/components/AppShell.tsx").read_text()
+    css = Path("apps/dashboard/src/app/globals.css").read_text()
+
+    assert "function secondaryArmLabel" in cost
+    assert 'value === "—"' in cost
+    assert "value === primary ? null : value" in cost
+    assert "const secondaryLabel = secondaryArmLabel(arm.armId, arm.backendModel);" in cost
+    assert "{secondaryLabel ? <div className=\"muted\">{secondaryLabel}</div> : null}" in cost
+    assert 'if (value === null) return "Unavailable";' in cost
+    assert 'value === null ? "Unavailable" : formatPercent(value)' in cost
+    assert "Unavailable —" in table
+
+    assert 'className="runner-fleet-body"' in runners
+    assert ".runner-fleet-body" in css
+    assert "padding: 0 24px 24px;" in css
+    assert "not a live fleet-status source" in runners
+    assert "does not assert runner count, availability, capacity, or queue depth" in runners
+    assert '{ href: "/runners"' not in shell
+
+
+def test_dr013_tables_keep_right_edge_scrollable_without_page_wide_clipping() -> None:
+    css = Path("apps/dashboard/src/app/globals.css").read_text()
+    overview = Path("apps/dashboard/src/app/page.tsx").read_text()
+    cross_phase = Path("apps/dashboard/src/app/cross-phase/page.tsx").read_text()
+    cost = Path("apps/dashboard/src/app/cost-coverage/page.tsx").read_text()
+    trial_quality = Path("apps/dashboard/src/app/trial-quality/page.tsx").read_text()
+    chart = Path("apps/dashboard/src/components/CostPerformanceChart.tsx").read_text()
+
+    assert ".table-wrap {" in css
+    assert "overflow-x: auto;" in css
+    assert "overscroll-behavior-inline: contain;" in css
+    assert "scrollbar-gutter: stable;" in css
+    assert ".table-wrap > table" in css
+    assert "width: max-content;" in css
+    assert ".table-wrap thead th" in css
+    assert ".table-wrap .mono" in css
+    assert ".table-cell-wrap" in css
+    assert "overflow-x: hidden" not in css
+    assert "overflow-x: clip" not in css
+
+    assert 'className="table-cell-wrap"' in overview
+    assert cross_phase.count('className="table-cell-wrap"') >= 2
+    assert 'className="table-cell-wrap"' in cost
+    assert 'className="table-cell-wrap"' in trial_quality
+    assert "Reviewed Phase 3 cost/performance frontier" in chart
+    assert 'className="cost-performance-svg"' in chart
+    assert "cost-performance-point" in chart
+
+
 def test_overview_has_population_specific_freshness_and_snapshot_provenance() -> None:
     overview = Path("apps/dashboard/src/app/page.tsx").read_text()
     freshness = Path("apps/dashboard/src/lib/data-freshness.ts").read_text()
@@ -935,6 +1015,7 @@ def test_runner_fleet_route_is_a_non_live_deprecation_destination() -> None:
     assert "does not assert runner count, availability, capacity, or queue depth" in page
     assert "execution-level runner names" in page
     assert "complete fleet model" in page
+    assert 'className="runner-fleet-body"' in page
     for stale_claim in ("one OVH", "Current state", "runner is active"):
         assert stale_claim not in page
 

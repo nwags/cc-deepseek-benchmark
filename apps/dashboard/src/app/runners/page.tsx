@@ -19,13 +19,15 @@ export default function RunnersPage() {
             <p>No redirect is performed because the available pages do not provide a complete fleet model.</p>
           </div>
         </div>
-        <p>
-          <Link href="/runs/live">Live Runs</Link> shows execution-level runner names, active or stale execution state,
-          and heartbeat timestamps associated with executions. It does not establish independent fleet availability or capacity.
-        </p>
-        <p>
-          <Link href="/runs">Runs</Link> is the canonical index for completed benchmark evidence.
-        </p>
+        <div className="runner-fleet-body">
+          <p>
+            <Link href="/runs/live">Live Runs</Link> shows execution-level runner names, active or stale execution state,
+            and heartbeat timestamps associated with executions. It does not establish independent fleet availability or capacity.
+          </p>
+          <p>
+            <Link href="/runs">Runs</Link> is the canonical index for completed benchmark evidence.
+          </p>
+        </div>
       </section>
     </AppShell>
   );

@@ -393,7 +393,7 @@ Acceptance criteria:
 
 ## 6A. Corrective requirements confirmed by the 2026-08-05 manual review
 
-These requirements record the corrective work required before a second manual visual acceptance pass. DR-008 and DR-009 are implemented through Commit Groups F1/F2, DR-012 is implemented through Commit Groups G1/G2, and DR-010 is implemented through Groups G3/G4a/G4b/G4c; all await second manual visual acceptance. Group G4c completes the freshness/provenance implementation across live supervision, live-artifact metadata and bytes, raw live-artifact download semantics, and API health. Groups H1/H2 complete the DR-011/DR-301 chart implementation through the reviewed policy foundation, interactive SVG, Overview controls, point evidence inspector, and visible non-hover evidence table. DR-011/DR-301 now await second manual visual acceptance; DR-013 through DR-015 remain open.
+These requirements record the corrective work required before a second manual visual acceptance pass. DR-008 and DR-009 are implemented through Commit Groups F1/F2, DR-012 is implemented through Commit Groups G1/G2, and DR-010 is implemented through Groups G3/G4a/G4b/G4c; all await second manual visual acceptance. Group G4c completes the freshness/provenance implementation across live supervision, live-artifact metadata and bytes, raw live-artifact download semantics, and API health. Groups H1/H2 complete the DR-011/DR-301 chart implementation through the reviewed policy foundation, interactive SVG, Overview controls, point evidence inspector, and visible non-hover evidence table. Group I1 completes the bounded DR-013 layout corrections. DR-011/DR-301 and DR-013 now await second manual visual acceptance; DR-014 and DR-015 remain open.
 
 ### DR-008 — Reconcile and integrate Kimi K3 cost evidence
 
@@ -495,6 +495,8 @@ Required outcome:
 
 **Priority:** P1
 
+**Implementation status:** Implemented in Group I1 as of 2026-08-12; pending second manual visual acceptance.
+
 Required outcome:
 
 - Wrap heatmap headers.
@@ -503,6 +505,8 @@ Required outcome:
 - Align Runner Fleet body content.
 - Verify table overflow and right-edge readability.
 - Preserve a usable layout at 1920×1080 and narrower desktop widths.
+
+Group I1 retains the existing visual language while allowing canonical heatmap headers to wrap without truncation, converting the Cross-phase summaries into structured source-backed cards, and omitting only empty or em-dash secondary ARM identity labels. Runner Fleet retains its non-live deprecation semantics with body content aligned to the panel geometry. Shared table containment now provides explicit horizontal scrolling, wrapping headers and long identifiers, and targeted wrapping for dense right-edge evidence cells without introducing page-wide overflow suppression. The second visual pass must confirm these behaviors at 1920px, 1440px, and 1280px desktop widths and verify that the H2 chart remains unaffected.
 
 ### DR-014 — Expand Architecture and add a Data Model page
 
@@ -776,7 +780,7 @@ Show:
 2. The reviewed run-selection and Overview run/cost contract (`DR-012`) was completed in Commit Groups G1/G2 against those stable inputs.
 3. The Group G3/G4a/G4b/G4c freshness rollout (`DR-010`) is implementation-complete; retain it for the second manual visual acceptance pass.
 4. Groups H1/H2 completed the reviewed data/model/accessibility foundation and interactive Overview SVG rendering for the single chart specified jointly by `DR-011` and `DR-301`; retain it for the second manual visual acceptance pass.
-5. Complete the required layout, Architecture/Data Model, and glossary-link corrections (`DR-013` through `DR-015`).
+5. Group I1 completed the required bounded layout corrections (`DR-013`); retain them for the second manual visual acceptance pass, then complete Architecture/Data Model and glossary-link corrections (`DR-014`, `DR-015`).
 6. Run the second manual visual acceptance pass and finish `DR-007` only after the chart and other corrective P0 work are complete.
 
 Additional taxonomy, failure-composition, and spend-decomposition work may follow later; the DR-011/DR-301 chart no longer waits until after P0 acceptance.
@@ -857,11 +861,11 @@ At 1920×1080 and a narrower desktop width:
 - [ ] Confirm Overview identifies and links each frozen selected reviewed arm run, discloses the run-selection rule, and does not substitute newer database runs.
 - [ ] Confirm Overview distinguishes recorded cost from adjusted known or qualified retained-rate cost and shows missing/unresolved counts, accounting gap, source, confidence, and reconciliation state.
 - [ ] Exercise the DR-011/DR-301 chart controls, arm/run links, cost basis, confidence and accounting-gap disclosure, keyboard navigation, and accessible non-hover equivalent.
-- [ ] Confirm heatmap headers wrap and phase-summary cards, tables, overflow, right-edge content, and Runner Fleet body content remain readable and aligned.
+- [ ] Confirm heatmap headers wrap without truncation, phase-summary cards are visually coherent, no meaningless secondary ARM dashes remain, Runner Fleet body content is aligned, and rightmost table content remains reachable.
 - [ ] Confirm Architecture explains held-out tests in plain language, names concrete Harbor result/artifact evidence, and identifies `scripts/publish_phase3_run.py` as the final publisher.
 - [ ] Confirm `/data-model` provides the required live/canonical tables and views, R2 relationships, live-to-canonical linkage, file-backed snapshots, dashboard consumers, a reviewable diagram, and an accessible text fallback.
 - [ ] Confirm relevant glossary entries provide explicit, accessible dashboard or evidence links without replacing public terms with internal compatibility fields.
-- [ ] Confirm the corrected pages remain usable at 1920×1080 and narrower desktop widths without overlap or inaccessible right-edge content.
+- [ ] Confirm the corrected pages remain usable at 1920px, 1440px, and 1280px desktop widths without accidental page-wide horizontal scroll, overlap, or inaccessible right-edge content, and confirm the H2 chart remains unaffected.
 - [ ] Confirm no frozen historical evidence changed.
 
 ## 13. Out of scope for the first implementation pass

@@ -72,7 +72,9 @@ export function SuiteHeatmap({
               <th>Eval</th>
               <th><span className="term-label">Overall <TermInfo term="Pass rate" /></span></th>
               {arms.map((arm) => (
-                <th key={arm} className="heatmap-arm-heading" title={arm} aria-label={arm}>{arm}</th>
+                <th key={arm} className="heatmap-arm-heading" title={arm} aria-label={arm}>
+                  <span className="heatmap-arm-label">{arm}</span>
+                </th>
               ))}
             </tr>
           </thead>

@@ -99,14 +99,32 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
         </details>
       </section>
 
-      <section className="metric-grid">
+      <section className="phase-summary-grid" aria-label="Cross-phase summary cards">
         {summaries.map((summary) => (
-          <article className="metric-card" key={summary.phase}>
-            <span className="metric-label">{phaseDisplayLabel(summary.phase, selection.scopeId)}</span>
-            <strong>{formatPercent(summary.pass_rate)}</strong>
-            <span className="metric-subtitle">
-              {summary.success_count}/{summary.trial_count} successes · {summary.arm_count} arms · {formatMoney(summary.adjusted_cost_usd, 6)} {summary.cost_label.toLowerCase()}
-            </span>
+          <article className="metric-card phase-summary-card" key={summary.phase}>
+            <header className="phase-summary-header">
+              <span className="metric-label">{phaseDisplayLabel(summary.phase, selection.scopeId)}</span>
+              <strong className="phase-summary-rate">{formatPercent(summary.pass_rate)}</strong>
+              <span className="phase-summary-rate-label">Pass rate</span>
+            </header>
+            <dl className="phase-summary-details">
+              <div>
+                <dt>Population</dt>
+                <dd>{summary.arm_count} arms</dd>
+              </div>
+              <div>
+                <dt>Results</dt>
+                <dd>{summary.success_count}/{summary.trial_count} successes</dd>
+              </div>
+              <div>
+                <dt>Reviewed cost</dt>
+                <dd>{formatMoney(summary.adjusted_cost_usd, 6)}</dd>
+              </div>
+              <div>
+                <dt>Cost basis</dt>
+                <dd>{summary.cost_label}</dd>
+              </div>
+            </dl>
           </article>
         ))}
       </section>
@@ -203,7 +221,7 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
                   <td>{row.reviewed_cost_label ?? "Adjusted known cost"}</td>
                   <td>{formatMoney(row.cost_per_clean_success_usd)}</td>
                   <td>{formatPercent(row.unclean_spend_share)}</td>
-                  <td>
+                  <td className="table-cell-wrap">
                     <div>{row.cost_confidence} confidence</div>
                     {row.phase === "phase3" ? (
                       <div className="muted">
@@ -298,7 +316,7 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
                   <td>{formatRatio(row.router_vs_direct_cost_ratio)}</td>
                   <td>{formatRatio(row.router_vs_direct_cost_per_clean_success_ratio)}</td>
                   <td>{formatRatio(row.router_vs_direct_wall_clock_ratio)}</td>
-                  <td>{row.interpretation}</td>
+                  <td className="table-cell-wrap">{row.interpretation}</td>
                 </tr>
               ))}
             </tbody>

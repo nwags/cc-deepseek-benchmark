@@ -353,7 +353,7 @@ export default async function DashboardPage({
                         </>
                       )}
                     </td>
-                    <td>
+                    <td className="table-cell-wrap">
                       <strong>{evidenceLabel(row.reconciliationStatus)}</strong>
                       <div>Run evidence: {evidenceLabel(row.databaseRunEvidenceStatus)}</div>
                       <div>Cost evidence: {evidenceLabel(row.databaseCostEvidenceStatus)}</div>

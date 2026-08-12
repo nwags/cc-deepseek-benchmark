@@ -78,6 +78,11 @@ function availablePercent(value: number | null): string {
   return value === null ? "Unavailable" : formatPercent(value);
 }
 
+function secondaryArmLabel(primary: string, secondary: string | null | undefined): string | null {
+  const value = secondary?.trim();
+  return !value || value === "—" || value === primary ? null : value;
+}
+
 export default async function CostCoveragePage({ searchParams }: CostCoveragePageProps) {
   const params = searchParams ? await searchParams : {};
   const selection = selectReviewedPhase3Scope(params.scope);
@@ -192,32 +197,35 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
               </tr>
             </thead>
             <tbody>
-              {arms.map((arm) => (
-                <tr key={arm.armId}>
-                  <td className="sticky-id-column">
-                    <strong>{arm.armId}</strong>
-                    <div className="muted">{arm.backendModel}</div>
-                  </td>
-                  <td>
-                    {formatNumber(arm.successCount)}/{formatNumber(arm.trialCount)}
-                    <div className="muted">{formatPercent(arm.passRate)}</div>
-                  </td>
-                  <td>{formatCost(arm.recordedCostUsd, 7)}</td>
-                  <td>{formatCost(reviewedArmCost(arm), 7)}</td>
-                  <td>{reviewedArmCostLabel(arm)}</td>
-                  <td>{formatCost(arm.accountingGapUsd, 7)}</td>
-                  <td>{formatCost(arm.adjustedFailureOrIncompleteCostUsd, 7)}</td>
-                  <td>{availablePercent(arm.failureOrIncompleteSpendShare)}</td>
-                  <td>{formatCost(arm.adjustedCostPerCleanSuccessUsd, 7)}</td>
-                  <td>{formatNumber(arm.missingRecordedCostCount)} / {formatNumber(arm.unresolvedCostCount)}</td>
-                  <td>
-                    <div>{arm.costConfidence} confidence</div>
-                    <div className="muted">
-                      Pricing provenance: {evidenceLabel(arm.pricingProvenanceStatus)} · allocation: {evidenceLabel(arm.armRunAllocationConfidence)} · trial allocation: {evidenceLabel(arm.trialAllocationStatus)} · billing: {evidenceLabel(arm.billingReconciliationStatus)}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {arms.map((arm) => {
+                const secondaryLabel = secondaryArmLabel(arm.armId, arm.backendModel);
+                return (
+                  <tr key={arm.armId}>
+                    <td className="sticky-id-column">
+                      <strong>{arm.armId}</strong>
+                      {secondaryLabel ? <div className="muted">{secondaryLabel}</div> : null}
+                    </td>
+                    <td>
+                      {formatNumber(arm.successCount)}/{formatNumber(arm.trialCount)}
+                      <div className="muted">{formatPercent(arm.passRate)}</div>
+                    </td>
+                    <td>{formatCost(arm.recordedCostUsd, 7)}</td>
+                    <td>{formatCost(reviewedArmCost(arm), 7)}</td>
+                    <td>{reviewedArmCostLabel(arm)}</td>
+                    <td>{formatCost(arm.accountingGapUsd, 7)}</td>
+                    <td>{formatCost(arm.adjustedFailureOrIncompleteCostUsd, 7)}</td>
+                    <td>{availablePercent(arm.failureOrIncompleteSpendShare)}</td>
+                    <td>{formatCost(arm.adjustedCostPerCleanSuccessUsd, 7)}</td>
+                    <td>{formatNumber(arm.missingRecordedCostCount)} / {formatNumber(arm.unresolvedCostCount)}</td>
+                    <td className="table-cell-wrap">
+                      <div>{arm.costConfidence} confidence</div>
+                      <div className="muted">
+                        Pricing provenance: {evidenceLabel(arm.pricingProvenanceStatus)} · allocation: {evidenceLabel(arm.armRunAllocationConfidence)} · trial allocation: {evidenceLabel(arm.trialAllocationStatus)} · billing: {evidenceLabel(arm.billingReconciliationStatus)}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
