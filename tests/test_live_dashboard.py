@@ -1,4 +1,5 @@
 import hashlib
+import json
 from pathlib import Path
 
 
@@ -520,6 +521,7 @@ def test_overview_uses_frozen_reviewed_runs_and_exact_database_reconciliation() 
 
 def test_cost_performance_chart_foundation_uses_only_reviewed_f1_g1_contracts() -> None:
     model = Path("apps/dashboard/src/lib/cost-performance-chart.ts").read_text()
+    view = Path("apps/dashboard/src/lib/cost-performance-chart-view.ts").read_text()
     table = Path(
         "apps/dashboard/src/components/CostPerformanceChartTable.tsx"
     ).read_text()
@@ -543,10 +545,20 @@ def test_cost_performance_chart_foundation_uses_only_reviewed_f1_g1_contracts() 
     assert 'arm.costBasis === "qualified_retained_rate_estimate"' in model
     assert "not adjusted-known, invoice, provider-billed, or official-price" in model
     assert "not derived from a qualified total by arithmetic convenience" in model
-    assert "PARETO_FLOAT_TOLERANCE = 1e-12" in model
-    assert "candidate.xValue" in model
-    assert "candidate.passRate" in model
+    assert 'export * from "./cost-performance-chart-view"' in model
+    assert "PARETO_FLOAT_TOLERANCE = 1e-12" in view
+    assert "candidate.xValue" in view
+    assert "candidate.passRate" in view
     assert "metricAvailabilityReasons" in model
+    assert 'from "../lib/cost-performance-chart-view"' in table
+    assert 'from "../lib/cost-performance-chart"' not in table
+    for forbidden_reference in (
+        "phase3-reviewed-comparison",
+        "phase3-reviewed-run-selection",
+        "overview-reviewed-comparison",
+        "generated/",
+    ):
+        assert forbidden_reference not in view
 
     for material_fact in (
         "Arm",
@@ -583,6 +595,78 @@ def test_h1_does_not_modify_canonical_or_generated_f1_g1_inputs() -> None:
     }
     for path, expected_hash in expected_hashes.items():
         assert hashlib.sha256(Path(path).read_bytes()).hexdigest() == expected_hash
+
+
+def test_cost_performance_chart_h2_renders_h1_view_on_overview() -> None:
+    overview = Path("apps/dashboard/src/app/page.tsx").read_text()
+    chart = Path(
+        "apps/dashboard/src/components/CostPerformanceChart.tsx"
+    ).read_text()
+    geometry = Path(
+        "apps/dashboard/src/lib/cost-performance-chart-geometry.ts"
+    ).read_text()
+    package = json.loads(Path("apps/dashboard/package.json").read_text())
+
+    assert '"use client"' in chart
+    assert "selectCostPerformanceChartScope(query.chart_scope)" in overview
+    assert "selectCostPerformanceChartScope(query.scope)" not in overview
+    assert "getCostPerformanceChartArms(chartScopeSelection.scopeId)" in overview
+    assert "deriveProviderFilterOptions(chartArms)" in overview
+    assert "key={chartScopeSelection.scopeId}" in overview
+    assert overview.index("Reviewed full-suite comparison") < overview.index(
+        "<CostPerformanceChart"
+    ) < overview.index("Different population below")
+
+    assert "Reviewed Phase 3 cost/performance frontier" in chart
+    assert "checked-in reviewed" in chart
+    assert "F1 snapshot" in chart
+    assert "frozen G1 selection" in chart
+    assert "DEFAULT_CHART_X_AXIS_METRIC" in chart
+    assert "deriveCostPerformanceChartView" in chart
+    assert "metricValueForArm" in chart
+    assert "view.frontier" in chart
+    assert "deriveParetoFrontier" not in chart
+    assert "function dominates" not in chart
+    assert 'from "../lib/cost-performance-chart-view"' in chart
+    assert 'from "../lib/cost-performance-chart"' not in chart
+    assert 'parameters.set("chart_scope", nextScope)' in chart
+    assert 'parameters.set("scope", nextScope)' not in chart
+    assert "Reviewed chart scope" in chart
+
+    assert 'getReviewedPhase3Scope("phase3-extended")' in overview
+    assert 'getReviewedRunSelectionScope("phase3-extended")' in overview
+    assert 'getReviewedSelectedRunLabels("phase3-extended")' in overview
+
+    assert "Phase 3 extended" in chart
+    assert "16 arms" in chart
+    assert "Phase 3 core" in chart
+    assert "15 arms" in chart
+    assert "selectAllProviderFamilies" in chart
+    assert "clearProviderFamilies" in chart
+    assert "selectAllChartArmIds" in chart
+    assert "clearChartArmIds" in chart
+    assert '"moonshot-kimi": "#62d98b"' in chart
+    assert "providerColor(point.arm.providerFamily)" in chart
+    assert "providerColor(point.arm.reviewedProvider)" not in chart
+
+    assert 'role="button"' in chart
+    assert "tabIndex={0}" in chart
+    assert 'event.key === "Enter"' in chart
+    assert 'event.key === " "' in chart
+    assert "cost-performance-point-qualified" in chart
+    assert "not adjusted-known, invoice, or provider-billed cost" in chart
+    assert "arms={view.selectedVisibleArms}" in chart
+    assert "Skip to non-hover evidence table" in chart
+    assert "No provider families are enabled." in chart
+    assert "No arms are selected." in chart
+    assert "One eligible point is visible; no frontier segment is drawn." in chart
+
+    assert "paddedLinearDomain" in geometry
+    assert "minimum > 0 && lower <= 0" in geometry
+    assert "Chart domain values must be finite" in geometry
+    assert "CostPerformanceChart.test.mjs" in package["scripts"]["test:trial-analysis"]
+    for dependency in ("d3", "plotly", "recharts", "vega"):
+        assert dependency not in package["dependencies"]
 
 
 def test_overview_has_population_specific_freshness_and_snapshot_provenance() -> None:

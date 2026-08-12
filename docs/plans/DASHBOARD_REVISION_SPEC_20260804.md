@@ -393,7 +393,7 @@ Acceptance criteria:
 
 ## 6A. Corrective requirements confirmed by the 2026-08-05 manual review
 
-These requirements record the corrective work required before a second manual visual acceptance pass. DR-008 and DR-009 are implemented through Commit Groups F1/F2, DR-012 is implemented through Commit Groups G1/G2, and DR-010 is implemented through Groups G3/G4a/G4b/G4c; all await second manual visual acceptance. Group G4c completes the freshness/provenance implementation across live supervision, live-artifact metadata and bytes, raw live-artifact download semantics, and API health. Group H1 establishes the reviewed data/model/accessibility foundation for DR-011/DR-301, but the interactive visual and control integration remain pending H2. DR-011 and DR-013 through DR-015 remain open.
+These requirements record the corrective work required before a second manual visual acceptance pass. DR-008 and DR-009 are implemented through Commit Groups F1/F2, DR-012 is implemented through Commit Groups G1/G2, and DR-010 is implemented through Groups G3/G4a/G4b/G4c; all await second manual visual acceptance. Group G4c completes the freshness/provenance implementation across live supervision, live-artifact metadata and bytes, raw live-artifact download semantics, and API health. Groups H1/H2 complete the DR-011/DR-301 chart implementation through the reviewed policy foundation, interactive SVG, Overview controls, point evidence inspector, and visible non-hover evidence table. DR-011/DR-301 now await second manual visual acceptance; DR-013 through DR-015 remain open.
 
 ### DR-008 — Reconcile and integrate Kimi K3 cost evidence
 
@@ -457,11 +457,13 @@ Group G4c completes the production-route rollout. `/runs/live` names the exact l
 
 **Priority:** P0 — prerequisite for the second manual acceptance pass
 
-**Implementation status:** Group H1 chart foundation complete as of 2026-08-11; DR-011 remains open pending H2 interactive rendering and control integration.
+**Implementation status:** Groups H1/H2 implementation complete as of 2026-08-12; DR-011 remains pending second manual visual acceptance.
 
 DR-301 is the detailed interaction and presentation specification for this requirement; DR-011 and DR-301 describe one chart, not two duplicate chart requirements.
 
-Group H1 established the reviewed chart data contract, metric-availability rules, frozen selected-run links, canonical presentation provider-family filters that retain raw F1 provider values, deterministic Pareto-frontier computation, and accessible non-hover table/model. It uses F1 reviewed facts for quantitative values and G1 only for frozen run identity. It preserves Kimi K3's qualified retained-rate basis for the adjusted-cost-per-attempt comparison while leaving its F1-null cost-per-clean-success and outcome-spend values unavailable. Final interactive SVG/chart rendering, keyboard control integration, provider color presentation, and point interaction remain pending H2; this foundation does not complete DR-011/DR-301.
+Group H1 established the reviewed chart data contract, metric-availability rules, frozen selected-run links, canonical presentation provider-family filters that retain raw F1 provider values, deterministic Pareto-frontier computation, and accessible non-hover table/model. It uses F1 reviewed facts for quantitative values and G1 only for frozen run identity. It preserves Kimi K3's qualified retained-rate basis for the adjusted-cost-per-attempt comparison while leaving its F1-null cost-per-clean-success and outcome-spend values unavailable.
+
+Group H2 renders that contract as the single responsive Overview SVG frontier. The surrounding G2 Overview headline and leaderboard remain the current reviewed Phase 3 extended comparison. The chart has its own explicit reviewed scope control, persisted as `chart_scope=phase3-extended` or `chart_scope=phase3-core`, so selecting historical core does not imply a page-wide scope change. Native chart-scope, metric, provider-family, and arm controls retain independent selection semantics; the client-safe view module delegates plotted eligibility and frontier membership to the single H1 implementation without importing the reviewed F1/G1 construction layer into the browser. Provider-family color, a categorical qualification/accounting-gap ring, focusable points, Enter/Space activation, a persistent evidence inspector, explicit empty/unavailable states, and the committed visible evidence table provide the required non-hover material facts and frozen arm/run links. Point size remains fixed, so no unavailable failure/incomplete-spend evidence is presented as zero. Implementation is complete, but axes, clipping, color distinction, frontier readability, Kimi qualification prominence, control behavior, focus visibility, table usability, page height, and narrow-viewport behavior must be assessed in the second manual visual pass.
 
 Required outcome:
 
@@ -689,7 +691,7 @@ Scope and Kimi cost integration must be completed first so chart inputs are stab
 
 **Priority:** P0 — detailed implementation specification for DR-011
 
-**Implementation status:** Group H1 data, computation, filtering, link, and accessible-table foundation complete as of 2026-08-11; DR-301 remains open pending H2.
+**Implementation status:** Groups H1/H2 implementation complete as of 2026-08-12; DR-301 remains pending second manual visual acceptance.
 
 DR-301 is promoted into the corrective pre-second-acceptance work. It supplies the detailed interaction and presentation requirements for DR-011 and is not a separate duplicate chart requirement.
 
@@ -714,6 +716,8 @@ Presentation:
 - point click-through to arm and selected-run evidence;
 - tooltip with numerator, denominator, cost basis, confidence, gap, and unclean spend;
 - keyboard-focusable points or controls and an equivalent accessible non-hover presentation of the same material facts.
+
+Group H2 uses fixed point sizing, the option explicitly permitted above. It adds no chart dependency and introduces no client-side metric or Pareto derivation: scale geometry is presentation-only, and H1 remains authoritative for all quantitative values, availability, filtering, and frontier output.
 
 ### DR-302 — Failure composition by arm
 
@@ -771,7 +775,7 @@ Show:
 1. Scope selection and qualified Kimi pricing-provenance/cost integration (`DR-008`, `DR-009`) were completed in Commit Groups F1/F2 and now provide the stable reviewed inputs.
 2. The reviewed run-selection and Overview run/cost contract (`DR-012`) was completed in Commit Groups G1/G2 against those stable inputs.
 3. The Group G3/G4a/G4b/G4c freshness rollout (`DR-010`) is implementation-complete; retain it for the second manual visual acceptance pass.
-4. Group H1 established the reviewed data/model/accessibility foundation for the single chart specified jointly by `DR-011` and `DR-301`; complete its interactive SVG rendering and control integration in H2.
+4. Groups H1/H2 completed the reviewed data/model/accessibility foundation and interactive Overview SVG rendering for the single chart specified jointly by `DR-011` and `DR-301`; retain it for the second manual visual acceptance pass.
 5. Complete the required layout, Architecture/Data Model, and glossary-link corrections (`DR-013` through `DR-015`).
 6. Run the second manual visual acceptance pass and finish `DR-007` only after the chart and other corrective P0 work are complete.
 

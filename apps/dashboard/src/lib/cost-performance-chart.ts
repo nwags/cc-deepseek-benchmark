@@ -4,7 +4,6 @@ import {
   selectReviewedPhase3Scope,
   type ReviewedPhase3Arm,
   type ReviewedPhase3Scope,
-  type ReviewedPhase3ScopeId,
   type ReviewedScopeSelection,
 } from "./phase3-reviewed-comparison";
 import {
@@ -13,13 +12,19 @@ import {
   type ReviewedRunSelectionScope,
 } from "./phase3-reviewed-run-selection";
 import { buildReviewedRunHref } from "./overview-reviewed-comparison";
+import {
+  DEFAULT_CHART_SCOPE,
+  stableTextCompare,
+  type ChartArmDatum,
+  type ChartEvidenceAmount,
+  type ChartMetricAvailable,
+  type ChartMetricUnavailable,
+  type ChartMetricValue,
+  type ChartScope,
+  type ChartXAxisMetric,
+} from "./cost-performance-chart-view";
 
-export type ChartScope = ReviewedPhase3ScopeId;
-
-export type ChartXAxisMetric =
-  | "adjusted_cost_per_attempt"
-  | "cost_per_clean_success"
-  | "recorded_cost_per_attempt";
+export * from "./cost-performance-chart-view";
 
 type ReviewedMoonshotProvider = "moonshot" | "moonshot-kimi";
 
@@ -38,168 +43,6 @@ export const CHART_REVIEWED_PROVIDER_NORMALIZATION = Object.freeze({
     label: "Moonshot / Kimi",
   }),
 }) satisfies Readonly<Record<ReviewedMoonshotProvider, ChartProviderNormalization>>;
-
-export type ChartMetricAvailable = Readonly<{
-  status: "available";
-  value: number;
-  decimalUsd: string;
-  sourceTotalUsd: string | null;
-  derivation:
-    | "reviewed_total_divided_by_trial_count"
-    | "reviewed_f1_cost_per_clean_success";
-  qualification: string | null;
-}>;
-
-export type ChartMetricUnavailable = Readonly<{
-  status: "unavailable";
-  value: null;
-  decimalUsd: null;
-  sourceTotalUsd: null;
-  derivation: null;
-  qualification: null;
-  reason: string;
-}>;
-
-export type ChartMetricValue = ChartMetricAvailable | ChartMetricUnavailable;
-
-export type ChartEvidenceAmount =
-  | Readonly<{
-      status: "available";
-      decimalUsd: string;
-      value: number;
-      evidenceBasis: "reviewed_adjusted_outcome_cost";
-    }>
-  | Readonly<{
-      status: "unavailable";
-      decimalUsd: null;
-      value: null;
-      evidenceBasis: null;
-      reason: string;
-    }>;
-
-export type ChartArmDatum = Readonly<{
-  armId: string;
-  displayName: string;
-  reviewedProvider: string;
-  providerFamily: string;
-  providerFamilyLabel: string;
-  activeScope: ChartScope;
-  scopeMembership: readonly ChartScope[];
-  selectedRunLabel: string;
-  trialCount: number;
-  successCount: number;
-  passRate: number;
-  cleanSuccessCount: number;
-  recordedCostUsd: string;
-  reviewedComparableCostUsd: string | null;
-  adjustedKnownCostUsd: string | null;
-  qualifiedRetainedRateCostUsd: string | null;
-  costBasis: ReviewedPhase3Arm["costBasis"];
-  costBasisLabel: "Adjusted known cost" | "Qualified retained-rate estimate";
-  costSources: readonly string[];
-  costConfidence: string;
-  pricingProvenanceStatus: ReviewedPhase3Arm["pricingProvenanceStatus"];
-  armRunAllocationConfidence: ReviewedPhase3Arm["armRunAllocationConfidence"];
-  trialAllocationStatus: ReviewedPhase3Arm["trialAllocationStatus"];
-  billingReconciliationStatus: ReviewedPhase3Arm["billingReconciliationStatus"];
-  providerLogExclusivityStatus: "not_proven" | null;
-  accountingGapUsd: string;
-  missingRecordedCostCount: number;
-  unresolvedCostCount: number;
-  adjustedCostPerAttempt: ChartMetricValue;
-  costPerCleanSuccess: ChartMetricValue;
-  recordedCostPerAttempt: ChartMetricValue;
-  failureIncompleteSpend: ChartEvidenceAmount;
-  selectedRunHref: string;
-  armHref: string;
-  qualificationText: string | null;
-  metricAvailabilityReasons: Readonly<Partial<Record<ChartXAxisMetric, string>>>;
-}>;
-
-export type ChartProviderFilterOption = Readonly<{
-  providerFamily: string;
-  label: string;
-  armCount: number;
-}>;
-
-export type ChartMetricSelection = Readonly<{
-  metric: ChartXAxisMetric;
-  warning: "invalid_metric" | "repeated_metric" | null;
-  warningMessage: string | null;
-  usedDefault: boolean;
-}>;
-
-export type ChartPlotPoint = Readonly<{
-  arm: ChartArmDatum;
-  armId: string;
-  xValue: number;
-  xDecimalUsd: string;
-  passRate: number;
-}>;
-
-export type ChartMetricEligibility = Readonly<{
-  eligiblePoints: readonly ChartPlotPoint[];
-  unavailableArms: readonly ChartArmDatum[];
-}>;
-
-export type CostPerformanceChartView = Readonly<{
-  metric: ChartXAxisMetric;
-  selectedArmIds: readonly string[];
-  selectedProviderFamilies: readonly string[];
-  providerVisibleArms: readonly ChartArmDatum[];
-  selectedVisibleArms: readonly ChartArmDatum[];
-  plotPoints: readonly ChartPlotPoint[];
-  unavailableMetricArms: readonly ChartArmDatum[];
-  frontier: readonly ChartPlotPoint[];
-}>;
-
-export type AccessibleChartRow = Readonly<{
-  armId: string;
-  displayName: string;
-  reviewedProvider: string;
-  providerFamily: string;
-  providerFamilyLabel: string;
-  scopeMembership: readonly ChartScope[];
-  selectedRunLabel: string;
-  successCount: number;
-  trialCount: number;
-  passRate: number;
-  xMetric: ChartXAxisMetric;
-  xMetricValue: ChartMetricValue;
-  costBasis: ChartArmDatum["costBasis"];
-  costBasisLabel: ChartArmDatum["costBasisLabel"];
-  costSources: readonly string[];
-  costConfidence: string;
-  pricingProvenanceStatus: ChartArmDatum["pricingProvenanceStatus"];
-  armRunAllocationConfidence: ChartArmDatum["armRunAllocationConfidence"];
-  trialAllocationStatus: ChartArmDatum["trialAllocationStatus"];
-  billingReconciliationStatus: ChartArmDatum["billingReconciliationStatus"];
-  providerLogExclusivityStatus: ChartArmDatum["providerLogExclusivityStatus"];
-  accountingGapUsd: string;
-  failureIncompleteSpend: ChartEvidenceAmount;
-  qualificationText: string | null;
-  armHref: string;
-  selectedRunHref: string;
-}>;
-
-export const DEFAULT_CHART_SCOPE: ChartScope = "phase3-extended";
-export const DEFAULT_CHART_X_AXIS_METRIC: ChartXAxisMetric = "adjusted_cost_per_attempt";
-
-/** Values within this absolute tolerance are treated as equal on either axis. */
-export const PARETO_FLOAT_TOLERANCE = 1e-12;
-
-export const CHART_X_AXIS_OPTIONS: readonly Readonly<{
-  metric: ChartXAxisMetric;
-  label: string;
-}>[] = Object.freeze([
-  Object.freeze({ metric: "adjusted_cost_per_attempt", label: "Adjusted cost per attempt" }),
-  Object.freeze({ metric: "cost_per_clean_success", label: "Cost per clean success" }),
-  Object.freeze({ metric: "recorded_cost_per_attempt", label: "Recorded cost per attempt" }),
-]);
-
-const CHART_X_AXIS_METRICS = new Set<ChartXAxisMetric>(
-  CHART_X_AXIS_OPTIONS.map((option) => option.metric),
-);
 const DERIVED_DECIMAL_PLACES = 15;
 
 type DecimalParts = Readonly<{ units: bigint; scale: number }>;
@@ -247,10 +90,6 @@ function divideDecimal(value: string, divisor: number, label: string): Readonly<
   return { decimal, value: decimalNumber(decimal, `${label} quotient`) };
 }
 
-function stableTextCompare(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0;
-}
-
 function providerPresentationFor(reviewedProvider: string): Readonly<{
   providerFamily: string;
   label: string;
@@ -264,10 +103,6 @@ function providerPresentationFor(reviewedProvider: string): Readonly<{
     ];
   }
   return Object.freeze({ providerFamily: reviewedProvider, label: reviewedProvider });
-}
-
-function freezeStrings(values: Iterable<string>): readonly string[] {
-  return Object.freeze([...new Set(values)].sort(stableTextCompare));
 }
 
 function availableDerivedMetric(
@@ -536,240 +371,4 @@ export function selectCostPerformanceChartScope(
   value: string | readonly string[] | null | undefined,
 ): ReviewedScopeSelection {
   return selectReviewedPhase3Scope(value);
-}
-
-export function selectChartXAxisMetric(
-  value: string | readonly string[] | null | undefined,
-): ChartMetricSelection {
-  if (value === null || value === undefined || value === "") {
-    return Object.freeze({
-      metric: DEFAULT_CHART_X_AXIS_METRIC,
-      warning: null,
-      warningMessage: null,
-      usedDefault: true,
-    });
-  }
-  if (Array.isArray(value)) {
-    return Object.freeze({
-      metric: DEFAULT_CHART_X_AXIS_METRIC,
-      warning: "repeated_metric",
-      warningMessage: "Repeated x-axis metric values are not supported; adjusted cost per attempt was selected.",
-      usedDefault: true,
-    });
-  }
-  if (CHART_X_AXIS_METRICS.has(value as ChartXAxisMetric)) {
-    return Object.freeze({
-      metric: value as ChartXAxisMetric,
-      warning: null,
-      warningMessage: null,
-      usedDefault: false,
-    });
-  }
-  return Object.freeze({
-    metric: DEFAULT_CHART_X_AXIS_METRIC,
-    warning: "invalid_metric",
-    warningMessage: "Unknown x-axis metric; adjusted cost per attempt was selected.",
-    usedDefault: true,
-  });
-}
-
-export function deriveProviderFilterOptions(
-  arms: readonly ChartArmDatum[],
-): readonly ChartProviderFilterOption[] {
-  const providers = new Map<string, { label: string; armCount: number }>();
-  for (const arm of arms) {
-    const current = providers.get(arm.providerFamily);
-    if (current && current.label !== arm.providerFamilyLabel) {
-      throw new Error(`Provider family ${arm.providerFamily} has conflicting presentation labels`);
-    }
-    providers.set(arm.providerFamily, {
-      label: arm.providerFamilyLabel,
-      armCount: (current?.armCount ?? 0) + 1,
-    });
-  }
-  return Object.freeze(
-    [...providers]
-      .sort(([left], [right]) => stableTextCompare(left, right))
-      .map(([providerFamily, option]) => Object.freeze({
-        providerFamily,
-        label: option.label,
-        armCount: option.armCount,
-      })),
-  );
-}
-
-export function selectAllProviderFamilies(
-  options: readonly ChartProviderFilterOption[],
-): readonly string[] {
-  return freezeStrings(options.map((option) => option.providerFamily));
-}
-
-export function clearProviderFamilies(): readonly string[] {
-  return Object.freeze([]);
-}
-
-export function selectAllChartArmIds(arms: readonly ChartArmDatum[]): readonly string[] {
-  return freezeStrings(arms.map((arm) => arm.armId));
-}
-
-export function clearChartArmIds(): readonly string[] {
-  return Object.freeze([]);
-}
-
-export function filterProviderVisibleArms(
-  arms: readonly ChartArmDatum[],
-  selectedProviderFamilies: readonly string[],
-): readonly ChartArmDatum[] {
-  const providers = new Set(selectedProviderFamilies);
-  return Object.freeze(arms.filter((arm) => providers.has(arm.providerFamily)));
-}
-
-export function filterSelectedVisibleArms(
-  providerVisibleArms: readonly ChartArmDatum[],
-  selectedArmIds: readonly string[],
-): readonly ChartArmDatum[] {
-  const selected = new Set(selectedArmIds);
-  return Object.freeze(providerVisibleArms.filter((arm) => selected.has(arm.armId)));
-}
-
-export function metricValueForArm(
-  arm: ChartArmDatum,
-  metric: ChartXAxisMetric,
-): ChartMetricValue {
-  if (metric === "adjusted_cost_per_attempt") return arm.adjustedCostPerAttempt;
-  if (metric === "cost_per_clean_success") return arm.costPerCleanSuccess;
-  return arm.recordedCostPerAttempt;
-}
-
-export function deriveMetricEligibility(
-  arms: readonly ChartArmDatum[],
-  metric: ChartXAxisMetric,
-): ChartMetricEligibility {
-  const eligiblePoints: ChartPlotPoint[] = [];
-  const unavailableArms: ChartArmDatum[] = [];
-  for (const arm of arms) {
-    const metricValue = metricValueForArm(arm, metric);
-    if (metricValue.status === "unavailable") {
-      unavailableArms.push(arm);
-      continue;
-    }
-    eligiblePoints.push(Object.freeze({
-      arm,
-      armId: arm.armId,
-      xValue: metricValue.value,
-      xDecimalUsd: metricValue.decimalUsd,
-      passRate: arm.passRate,
-    }));
-  }
-  eligiblePoints.sort((left, right) => left.xValue - right.xValue
-    || right.passRate - left.passRate
-    || stableTextCompare(left.armId, right.armId));
-  unavailableArms.sort((left, right) => stableTextCompare(left.armId, right.armId));
-  return Object.freeze({
-    eligiblePoints: Object.freeze(eligiblePoints),
-    unavailableArms: Object.freeze(unavailableArms),
-  });
-}
-
-function compareWithTolerance(left: number, right: number, tolerance: number): -1 | 0 | 1 {
-  if (left < right - tolerance) return -1;
-  if (left > right + tolerance) return 1;
-  return 0;
-}
-
-function dominates(
-  candidate: ChartPlotPoint,
-  point: ChartPlotPoint,
-  tolerance: number,
-): boolean {
-  const costComparison = compareWithTolerance(candidate.xValue, point.xValue, tolerance);
-  const passRateComparison = compareWithTolerance(candidate.passRate, point.passRate, tolerance);
-  return costComparison <= 0
-    && passRateComparison >= 0
-    && (costComparison < 0 || passRateComparison > 0);
-}
-
-export function deriveParetoFrontier(
-  eligiblePoints: readonly ChartPlotPoint[],
-  tolerance: number = PARETO_FLOAT_TOLERANCE,
-): readonly ChartPlotPoint[] {
-  if (!Number.isFinite(tolerance) || tolerance < 0) {
-    throw new Error("Pareto tolerance must be a nonnegative finite number");
-  }
-  const ids = new Set<string>();
-  for (const point of eligiblePoints) {
-    if (ids.has(point.armId)) throw new Error(`Duplicate Pareto point for ${point.armId}`);
-    if (!Number.isFinite(point.xValue) || !Number.isFinite(point.passRate)) {
-      throw new Error(`Pareto point for ${point.armId} must be finite`);
-    }
-    ids.add(point.armId);
-  }
-  const frontier = eligiblePoints.filter((point) => !eligiblePoints.some(
-    (candidate) => candidate.armId !== point.armId && dominates(candidate, point, tolerance),
-  ));
-  return Object.freeze([...frontier].sort((left, right) => left.xValue - right.xValue
-    || right.passRate - left.passRate
-    || stableTextCompare(left.armId, right.armId)));
-}
-
-export function deriveCostPerformanceChartView(input: Readonly<{
-  arms: readonly ChartArmDatum[];
-  selectedProviderFamilies: readonly string[];
-  selectedArmIds: readonly string[];
-  metric: ChartXAxisMetric;
-  paretoTolerance?: number;
-}>): CostPerformanceChartView {
-  const providerVisibleArms = filterProviderVisibleArms(
-    input.arms,
-    input.selectedProviderFamilies,
-  );
-  const selectedVisibleArms = filterSelectedVisibleArms(
-    providerVisibleArms,
-    input.selectedArmIds,
-  );
-  const eligibility = deriveMetricEligibility(selectedVisibleArms, input.metric);
-  return Object.freeze({
-    metric: input.metric,
-    selectedArmIds: freezeStrings(input.selectedArmIds),
-    selectedProviderFamilies: freezeStrings(input.selectedProviderFamilies),
-    providerVisibleArms,
-    selectedVisibleArms,
-    plotPoints: eligibility.eligiblePoints,
-    unavailableMetricArms: eligibility.unavailableArms,
-    frontier: deriveParetoFrontier(eligibility.eligiblePoints, input.paretoTolerance),
-  });
-}
-
-export function buildAccessibleChartRows(
-  arms: readonly ChartArmDatum[],
-  metric: ChartXAxisMetric,
-): readonly AccessibleChartRow[] {
-  return Object.freeze(arms.map((arm) => Object.freeze({
-    armId: arm.armId,
-    displayName: arm.displayName,
-    reviewedProvider: arm.reviewedProvider,
-    providerFamily: arm.providerFamily,
-    providerFamilyLabel: arm.providerFamilyLabel,
-    scopeMembership: arm.scopeMembership,
-    selectedRunLabel: arm.selectedRunLabel,
-    successCount: arm.successCount,
-    trialCount: arm.trialCount,
-    passRate: arm.passRate,
-    xMetric: metric,
-    xMetricValue: metricValueForArm(arm, metric),
-    costBasis: arm.costBasis,
-    costBasisLabel: arm.costBasisLabel,
-    costSources: arm.costSources,
-    costConfidence: arm.costConfidence,
-    pricingProvenanceStatus: arm.pricingProvenanceStatus,
-    armRunAllocationConfidence: arm.armRunAllocationConfidence,
-    trialAllocationStatus: arm.trialAllocationStatus,
-    billingReconciliationStatus: arm.billingReconciliationStatus,
-    providerLogExclusivityStatus: arm.providerLogExclusivityStatus,
-    accountingGapUsd: arm.accountingGapUsd,
-    failureIncompleteSpend: arm.failureIncompleteSpend,
-    qualificationText: arm.qualificationText,
-    armHref: arm.armHref,
-    selectedRunHref: arm.selectedRunHref,
-  })));
 }

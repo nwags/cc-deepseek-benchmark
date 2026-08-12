@@ -7,7 +7,7 @@ import {
   type ChartMetricValue,
   type ChartScope,
   type ChartXAxisMetric,
-} from "../lib/cost-performance-chart";
+} from "../lib/cost-performance-chart-view";
 
 export type CostPerformanceChartTableProps = Readonly<{
   arms: readonly ChartArmDatum[];

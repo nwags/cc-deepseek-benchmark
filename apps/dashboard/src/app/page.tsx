@@ -2,6 +2,7 @@ import Link from "next/link";
 import { TermInfo } from "../components/TermInfo";
 import { AppShell } from "../components/AppShell";
 import { CorpusScopeNotice } from "../components/CorpusScopeNotice";
+import { CostPerformanceChart } from "../components/CostPerformanceChart";
 import { DataFreshnessNotice } from "../components/DataFreshnessNotice";
 import { MetricCard } from "../components/MetricCard";
 import { SuiteHeatmap } from "../components/SuiteHeatmap";
@@ -38,6 +39,11 @@ import {
   type DatabaseReadStatus,
 } from "../lib/overview-reviewed-comparison";
 import { formatRecordedCost, formatNumber, formatPercent, formatSeconds } from "../lib/format";
+import {
+  deriveProviderFilterOptions,
+  getCostPerformanceChartArms,
+  selectCostPerformanceChartScope,
+} from "../lib/cost-performance-chart";
 
 export const dynamic = "force-dynamic";
 
@@ -75,7 +81,15 @@ function warningText(messages: Array<string | null>): string | null {
   return retained.length ? retained.join(" ") : null;
 }
 
-export default async function DashboardPage() {
+type DashboardPageSearchParams = Promise<{ chart_scope?: string | string[] }>;
+
+export default async function DashboardPage({
+  searchParams,
+}: Readonly<{ searchParams?: DashboardPageSearchParams }>) {
+  const query = searchParams ? await searchParams : {};
+  const chartScopeSelection = selectCostPerformanceChartScope(query.chart_scope);
+  const chartArms = getCostPerformanceChartArms(chartScopeSelection.scopeId);
+  const chartProviderOptions = deriveProviderFilterOptions(chartArms);
   const reviewedScope = getReviewedPhase3Scope("phase3-extended");
   const runSelectionScope = getReviewedRunSelectionScope("phase3-extended");
   const selectedRunLabels = getReviewedSelectedRunLabels("phase3-extended");
@@ -372,6 +386,14 @@ export default async function DashboardPage() {
           </table>
         </div>
       </section>
+
+      <CostPerformanceChart
+        key={chartScopeSelection.scopeId}
+        arms={chartArms}
+        providerOptions={chartProviderOptions}
+        scopeId={chartScopeSelection.scopeId}
+        scopeWarningMessage={chartScopeSelection.warningMessage}
+      />
 
       <section className="quality-context-panel">
         <strong>Different population below:</strong> the heatmap and hardest-task sections use current dynamic

@@ -15,10 +15,16 @@ const runSelection = JSON.parse(await readFile(
   resolve(here, "../../../../results/phase3/reporting/phase3_reviewed_run_selection_20260809.json"),
   "utf8",
 ));
+const viewSource = await readFile(join(here, "cost-performance-chart-view.ts"), "utf8");
+const viewCompiled = ts.transpileModule(viewSource, {
+  compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
+}).outputText;
 const source = await readFile(join(here, "cost-performance-chart.ts"), "utf8");
 const compiled = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
-}).outputText.replace(/^import .*;$/gm, "");
+}).outputText
+  .replace(/^import .*;$/gm, "")
+  .replace(/^export \* .*;$/gm, "");
 const moduleUrl = `data:text/javascript;base64,${Buffer.from(`
   const PHASE3_REVIEWED_COMPARISON = ${JSON.stringify(comparison)};
   const PHASE3_REVIEWED_RUN_SELECTION = ${JSON.stringify(runSelection)};
@@ -32,6 +38,7 @@ const moduleUrl = `data:text/javascript;base64,${Buffer.from(`
     usedDefault: value !== "phase3-core" && value !== "phase3-extended",
   });
   const buildReviewedRunHref = (runLabel) => \`/runs/\${encodeURIComponent(runLabel)}\`;
+  ${viewCompiled}
   ${compiled}
 `).toString("base64")}`;
 const chart = await import(moduleUrl);

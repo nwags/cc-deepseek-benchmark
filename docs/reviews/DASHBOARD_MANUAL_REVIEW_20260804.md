@@ -57,7 +57,7 @@ Migration 009 must not be rerun. No paid benchmark runs, provider probes, Supaba
 - [x] DR-009 Reviewed Phase 3 extended comparison defaulted with core alternate — implemented; second manual visual acceptance pending
 - [x] DR-012 Frozen reviewed-run identity and cost reconciliation on Overview — implemented; second manual visual acceptance pending
 - [x] DR-010 freshness/provenance is implemented across Overview, index/inventory, detail, artifact-byte, live, live-artifact, raw-download, and API health routes; second manual visual acceptance remains pending
-- [ ] DR-011 / DR-301 interactive cost/performance frontier — Group H1 reviewed data/model/accessibility foundation implemented; final interactive visual rendering and control integration remain pending H2
+- [x] DR-011 / DR-301 interactive cost/performance frontier implementation — Groups H1/H2 complete as of 2026-08-12; second manual visual acceptance remains pending
 
 ## Observations versus confirmed defects
 
@@ -94,6 +94,7 @@ The Implementation log below preserves the “manual acceptance pending” state
 | 2026-08-11 | DR-010 — Group G4b | Added exact-identity freshness/provenance to artifact, trial, run, eval-suite, and eval/task detail routes; separated Supabase metadata from bounded R2 byte evidence; exposed retrieval completeness and supportable integrity facts; and made duplicate Phase 3 run-label matches fail closed. The arm-run route remains an exact-ID compatibility redirect. | Detail routes; `apps/dashboard/src/components/ArtifactProvenanceNotice.tsx`; freshness source registry; artifact-content and dashboard-data helpers; focused tests; specification and this record | Focused Node/Python tests; typecheck; production build; repository checks | Detail metadata and artifact-byte provenance implemented; live, live-artifact, and API rollout remains pending, so DR-010 remains globally incomplete. |
 | 2026-08-11 | DR-010 — Group G4c | Completed the production-route freshness rollout for Live Runs, live-artifact metadata and bounded R2 bytes, raw live-artifact download source/failure semantics, and API health. Added a pure live-heartbeat liveness contract whose 90-second threshold is confined to live reporting, and kept explicitly enabled local NDJSON fallback separate from unavailable cloud state. | `/runs/live`; `/live-artifacts/[artifactId]`; `/live-artifacts/[artifactId]/download`; `/api/health`; live source registry and liveness notice; focused tests; specification and this record | Focused Node/Python tests; typecheck; production build; repository checks | DR-010 implementation complete pending second manual visual acceptance; no overall acceptance is claimed. |
 | 2026-08-11 | DR-011; DR-301 — Group H1 | Established the reviewed chart data contract, explicit metric-availability rules, frozen G1 selected-run links, canonical presentation provider-family filters that retain raw F1 provider values, deterministic Pareto-frontier computation, select-all/clear semantics, and an accessible non-hover table/model. Kimi K3 retains its qualified retained-rate cost basis for adjusted cost per attempt while unsupported cost-per-clean-success and failure/incomplete-spend fields remain unavailable rather than zero. | `apps/dashboard/src/lib/cost-performance-chart.ts`; `apps/dashboard/src/components/CostPerformanceChartTable.tsx`; focused Node/Python tests; package test wiring; specification and this record | Focused H1 tests; full dashboard Node tests; typecheck; production build; live-dashboard source tests; `make check`; secret scan; diff/protected-path checks | Passed; DR-011/DR-301 remain open pending H2 interactive visual rendering and control integration. |
+| 2026-08-12 | DR-011; DR-301 — Group H2 | Integrated one responsive interactive SVG frontier into Overview after the reviewed leaderboard and before the dynamic-population boundary. The current reviewed G2 headline/leaderboard remains extended, while the chart's explicit `chart_scope` query state independently selects reviewed extended or historical core arms. Added a client-safe H1 view module, native chart-scope/metric/provider/arm controls, stable normalized-provider colors, H1-frontier rendering, fixed point sizing, categorical qualification/gap rings, focusable points with persistent evidence details, explicit empty/unavailable states, and the visible H1 evidence table. Kimi K3 remains plotted only where H1 permits and its retained-rate, provenance, allocation, exclusivity, billing, and accounting-gap qualifications remain prominent. | `apps/dashboard/src/components/CostPerformanceChart.tsx`; `apps/dashboard/src/lib/cost-performance-chart-view.ts`; `apps/dashboard/src/lib/cost-performance-chart-geometry.ts`; Overview and scoped CSS integration; focused Node/Python tests; package test wiring; specification and this record | Focused H1/H2 tests; full dashboard Node tests; typecheck; production build; live-dashboard source tests; repository and protected-path checks | Implementation complete; second manual visual acceptance pending. Review axes, clipping, provider colors, frontier readability, Kimi qualification visibility, controls, keyboard focus, the non-hover table, Overview height, and narrow viewport behavior. |
 
 Commit Group C used source inspection only. No provider, LiteLLM, Claude Code, Harbor, router, runner, or infrastructure probes were run, and no external operational service was queried.
 
@@ -229,6 +230,8 @@ The review was performed at approximately 1920×1080.
 - The dynamic inventory has no visible freshness or canonical-publication timestamp.
 - The requested interactive cost/performance chart remains missing.
 
+Group H2 now addresses this first-pass implementation finding. It is not visually accepted by this dated record; the second pass must inspect axis legibility, point clipping, provider-color distinction, frontier readability, Kimi qualification prominence, native control behavior, visible keyboard focus, non-hover table usability, overall Overview height/clutter, and narrow-viewport behavior.
+
 #### Cross-phase
 
 - The current default excludes Kimi K3.
@@ -277,7 +280,7 @@ Dynamic pages must expose their data source, latest included evidence, canonical
 ### Blockers
 
 - DR-008, DR-009, and DR-012 are implemented pending the second manual visual acceptance pass.
-- DR-010 is implementation-complete through Groups G3/G4a/G4b/G4c and pending second manual visual acceptance; DR-011/DR-301 has its Group H1 chart foundation but remains open pending H2, and DR-013 through DR-015 remain open.
+- DR-010 is implementation-complete through Groups G3/G4a/G4b/G4c and pending second manual visual acceptance; DR-011/DR-301 is implementation-complete through Groups H1/H2 and pending second manual visual acceptance; DR-013 through DR-015 remain open.
 - DR-007 remains pending until the corrective work and second visual acceptance pass are recorded.
 
 ### Misleading representations
@@ -285,7 +288,7 @@ Dynamic pages must expose their data source, latest included evidence, canonical
 - No regression requiring rollback of Commit Groups B–D was found.
 - Cross-phase and Cost Coverage now default to the reviewed extended comparison; their revised presentation still requires second-pass visual acceptance.
 - Overview distinguishes reviewed snapshot provenance from operational populations; index/inventory and detail routes disclose population-specific execution freshness; artifact routes distinguish database metadata from bounded R2 evidence; and Live Runs keeps cloud state, heartbeat liveness, and local fallback separate. API health names its ordinary database source without borrowing the live threshold.
-- Layout, charting, Architecture detail, Data Model coverage, and contextual glossary links require the remaining corrective work in DR-011 and DR-013 through DR-015.
+- Charting implementation is complete pending visual acceptance. Layout, Architecture detail, Data Model coverage, and contextual glossary links still require the corrective work in DR-013 through DR-015.
 
 ### Usability findings
 
@@ -293,4 +296,4 @@ Dynamic pages must expose their data source, latest included evidence, canonical
 
 ### Acceptance decision
 
-Failed. DR-008, DR-009, DR-010, and DR-012 are implemented pending review; DR-011 and DR-013 through DR-015 remain open; and DR-007 remains pending until a second visual acceptance pass is recorded.
+Failed. DR-008, DR-009, DR-010, DR-011/DR-301, and DR-012 are implemented pending review; DR-013 through DR-015 remain open; and DR-007 remains pending until a second visual acceptance pass is recorded.
