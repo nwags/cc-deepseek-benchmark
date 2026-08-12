@@ -1,3 +1,4 @@
+import hashlib
 from pathlib import Path
 
 
@@ -515,6 +516,73 @@ def test_overview_uses_frozen_reviewed_runs_and_exact_database_reconciliation() 
     assert "not restricted to the frozen" in overview
     assert "can combine multiple valid imports for an arm" in overview
     assert "overview-reviewed-comparison.test.mjs" in package
+
+
+def test_cost_performance_chart_foundation_uses_only_reviewed_f1_g1_contracts() -> None:
+    model = Path("apps/dashboard/src/lib/cost-performance-chart.ts").read_text()
+    table = Path(
+        "apps/dashboard/src/components/CostPerformanceChartTable.tsx"
+    ).read_text()
+    package = Path("apps/dashboard/package.json").read_text()
+
+    assert "PHASE3_REVIEWED_COMPARISON" in model
+    assert "getReviewedPhase3Scope" in model
+    assert "getReviewedRunSelectionScope" in model
+    assert "buildReviewedRunHref" in model
+    assert "getArmRows" not in model
+    assert "dashboard-data" not in model
+    assert "./db" not in model
+    assert "latest" not in model.lower()
+
+    assert "displayName: arm.backendModel" in model
+    assert "reviewedProvider: arm.provider" in model
+    assert "providerFamily: providerPresentation.providerFamily" in model
+    assert 'providerFamily: "moonshot-kimi"' in model
+    assert 'label: "Moonshot / Kimi"' in model
+    assert "const passRate = arm.successCount / arm.trialCount" in model
+    assert 'arm.costBasis === "qualified_retained_rate_estimate"' in model
+    assert "not adjusted-known, invoice, provider-billed, or official-price" in model
+    assert "not derived from a qualified total by arithmetic convenience" in model
+    assert "PARETO_FLOAT_TOLERANCE = 1e-12" in model
+    assert "candidate.xValue" in model
+    assert "candidate.passRate" in model
+    assert "metricAvailabilityReasons" in model
+
+    for material_fact in (
+        "Arm",
+        "Provider",
+        "Scope membership",
+        "Selected reviewed run",
+        "Successes / trials",
+        "Pass rate",
+        "Cost basis",
+        "Confidence and provenance",
+        "Accounting gap",
+        "Failure / incomplete spend",
+        "Qualification",
+        "Arm evidence",
+    ):
+        assert material_fact in table
+    assert 'aria-label="Accessible cost and performance chart data"' in table
+    assert "Unavailable —" in table
+    assert "Reviewed provider value:" in table
+    assert "CostPerformanceChartTable" in table
+    assert "cost-performance-chart.test.mjs" in package
+
+
+def test_h1_does_not_modify_canonical_or_generated_f1_g1_inputs() -> None:
+    expected_hashes = {
+        "results/phase3/reporting/phase3_extended_reviewed_comparison_20260805.json":
+            "49445ab5ef77f8a660e63857e811740a2631520eb9164a191b6dea4644c4231d",
+        "apps/dashboard/src/generated/phase3-reviewed-comparison-data.ts":
+            "51963cf066c74c7af7819ebead5c0c06e70852028f87d7be5535424299bda068",
+        "results/phase3/reporting/phase3_reviewed_run_selection_20260809.json":
+            "5f551c62833adc8a5220ffd7390a5cd50a8f483109536c65b831b66fcd6cf181",
+        "apps/dashboard/src/generated/phase3-reviewed-run-selection-data.ts":
+            "8cc74625cbfabc5ef8d1822af3b9b2f36672ae0364aac4751e09de54d1d97776",
+    }
+    for path, expected_hash in expected_hashes.items():
+        assert hashlib.sha256(Path(path).read_bytes()).hexdigest() == expected_hash
 
 
 def test_overview_has_population_specific_freshness_and_snapshot_provenance() -> None:

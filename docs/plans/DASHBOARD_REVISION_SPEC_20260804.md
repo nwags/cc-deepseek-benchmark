@@ -393,7 +393,7 @@ Acceptance criteria:
 
 ## 6A. Corrective requirements confirmed by the 2026-08-05 manual review
 
-These requirements record the corrective work required before a second manual visual acceptance pass. DR-008 and DR-009 are implemented through Commit Groups F1/F2, DR-012 is implemented through Commit Groups G1/G2, and DR-010 is implemented through Groups G3/G4a/G4b/G4c; all await second manual visual acceptance. Group G4c completes the freshness/provenance implementation across live supervision, live-artifact metadata and bytes, raw live-artifact download semantics, and API health. DR-011 and DR-013 through DR-015 remain open.
+These requirements record the corrective work required before a second manual visual acceptance pass. DR-008 and DR-009 are implemented through Commit Groups F1/F2, DR-012 is implemented through Commit Groups G1/G2, and DR-010 is implemented through Groups G3/G4a/G4b/G4c; all await second manual visual acceptance. Group G4c completes the freshness/provenance implementation across live supervision, live-artifact metadata and bytes, raw live-artifact download semantics, and API health. Group H1 establishes the reviewed data/model/accessibility foundation for DR-011/DR-301, but the interactive visual and control integration remain pending H2. DR-011 and DR-013 through DR-015 remain open.
 
 ### DR-008 — Reconcile and integrate Kimi K3 cost evidence
 
@@ -457,7 +457,11 @@ Group G4c completes the production-route rollout. `/runs/live` names the exact l
 
 **Priority:** P0 — prerequisite for the second manual acceptance pass
 
+**Implementation status:** Group H1 chart foundation complete as of 2026-08-11; DR-011 remains open pending H2 interactive rendering and control integration.
+
 DR-301 is the detailed interaction and presentation specification for this requirement; DR-011 and DR-301 describe one chart, not two duplicate chart requirements.
+
+Group H1 established the reviewed chart data contract, metric-availability rules, frozen selected-run links, canonical presentation provider-family filters that retain raw F1 provider values, deterministic Pareto-frontier computation, and accessible non-hover table/model. It uses F1 reviewed facts for quantitative values and G1 only for frozen run identity. It preserves Kimi K3's qualified retained-rate basis for the adjusted-cost-per-attempt comparison while leaving its F1-null cost-per-clean-success and outcome-spend values unavailable. Final interactive SVG/chart rendering, keyboard control integration, provider color presentation, and point interaction remain pending H2; this foundation does not complete DR-011/DR-301.
 
 Required outcome:
 
@@ -685,6 +689,8 @@ Scope and Kimi cost integration must be completed first so chart inputs are stab
 
 **Priority:** P0 — detailed implementation specification for DR-011
 
+**Implementation status:** Group H1 data, computation, filtering, link, and accessible-table foundation complete as of 2026-08-11; DR-301 remains open pending H2.
+
 DR-301 is promoted into the corrective pre-second-acceptance work. It supplies the detailed interaction and presentation requirements for DR-011 and is not a separate duplicate chart requirement.
 
 Controls:
@@ -765,7 +771,7 @@ Show:
 1. Scope selection and qualified Kimi pricing-provenance/cost integration (`DR-008`, `DR-009`) were completed in Commit Groups F1/F2 and now provide the stable reviewed inputs.
 2. The reviewed run-selection and Overview run/cost contract (`DR-012`) was completed in Commit Groups G1/G2 against those stable inputs.
 3. The Group G3/G4a/G4b/G4c freshness rollout (`DR-010`) is implementation-complete; retain it for the second manual visual acceptance pass.
-4. Implement the single interactive cost/performance chart specified jointly by `DR-011` and `DR-301` after its scope and cost inputs are stable.
+4. Group H1 established the reviewed data/model/accessibility foundation for the single chart specified jointly by `DR-011` and `DR-301`; complete its interactive SVG rendering and control integration in H2.
 5. Complete the required layout, Architecture/Data Model, and glossary-link corrections (`DR-013` through `DR-015`).
 6. Run the second manual visual acceptance pass and finish `DR-007` only after the chart and other corrective P0 work are complete.
 
