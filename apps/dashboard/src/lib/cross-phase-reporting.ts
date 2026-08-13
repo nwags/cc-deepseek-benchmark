@@ -1,3 +1,8 @@
+import type {
+  ReviewedPhase3Arm,
+  ReviewedPhase3Scope,
+} from "./phase3-reviewed-comparison";
+
 export type CrossPhaseRow = {
   phase: string;
   arm_id: string;
@@ -9,13 +14,19 @@ export type CrossPhaseRow = {
   trial_count: number;
   pass_rate: number;
   recorded_cost_usd: number;
-  adjusted_cost_usd: number;
+  adjusted_cost_usd: number | null;
   known_accounting_gap_usd: number;
-  cost_per_clean_success_usd: number;
-  failure_incomplete_spend_share: number;
-  unclean_spend_share: number;
+  cost_per_clean_success_usd: number | null;
+  failure_incomplete_spend_share: number | null;
+  unclean_spend_share: number | null;
   median_wall_clock_seconds: number | null;
   cost_confidence: string;
+  reviewed_cost_basis?: "adjusted_known_cost" | "qualified_retained_rate_estimate";
+  reviewed_cost_label?: string;
+  pricing_provenance_status?: string;
+  arm_run_allocation_confidence?: string;
+  trial_allocation_status?: string;
+  billing_reconciliation_status?: string;
 };
 
 export type RouterComparisonRow = {
@@ -52,9 +63,11 @@ export type PhaseSummary = {
   success_count: number;
   clean_success_count: number;
   pass_rate: number;
-  adjusted_cost_usd: number;
+  adjusted_cost_usd: number | null;
+  cost_basis: string;
+  cost_label: string;
   cost_per_clean_success_usd: number | null;
-  unclean_spend_usd: number;
+  unclean_spend_usd: number | null;
   unclean_spend_share: number | null;
 };
 
@@ -795,8 +808,58 @@ const behaviorRows: BehaviorRow[] = [
   }
 ];
 
-export function getCrossPhaseRows(): CrossPhaseRow[] {
-  return crossPhaseRows;
+function reviewedDecimal(value: string | null): number | null {
+  if (value === null) return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) throw new Error("reviewed Phase 3 cost is not finite");
+  return parsed;
+}
+
+function reviewedArmCost(arm: ReviewedPhase3Arm): number | null {
+  return reviewedDecimal(arm.adjustedKnownCostUsd ?? arm.qualifiedRetainedRateCostUsd);
+}
+
+export function getReviewedPhase3Rows(scope: ReviewedPhase3Scope): CrossPhaseRow[] {
+  return scope.arms.map((arm) => ({
+    phase: "phase3",
+    arm_id: arm.armId,
+    backend_model: arm.backendModel,
+    provider: arm.provider,
+    routing_path: arm.routingPath,
+    success_count: arm.successCount,
+    clean_success_count: arm.cleanSuccessCount,
+    trial_count: arm.trialCount,
+    pass_rate: arm.passRate,
+    recorded_cost_usd: reviewedDecimal(arm.recordedCostUsd) as number,
+    adjusted_cost_usd: reviewedArmCost(arm),
+    known_accounting_gap_usd: reviewedDecimal(arm.accountingGapUsd) as number,
+    cost_per_clean_success_usd: reviewedDecimal(arm.adjustedCostPerCleanSuccessUsd),
+    failure_incomplete_spend_share: arm.failureOrIncompleteSpendShare,
+    unclean_spend_share: arm.nonproductiveOrUncleanSpendShare,
+    median_wall_clock_seconds: arm.medianWallClockSeconds,
+    cost_confidence: arm.costConfidence,
+    reviewed_cost_basis: arm.costBasis,
+    reviewed_cost_label: arm.costBasis === "qualified_retained_rate_estimate"
+      ? "Qualified retained-rate reconstruction"
+      : "Adjusted known cost",
+    pricing_provenance_status: arm.pricingProvenanceStatus,
+    arm_run_allocation_confidence: arm.armRunAllocationConfidence,
+    trial_allocation_status: arm.trialAllocationStatus,
+    billing_reconciliation_status: arm.billingReconciliationStatus,
+  }));
+}
+
+export function getCrossPhaseRows(
+  phase3Scope: ReviewedPhase3Scope,
+): CrossPhaseRow[] {
+  const historicalBaselines = crossPhaseRows
+    .filter((row) => row.phase !== "phase3")
+    .map((row) => ({
+      ...row,
+      reviewed_cost_basis: "adjusted_known_cost" as const,
+      reviewed_cost_label: "Adjusted known cost",
+    }));
+  return [...historicalBaselines, ...getReviewedPhase3Rows(phase3Scope)];
 }
 
 export function getRouterComparisonRows(): RouterComparisonRow[] {
@@ -807,7 +870,10 @@ export function getBehaviorRows(): BehaviorRow[] {
   return behaviorRows;
 }
 
-export function getPhaseSummaries(rows: CrossPhaseRow[]): PhaseSummary[] {
+export function getPhaseSummaries(
+  rows: CrossPhaseRow[],
+  phase3Scope?: ReviewedPhase3Scope,
+): PhaseSummary[] {
   const byPhase = new Map<string, CrossPhaseRow[]>();
 
   for (const row of rows) {
@@ -820,11 +886,41 @@ export function getPhaseSummaries(rows: CrossPhaseRow[]): PhaseSummary[] {
     const trialCount = phaseRows.reduce((sum, row) => sum + row.trial_count, 0);
     const successCount = phaseRows.reduce((sum, row) => sum + row.success_count, 0);
     const cleanSuccessCount = phaseRows.reduce((sum, row) => sum + row.clean_success_count, 0);
-    const adjustedCost = phaseRows.reduce((sum, row) => sum + row.adjusted_cost_usd, 0);
-    const uncleanSpend = phaseRows.reduce(
-      (sum, row) => sum + row.adjusted_cost_usd * row.unclean_spend_share,
-      0,
+    const completeReviewedCosts = phaseRows.every((row) => row.adjusted_cost_usd !== null);
+    const rowReviewedCost = completeReviewedCosts
+      ? phaseRows.reduce((sum, row) => sum + (row.adjusted_cost_usd as number), 0)
+      : null;
+    const hasCompleteUncleanSpend = phaseRows.every(
+      (row) => row.adjusted_cost_usd !== null && row.unclean_spend_share !== null,
     );
+    const rowUncleanSpend = hasCompleteUncleanSpend
+      ? phaseRows.reduce(
+        (sum, row) => sum + (row.adjusted_cost_usd as number) * (row.unclean_spend_share as number),
+        0,
+      )
+      : null;
+    const isSelectedPhase3 = phase === "phase3" && phase3Scope;
+    const reviewedCost = isSelectedPhase3
+      ? reviewedDecimal(
+        phase3Scope.costEvidence.adjustedKnownCostUsd
+          ?? phase3Scope.costEvidence.qualifiedAdjustedCostEstimateUsd,
+      )
+      : rowReviewedCost;
+    const costPerCleanSuccess = isSelectedPhase3
+      ? reviewedDecimal(phase3Scope.costEvidence.adjustedCostPerCleanSuccessUsd)
+      : reviewedCost !== null && cleanSuccessCount > 0
+        ? reviewedCost / cleanSuccessCount
+        : null;
+    const uncleanSpend = isSelectedPhase3
+      ? phase3Scope.costEvidence.nonproductiveOrUncleanSpendShare !== null && reviewedCost !== null
+        ? reviewedCost * phase3Scope.costEvidence.nonproductiveOrUncleanSpendShare
+        : null
+      : rowUncleanSpend;
+    const uncleanSpendShare = isSelectedPhase3
+      ? phase3Scope.costEvidence.nonproductiveOrUncleanSpendShare
+      : reviewedCost !== null && reviewedCost > 0 && uncleanSpend !== null
+        ? uncleanSpend / reviewedCost
+        : null;
 
     return {
       phase,
@@ -833,10 +929,16 @@ export function getPhaseSummaries(rows: CrossPhaseRow[]): PhaseSummary[] {
       success_count: successCount,
       clean_success_count: cleanSuccessCount,
       pass_rate: trialCount > 0 ? successCount / trialCount : 0,
-      adjusted_cost_usd: adjustedCost,
-      cost_per_clean_success_usd: cleanSuccessCount > 0 ? adjustedCost / cleanSuccessCount : null,
+      adjusted_cost_usd: reviewedCost,
+      cost_basis: isSelectedPhase3
+        ? phase3Scope.costEvidence.costBasis
+        : "adjusted_known_cost",
+      cost_label: isSelectedPhase3
+        ? phase3Scope.costEvidence.costLabel
+        : "Adjusted known cost",
+      cost_per_clean_success_usd: costPerCleanSuccess,
       unclean_spend_usd: uncleanSpend,
-      unclean_spend_share: adjustedCost > 0 ? uncleanSpend / adjustedCost : null,
+      unclean_spend_share: uncleanSpendShare,
     };
   }).sort((a, b) => a.phase.localeCompare(b.phase));
 }

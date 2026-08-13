@@ -134,3 +134,269 @@ test("snapshot/live comparison reports only changed diagnosis axes", () => {
   assert.deepEqual(trialAnalysis.changedAnalysisAxes(snapshot, live), ["activity_subtype", "telemetry_status"]);
   assert.deepEqual(trialAnalysis.changedAnalysisAxes(snapshot, { ...snapshot }), []);
 });
+
+test("reviewed Overview loaders resolve only supplied exact run labels", async () => {
+  const calls = [];
+  globalThis.__dashboardQueryHandler = async (sql, params) => {
+    calls.push({ sql, params });
+    return [];
+  };
+  const labels = [
+    "router-anthropic-haiku-sanitized/2026-07-12__03-25-22",
+    "router-kimi-k3/2026-07-22__17-51-05",
+  ];
+
+  await dashboardData.getReviewedSelectedArmRunRows(labels);
+  await dashboardData.getReviewedSelectedRunAdjustedCostRows(labels);
+
+  assert.equal(calls.length, 2);
+  assert.deepEqual(calls[0].params, [labels]);
+  assert.match(calls[0].sql, /from benchmark\.v_valid_arm_run_summary/);
+  assert.match(calls[0].sql, /where run_label = any\(\$1::text\[\]\)/);
+  assert.doesNotMatch(calls[0].sql, /limit|row_number|started_at desc/i);
+  assert.match(calls[1].sql, /from benchmark\.v_trial_adjusted_cost_coverage/);
+  assert.match(calls[1].sql, /where run_label = any\(\$1::text\[\]\)/);
+  assert.match(calls[1].sql, /group by run_label, arm_id, suite_id/);
+});
+
+test("reviewed Overview loaders reject repeated requested run labels", async () => {
+  const labels = ["arm/run", "arm/run"];
+  await assert.rejects(
+    dashboardData.getReviewedSelectedArmRunRows(labels),
+    /must be unique/,
+  );
+  await assert.rejects(
+    dashboardData.getReviewedSelectedRunAdjustedCostRows(labels),
+    /must be unique/,
+  );
+});
+
+test("Overview freshness loaders use execution completion rather than row metadata", async () => {
+  const calls = [];
+  globalThis.__dashboardQueryHandler = async (sql, params) => {
+    calls.push({ sql, params });
+    if (params.length) {
+      return [{ latest_included_execution_at: "2026-08-10T00:00:00Z" }];
+    }
+    return [{
+      run_count: 1,
+      trial_count: 60,
+      artifact_count: 1,
+      cost_usd: 1,
+      cost_row_count: 60,
+      missing_cost_count: 0,
+      completed_runs: 1,
+      noncompleted_runs: 0,
+      latest_included_execution_at: "2026-08-09T00:00:00Z",
+    }];
+  };
+
+  const overview = await dashboardData.getOverview();
+  const suiteLatest = await dashboardData.getValidSuiteLatestIncludedExecutionAt("phase3-full-20");
+
+  assert.equal(overview.latest_included_execution_at, "2026-08-09T00:00:00Z");
+  assert.equal(suiteLatest, "2026-08-10T00:00:00Z");
+  assert.match(calls[0].sql, /max\(runs\.finished_at\)::text as latest_included_execution_at/);
+  assert.doesNotMatch(calls[0].sql, /max\(runs\.(created_at|updated_at)\)/);
+  assert.match(calls[1].sql, /max\(finished_at\)::text as latest_included_execution_at/);
+  assert.match(calls[1].sql, /from benchmark\.v_valid_arm_run_summary/);
+  assert.deepEqual(calls[1].params, ["phase3-full-20"]);
+  assert.doesNotMatch(calls[1].sql, /created_at|updated_at/);
+});
+
+test("index-route freshness loaders preserve their population filters and use finished_at", async () => {
+  const calls = [];
+  globalThis.__dashboardQueryHandler = async (sql, params) => {
+    calls.push({ sql, params });
+    if (sql.includes("jsonb_to_recordset")) {
+      return [{
+        suite_id: "phase3-full-20",
+        arm_id: "arm",
+        run_label: "arm/run",
+        match_count: 1,
+        finished_at: "2026-08-10T00:00:00Z",
+      }];
+    }
+    return [{ latest_included_execution_at: "2026-08-10T00:00:00Z" }];
+  };
+
+  await dashboardData.getAllImportedArmLatestIncludedExecutionAt();
+  await dashboardData.getAllImportedTaskLatestIncludedExecutionAt();
+  await dashboardData.getArtifactBrowserLatestIncludedExecutionAt({
+    run_label: "arm/run",
+    artifact_type: "result",
+  });
+  await dashboardData.getPhase3EvalSuiteLatestIncludedExecutionAt();
+  await dashboardData.getValidImportedEvalLatestIncludedExecutionAt();
+  await dashboardData.getDisplayedArmRunFreshnessResolution([{
+    suite_id: "phase3-full-20",
+    arm_id: "arm",
+    run_label: "arm/run",
+  }]);
+
+  assert.equal(calls.length, 6);
+  for (const { sql } of calls.slice(0, 5)) {
+    assert.match(sql, /max\([^)]*finished_at\)::text as latest_included_execution_at/);
+    assert.doesNotMatch(sql, /max\([^)]*(created_at|updated_at)[^)]*\)/);
+  }
+  assert.match(calls[5].sql, /max\(summary\.finished_at\)::text/);
+  assert.doesNotMatch(calls[5].sql, /created_at|updated_at|invalidated_at|uploaded_at/);
+
+  assert.match(calls[0].sql, /join benchmark\.benchmark_arms a/);
+  assert.match(calls[0].sql, /join benchmark\.benchmark_trials t|from benchmark\.benchmark_trials t/);
+  assert.match(calls[0].sql, /join benchmark\.benchmark_runs r/);
+
+  assert.match(calls[1].sql, /join benchmark\.benchmark_tasks task/);
+  assert.match(calls[1].sql, /from benchmark\.benchmark_trials t/);
+
+  assert.match(calls[2].sql, /from matching_artifacts/);
+  assert.match(calls[2].sql, /run_label = \$1/);
+  assert.match(calls[2].sql, /artifact_type = \$2/);
+  assert.deepEqual(calls[2].params, ["arm/run", "result"]);
+
+  assert.match(calls[3].sql, /from benchmark\.v_valid_arm_run_summary arm_run/);
+  assert.match(calls[3].sql, /join benchmark\.benchmark_eval_suites suite/);
+  assert.match(calls[3].sql, /where suite\.phase = 'phase3'/);
+
+  assert.match(calls[4].sql, /from benchmark\.v_valid_arm_run_summary/);
+  assert.match(calls[4].sql, /where trial_count > 0/);
+
+  assert.match(calls[5].sql, /from benchmark\.v_arm_run_summary summary/);
+  assert.match(calls[5].sql, /summary\.phase = 'phase3'/);
+  assert.match(calls[5].sql, /summary\.suite_id is not distinct from requested\.suite_id/);
+  assert.match(calls[5].sql, /summary\.arm_id = requested\.arm_id/);
+  assert.match(calls[5].sql, /summary\.run_label = requested\.run_label/);
+  assert.doesNotMatch(calls[5].sql, /from benchmark\.benchmark_runs/);
+  assert.deepEqual(JSON.parse(calls[5].params[0]), [{
+    suite_id: "phase3-full-20",
+    arm_id: "arm",
+    run_label: "arm/run",
+  }]);
+});
+
+test("trial-quality freshness resolves exact Phase 3 identities without same-label substitution", async () => {
+  let captured;
+  globalThis.__dashboardQueryHandler = async (sql, params) => {
+    captured = { sql, params };
+    return [{
+      suite_id: "phase3-full-20",
+      arm_id: "target-arm",
+      run_label: "shared/run-label",
+      match_count: 1,
+      finished_at: "2026-08-09T00:00:00Z",
+    }];
+  };
+
+  const result = await dashboardData.getDisplayedArmRunFreshnessResolution([{
+    suite_id: "phase3-full-20",
+    arm_id: "target-arm",
+    run_label: "shared/run-label",
+  }]);
+
+  assert.equal(result.latestIncludedExecutionAt, "2026-08-09T00:00:00Z");
+  assert.equal(result.resolvedIdentityCount, 1);
+  assert.match(captured.sql, /summary\.phase = 'phase3'/);
+  assert.match(captured.sql, /summary\.suite_id is not distinct from requested\.suite_id/);
+  assert.match(captured.sql, /summary\.arm_id = requested\.arm_id/);
+  assert.match(captured.sql, /summary\.run_label = requested\.run_label/);
+  assert.doesNotMatch(captured.sql, /where summary\.run_label = requested\.run_label\s*$/m);
+});
+
+test("unresolved, duplicate, and timestamp-free displayed identities stay explicit", async () => {
+  const identities = [
+    { suite_id: "phase3-full-20", arm_id: "resolved", run_label: "resolved/run" },
+    { suite_id: "phase3-full-20", arm_id: "missing", run_label: "missing/run" },
+    { suite_id: "phase3-full-20", arm_id: "duplicate", run_label: "duplicate/run" },
+    { suite_id: "phase3-full-20", arm_id: "unfinished", run_label: "unfinished/run" },
+  ];
+  globalThis.__dashboardQueryHandler = async () => [
+    { ...identities[0], match_count: 1, finished_at: "2026-08-09T00:00:00Z" },
+    { ...identities[1], match_count: 0, finished_at: null },
+    { ...identities[2], match_count: 2, finished_at: null },
+    { ...identities[3], match_count: 1, finished_at: null },
+  ];
+
+  const result = await dashboardData.getDisplayedArmRunFreshnessResolution(identities);
+  assert.equal(result.latestIncludedExecutionAt, "2026-08-09T00:00:00Z");
+  assert.equal(result.expectedIdentityCount, 4);
+  assert.equal(result.resolvedIdentityCount, 2);
+  assert.deepEqual(result.unresolvedIdentities, [identities[1]]);
+  assert.deepEqual(result.duplicateIdentities, [identities[2]]);
+  assert.deepEqual(result.missingFinishedAtIdentities, [identities[3]]);
+});
+
+test("duplicate requested arm-run identities are deterministically de-duplicated", async () => {
+  const identity = { suite_id: "phase3-full-20", arm_id: "arm", run_label: "arm/run" };
+  let requested;
+  globalThis.__dashboardQueryHandler = async (_sql, params) => {
+    requested = JSON.parse(params[0]);
+    return [{ ...identity, match_count: 1, finished_at: "2026-08-09T00:00:00Z" }];
+  };
+
+  const result = await dashboardData.getDisplayedArmRunFreshnessResolution([identity, identity]);
+  assert.deepEqual(requested, [identity]);
+  assert.equal(result.expectedIdentityCount, 1);
+  assert.equal(result.resolvedIdentityCount, 1);
+});
+
+test("run detail resolution fails closed when a Phase 3 label is ambiguous", async () => {
+  const calls = [];
+  globalThis.__dashboardQueryHandler = async (sql, params) => {
+    calls.push({ sql, params });
+    return [
+      { run_id: "run-full", phase: "phase3", mode: "full", run_label: "shared/run" },
+      { run_id: "run-smoke", phase: "phase3", mode: "smoke", run_label: "shared/run" },
+    ];
+  };
+
+  const ambiguous = await dashboardData.getRunDetailResolution("shared/run");
+  assert.equal(ambiguous.status, "ambiguous");
+  assert.equal(ambiguous.matches.length, 2);
+  assert.match(calls[0].sql, /where phase = 'phase3'/);
+  assert.match(calls[0].sql, /run_label = \$1/);
+  assert.doesNotMatch(calls[0].sql, /limit 1|order by .*finished_at/i);
+  assert.deepEqual(calls[0].params, ["shared/run"]);
+
+  globalThis.__dashboardQueryHandler = async () => [];
+  assert.equal((await dashboardData.getRunDetailResolution("missing/run")).status, "not_found");
+  globalThis.__dashboardQueryHandler = async () => [
+    { run_id: "one", phase: "phase3", mode: "full", run_label: "one/run" },
+  ];
+  assert.equal((await dashboardData.getRunDetailResolution("one/run")).status, "found");
+});
+
+test("artifact and trial detail metadata expose exact parent execution completion", async () => {
+  const calls = [];
+  globalThis.__dashboardQueryHandler = async (sql, params) => {
+    calls.push({ sql, params });
+    return [];
+  };
+
+  await dashboardData.getArtifactDetail("00000000-0000-4000-8000-000000000001");
+  await dashboardData.getTrialEvidence("00000000-0000-4000-8000-000000000002");
+
+  assert.match(calls[0].sql, /r\.finished_at::text as run_finished_at/);
+  assert.match(calls[0].sql, /where art\.id = \$1::uuid/);
+  assert.match(calls[1].sql, /r\.finished_at::text as run_finished_at/);
+  assert.match(calls[1].sql, /where t\.id = \$1::uuid/);
+  for (const call of calls) {
+    assert.doesNotMatch(call.sql, /(created_at|updated_at|uploaded_at|invalidated_at)::text as run_finished_at/);
+  }
+});
+
+test("eval detail execution metadata is restricted to the exact displayed task population", async () => {
+  let captured;
+  globalThis.__dashboardQueryHandler = async (sql, params) => {
+    captured = { sql, params };
+    return [{ latest_included_execution_at: "2026-08-09T00:00:00Z" }];
+  };
+
+  const latest = await dashboardData.getValidEvalTaskLatestIncludedExecutionAt("terminal-bench-2.0:task");
+  assert.equal(latest, "2026-08-09T00:00:00Z");
+  assert.match(captured.sql, /max\(arm_run\.finished_at\)::text/);
+  assert.match(captured.sql, /from benchmark\.v_valid_arm_run_summary arm_run/);
+  assert.match(captured.sql, /join benchmark\.benchmark_trials trial/);
+  assert.match(captured.sql, /trial\.task_id = \$1/);
+  assert.deepEqual(captured.params, ["terminal-bench-2.0:task"]);
+  assert.doesNotMatch(captured.sql, /created_at|updated_at|uploaded_at|invalidated_at/);
+});

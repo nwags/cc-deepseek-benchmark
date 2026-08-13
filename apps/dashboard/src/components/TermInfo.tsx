@@ -140,6 +140,8 @@ export function TermInfo({ term }: { term: GlossaryTerm }) {
               id={tooltipId}
               className="term-info-popover"
               role="tooltip"
+              onBlur={scheduleClose}
+              onFocus={clearCloseTimer}
               onMouseEnter={clearCloseTimer}
               onMouseLeave={scheduleClose}
               style={{
@@ -153,6 +155,7 @@ export function TermInfo({ term }: { term: GlossaryTerm }) {
             >
               <strong>{entry.term}</strong>
               <span>{entry.shortDefinition}</span>
+              {entry.links?.[0] ? <Link href={entry.links[0].href}>{entry.links[0].label} →</Link> : null}
               <Link href={`/glossary#${entry.slug}`}>Glossary →</Link>
             </span>,
             document.body

@@ -1,21 +1,31 @@
+import Link from "next/link";
+
 import { AppShell } from "../../components/AppShell";
+import { CorpusScopeNotice } from "../../components/CorpusScopeNotice";
+import { CorpusScopeSelector } from "../../components/CorpusScopeSelector";
+import { getCorpusScope, getCorpusScopePresentationLabel } from "../../lib/corpus-scopes";
 import {
   getBehaviorRows,
   getCrossPhaseRows,
   getPhaseSummaries,
   getRouterComparisonRows,
 } from "../../lib/cross-phase-reporting";
+import { selectReviewedPhase3Scope } from "../../lib/phase3-reviewed-comparison";
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
 function formatPercent(value: number | null): string {
-  if (value === null) return "n/a";
+  if (value === null) return "Unavailable";
   return `${(value * 100).toFixed(1)}%`;
 }
 
-function formatMoney(value: number | null): string {
-  if (value === null) return "n/a";
-  return `$${value.toFixed(2)}`;
+function formatMoney(value: number | null, maximumFractionDigits = 2): string {
+  if (value === null) return "Unavailable";
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits,
+  }).format(value);
 }
 
 function formatRatio(value: number | null): string {
@@ -23,9 +33,28 @@ function formatRatio(value: number | null): string {
   return value.toFixed(2);
 }
 
-export default function CrossPhasePage() {
-  const rows = getCrossPhaseRows();
-  const summaries = getPhaseSummaries(rows);
+function phaseDisplayLabel(phase: string, scopeId: "phase3-core" | "phase3-extended"): string {
+  const scope = getCorpusScope(scopeId);
+  return phase === "phase3"
+    ? `${scope.displayLabel} — ${getCorpusScopePresentationLabel(scope)}`
+    : phase;
+}
+
+type CrossPhasePageProps = {
+  searchParams?: Promise<{ scope?: string | string[] }>;
+};
+
+function evidenceLabel(value: string | undefined): string {
+  if (!value) return "Not recorded";
+  return value.split("_").join(" ");
+}
+
+export default async function CrossPhasePage({ searchParams }: CrossPhasePageProps) {
+  const params = searchParams ? await searchParams : {};
+  const selection = selectReviewedPhase3Scope(params.scope);
+  const selectedScope = selection.scope;
+  const rows = getCrossPhaseRows(selectedScope);
+  const summaries = getPhaseSummaries(rows, selectedScope);
   const routerRows = getRouterComparisonRows();
   const behaviorRows = getBehaviorRows();
 
@@ -34,28 +63,68 @@ export default function CrossPhasePage() {
     .sort((a, b) => b.pass_rate - a.pass_rate);
 
   const efficientPhase3Rows = [...phase3Rows]
-    .sort((a, b) => a.cost_per_clean_success_usd - b.cost_per_clean_success_usd)
+    .filter((row) => row.cost_per_clean_success_usd !== null)
+    .sort((a, b) => (a.cost_per_clean_success_usd ?? Infinity) - (b.cost_per_clean_success_usd ?? Infinity))
     .slice(0, 8);
 
   const behaviorByArm = new Map(behaviorRows.map((row) => [row.arm_id, row]));
+  const phase3Summary = summaries.find((summary) => summary.phase === "phase3");
 
   return (
     <AppShell
-      title="Cross-phase"
-      description="File-backed reporting view for Phase 1 direct, Phase 2 direct, and Phase 3 router-mediated benchmark results."
+      title={`Cross-phase: ${phaseDisplayLabel("phase3", selection.scopeId)}`}
+      description={`File-backed reporting view for frozen Phase 1/2 baselines and the ${selectedScope.displayName.toLowerCase()} from the reviewed 2026-08-05 comparison layer.`}
     >
+      <CorpusScopeSelector pathname="/cross-phase" selectedScopeId={selection.scopeId} />
+      {selection.warningMessage ? (
+        <p className="warning-text" role="alert">
+          <strong>Scope selection warning:</strong> {selection.warningMessage}
+        </p>
+      ) : null}
+      <CorpusScopeNotice
+        scopeId={selection.scopeId}
+        observedCounts={{
+          armCount: phase3Summary?.arm_count ?? 0,
+          trialCount: phase3Summary?.trial_count ?? 0,
+          successCount: phase3Summary?.success_count ?? 0,
+        }}
+      />
       <section className="quality-context-panel">
-        Supabase-backed Phase 3 pages remain unchanged. This page reads the reviewed cross-phase reporting artifacts generated from the frozen Phase 1/2 aggregates and valid Phase 3 reporting layer.
+        <strong>Reviewed comparison provenance:</strong> The selected Phase 3 rows come from the reviewed 2026-08-05 layer.
+        Phase 3 core remains the historical alternate; Phase 1/2 aggregates and earlier Phase 3 source artifacts remain unchanged.
+        {" "}<Link href={`/cost-coverage?scope=${selection.scopeId}`}>Open Cost Coverage with this scope</Link>.
+        <details>
+          <summary>Traceable reviewed source</summary>
+          <p className="mono">results/phase3/reporting/phase3_extended_reviewed_comparison_20260805.json</p>
+        </details>
       </section>
 
-      <section className="metric-grid">
+      <section className="phase-summary-grid" aria-label="Cross-phase summary cards">
         {summaries.map((summary) => (
-          <article className="metric-card" key={summary.phase}>
-            <span className="metric-label">{summary.phase}</span>
-            <strong>{formatPercent(summary.pass_rate)}</strong>
-            <span className="metric-subtitle">
-              {summary.success_count}/{summary.trial_count} successes · {summary.arm_count} arms · {formatMoney(summary.adjusted_cost_usd)}
-            </span>
+          <article className="metric-card phase-summary-card" key={summary.phase}>
+            <header className="phase-summary-header">
+              <span className="metric-label">{phaseDisplayLabel(summary.phase, selection.scopeId)}</span>
+              <strong className="phase-summary-rate">{formatPercent(summary.pass_rate)}</strong>
+              <span className="phase-summary-rate-label">Pass rate</span>
+            </header>
+            <dl className="phase-summary-details">
+              <div>
+                <dt>Population</dt>
+                <dd>{summary.arm_count} arms</dd>
+              </div>
+              <div>
+                <dt>Results</dt>
+                <dd>{summary.success_count}/{summary.trial_count} successes</dd>
+              </div>
+              <div>
+                <dt>Reviewed cost</dt>
+                <dd>{formatMoney(summary.adjusted_cost_usd, 6)}</dd>
+              </div>
+              <div>
+                <dt>Cost basis</dt>
+                <dd>{summary.cost_label}</dd>
+              </div>
+            </dl>
           </article>
         ))}
       </section>
@@ -64,7 +133,7 @@ export default function CrossPhasePage() {
         <div className="panel-heading">
           <div>
             <h2>Phase summaries</h2>
-            <p>Cross-phase totals using the adjusted-cost reporting layer.</p>
+            <p>Frozen Phase 1/2 totals plus the selected reviewed Phase 3 comparison.</p>
           </div>
         </div>
         <div className="table-wrap">
@@ -76,7 +145,8 @@ export default function CrossPhasePage() {
                 <th>Trials</th>
                 <th>Successes</th>
                 <th>Pass rate</th>
-                <th>Adjusted cost</th>
+                <th>Reviewed cost</th>
+                <th>Cost basis</th>
                 <th>Cost / clean success</th>
                 <th>Unclean spend share</th>
               </tr>
@@ -84,12 +154,13 @@ export default function CrossPhasePage() {
             <tbody>
               {summaries.map((summary) => (
                 <tr key={summary.phase}>
-                  <td className="sticky-id-column"><span className="quality-badge">{summary.phase}</span></td>
+                  <td className="sticky-id-column"><span className="quality-badge">{phaseDisplayLabel(summary.phase, selection.scopeId)}</span></td>
                   <td>{summary.arm_count}</td>
                   <td>{summary.trial_count}</td>
                   <td>{summary.success_count}</td>
                   <td>{formatPercent(summary.pass_rate)}</td>
-                  <td>{formatMoney(summary.adjusted_cost_usd)}</td>
+                  <td>{formatMoney(summary.adjusted_cost_usd, 6)}</td>
+                  <td>{summary.cost_label}</td>
                   <td>{formatMoney(summary.cost_per_clean_success_usd)}</td>
                   <td>{formatPercent(summary.unclean_spend_share)}</td>
                 </tr>
@@ -117,10 +188,12 @@ export default function CrossPhasePage() {
                 <th>Routing path</th>
                 <th>Successes</th>
                 <th>Pass rate</th>
-                <th>Adjusted cost</th>
+                <th>Recorded cost</th>
+                <th>Reviewed cost</th>
+                <th>Cost basis</th>
                 <th>Cost / clean success</th>
                 <th>Unclean spend</th>
-                <th>Cost confidence</th>
+                <th>Evidence status</th>
               </tr>
             </thead>
             <tbody>
@@ -137,16 +210,25 @@ export default function CrossPhasePage() {
                       <div className="muted">Frozen aggregate row</div>
                     )}
                   </td>
-                  <td>{row.phase}</td>
+                  <td>{phaseDisplayLabel(row.phase, selection.scopeId)}</td>
                   <td>{row.provider}</td>
                   <td>{row.backend_model}</td>
                   <td>{row.routing_path}</td>
                   <td>{row.success_count}/{row.trial_count}</td>
                   <td>{formatPercent(row.pass_rate)}</td>
-                  <td>{formatMoney(row.adjusted_cost_usd)}</td>
+                  <td>{formatMoney(row.recorded_cost_usd, 6)}</td>
+                  <td>{formatMoney(row.adjusted_cost_usd, 7)}</td>
+                  <td>{row.reviewed_cost_label ?? "Adjusted known cost"}</td>
                   <td>{formatMoney(row.cost_per_clean_success_usd)}</td>
                   <td>{formatPercent(row.unclean_spend_share)}</td>
-                  <td>{row.cost_confidence}</td>
+                  <td className="table-cell-wrap">
+                    <div>{row.cost_confidence} confidence</div>
+                    {row.phase === "phase3" ? (
+                      <div className="muted">
+                        Pricing provenance: {evidenceLabel(row.pricing_provenance_status)} · allocation: {evidenceLabel(row.arm_run_allocation_confidence)} · trial allocation: {evidenceLabel(row.trial_allocation_status)} · billing: {evidenceLabel(row.billing_reconciliation_status)}
+                      </div>
+                    ) : null}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -157,8 +239,8 @@ export default function CrossPhasePage() {
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <h2>Phase 3 cost-efficient clean successes</h2>
-            <p>Lowest adjusted cost per clean success among Phase 3 arms.</p>
+            <h2>{selectedScope.displayName} cost-efficient clean successes</h2>
+            <p>Lowest available adjusted cost per clean success. Arms without outcome-level allocation, including Kimi K3, are not assigned a fabricated value. Behavior tags remain tied to the retained historical Phase 3 core source.</p>
           </div>
         </div>
         <div className="table-wrap">
@@ -168,7 +250,7 @@ export default function CrossPhasePage() {
                 <th className="sticky-id-column">Arm</th>
                 <th>Model</th>
                 <th>Pass rate</th>
-                <th>Adjusted cost</th>
+                <th>Reviewed cost</th>
                 <th>Cost / clean success</th>
                 <th>Unclean spend</th>
                 <th>Behavior tags</th>
@@ -188,7 +270,7 @@ export default function CrossPhasePage() {
                     </td>
                     <td>{row.backend_model}</td>
                     <td>{formatPercent(row.pass_rate)}</td>
-                    <td>{formatMoney(row.adjusted_cost_usd)}</td>
+                    <td>{formatMoney(row.adjusted_cost_usd, 7)}</td>
                     <td>{formatMoney(row.cost_per_clean_success_usd)}</td>
                     <td>{formatPercent(row.unclean_spend_share)}</td>
                     <td>{behavior?.behavior_tags ?? ""}</td>
@@ -204,6 +286,7 @@ export default function CrossPhasePage() {
         <div className="panel-heading">
           <div>
             <h2>Router-associated comparisons</h2>
+            <p>Historical source population: the retained 15-arm Phase 3 core comparison. This section does not include Kimi K3 or inherit the selected extended denominator.</p>
             <p>Observational comparison only: routing path changed along with date, provider-side model revisions, runner setup, invalid-run handling, and accounting policy.</p>
           </div>
         </div>
@@ -233,7 +316,7 @@ export default function CrossPhasePage() {
                   <td>{formatRatio(row.router_vs_direct_cost_ratio)}</td>
                   <td>{formatRatio(row.router_vs_direct_cost_per_clean_success_ratio)}</td>
                   <td>{formatRatio(row.router_vs_direct_wall_clock_ratio)}</td>
-                  <td>{row.interpretation}</td>
+                  <td className="table-cell-wrap">{row.interpretation}</td>
                 </tr>
               ))}
             </tbody>

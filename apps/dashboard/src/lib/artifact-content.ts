@@ -54,6 +54,81 @@ export type ArtifactContentPreview = {
   messages: string[];
 };
 
+export type ArtifactProvenanceContract = Readonly<{
+  sourceKind: "artifact";
+  sourceLabel: string;
+  provenanceIdentifier: string | null;
+  retrievalStatus: "available" | "unavailable" | "not_applicable";
+  retrievalSource: "r2" | "local_cache" | "metadata_only";
+  observedAt: string;
+  expectedSizeBytes: number | null;
+  observedSizeBytes: number | null;
+  bytesRead: number;
+  expectedSha256: string | null;
+  integrityStatus: "verified" | "partial" | "mismatch" | "unavailable" | "not_checked";
+  completenessStatus: "complete" | "bounded_preview" | "head_tail_only" | "unavailable" | "unknown";
+  warningMessage: string | null;
+}>;
+
+export function buildArtifactProvenance(
+  artifact: PreviewArtifact,
+  preview: ArtifactContentPreview,
+  observedAt: string,
+): ArtifactProvenanceContract {
+  const hasR2Object = Boolean(artifact.r2_uri);
+  const fromR2 = preview.source === "r2";
+  const retrievalStatus = fromR2
+    ? "available"
+    : hasR2Object ? "unavailable" : "not_applicable";
+  const completenessStatus = fromR2
+    ? preview.completeness === "complete"
+      ? "complete"
+      : preview.completeness === "head_tail_only"
+        ? "head_tail_only"
+        : preview.completeness === "unavailable"
+          ? "unavailable"
+          : "bounded_preview"
+    : preview.source === "local"
+      ? "bounded_preview"
+      : "unavailable";
+  const integrityStatus = !fromR2
+    ? hasR2Object ? "unavailable" : "not_checked"
+    : preview.analyzed_artifact_integrity_status === "verified"
+      ? "verified"
+      : preview.analyzed_artifact_integrity_status === "mismatch"
+        ? "mismatch"
+        : preview.analyzed_artifact_integrity_status === "not_checked_incomplete"
+          ? "partial"
+          : preview.analyzed_artifact_integrity_status === "unavailable"
+            ? "unavailable"
+            : "not_checked";
+  const warningMessage = fromR2
+    ? preview.completeness === "complete" && integrityStatus === "verified"
+      ? null
+      : `The R2 read is ${completenessStatus}; integrity is ${integrityStatus}. R2 URI presence alone does not verify object bytes.`
+    : hasR2Object
+      ? preview.source === "local"
+        ? "R2 retrieval was unavailable. A bounded local-cache preview was shown, which does not verify the retained R2 object."
+        : "R2 retrieval was unavailable. Database metadata remains visible, but object bytes and integrity were not verified."
+      : "No R2 object URI is recorded; object-storage retrieval and integrity are not applicable.";
+
+  return Object.freeze({
+    sourceKind: "artifact",
+    sourceLabel: "Cloudflare R2 retained artifact bytes",
+    provenanceIdentifier: artifact.r2_uri ?? null,
+    retrievalStatus,
+    retrievalSource: preview.source === "r2" ? "r2" : preview.source === "local" ? "local_cache" : "metadata_only",
+    observedAt,
+    expectedSizeBytes: numericArtifactSize(artifact),
+    observedSizeBytes: fromR2 ? preview.remote_total_bytes : null,
+    bytesRead: preview.source === "metadata" ? 0 : preview.bytes_read,
+    expectedSha256: artifact.sha256?.trim().toLowerCase() || null,
+    integrityStatus,
+    completenessStatus,
+    warningMessage,
+  });
+}
+
 export type TaskInstructionPreview = {
   available: boolean;
   text: string | null;

@@ -1,6 +1,7 @@
+import Link from "next/link";
 import { AppShell } from "../../components/AppShell";
 
-const readinessRows = [
+const historicalPlanningChecklist = [
   {
     area: "Direct provider API",
     requiredFor: "New or gated providers/models",
@@ -25,52 +26,59 @@ const readinessRows = [
     area: "Runner firewall",
     requiredFor: "Remote Harbor runs",
     evidence: "Docker-to-host LiteLLM firewall doctor"
-  },
-  {
-    area: "NVIDIA NIM",
-    requiredFor: "Retired from active benchmark plan",
-    evidence: "Do not probe unless official paid/quota-approved access is later approved"
   }
 ];
 
-const statusRows = [
+const LEGACY_SOURCE_DATE = "Legacy dashboard planning note · original event date not recorded";
+
+const historicalRouteNotes = [
   {
     route: "router-anthropic-fable-5",
-    status: "canary-passed",
-    note: "Initial timeout was Docker/UFW infrastructure; rerun passed after firewall fix."
+    note: "The legacy page recorded a successful rerun after a Docker/UFW firewall correction. The event date was not stored on this page.",
+    sourceDate: LEGACY_SOURCE_DATE
   },
   {
     route: "claude-mythos-5",
-    status: "gated",
-    note: "Direct Anthropic probe returned 404/not_found for this account."
+    note: "The legacy page recorded a 404/not_found response for the account used at that time. The observation has not been revalidated.",
+    sourceDate: LEGACY_SOURCE_DATE
   },
   {
     route: "opusplan",
-    status: "phase2-discovery-only",
-    note: "Alias accepted in Phase 2 but observed execution did not show a true plan/execute cycle."
+    note: "The legacy page recorded that the alias was accepted during Phase 2, without evidence of a distinct plan/execute cycle.",
+    sourceDate: LEGACY_SOURCE_DATE
   },
   {
     route: "hosted NVIDIA NIM",
-    status: "retired",
-    note: "Removed from active benchmark planning; do not use free-tier/account-circumvention patterns."
+    note: "The legacy page recorded removal from benchmark planning and cautioned against free-tier or account-circumvention approaches.",
+    sourceDate: LEGACY_SOURCE_DATE
   },
   {
     route: "local open-weight serving",
-    status: "tabled",
-    note: "Requires separate GPU/local-serving infrastructure plan."
+    note: "The legacy page recorded this work as deferred pending separate local-serving infrastructure.",
+    sourceDate: LEGACY_SOURCE_DATE
   }
 ];
 
 export default function ReadinessPage() {
   return (
     <AppShell
-      title="Route Readiness"
-      description="Provider, router, Claude Code, Harbor, and runner readiness gates before smoke/full-sweep work."
+      title="Route Readiness — historical planning snapshot"
+      description="Retained historical planning material; this page is not live operational readiness or current provider/route status."
     >
+      <section className="quality-context-panel">
+        <p><strong>Historical planning snapshot — not live operational readiness.</strong></p>
+        <p>Last reviewed for dashboard containment: 2026-08-05.</p>
+        <p>No provider, LiteLLM, Claude Code, Harbor, or runner probes were run for this review. The underlying observations were not revalidated.</p>
+        <p>Original event dates are not recorded by this page unless a row explicitly contains one.</p>
+        <p>
+          Use <Link href="/planner">Planner</Link> for current configuration-based planning,{" "}<Link href="/runs/live">Live Runs</Link> for observed live execution state, and{" "}<Link href="/runs">Runs</Link> for completed benchmark evidence.
+        </p>
+      </section>
+
       <section className="panel">
         <div className="panel-heading">
-          <h2>Readiness gates</h2>
-          <p>Each new provider layer moves through these gates before smoke planning.</p>
+          <h2>Historical planning checklist</h2>
+          <p>This process reference does not prove that any gate is currently satisfied.</p>
         </div>
         <div className="table-wrap">
           <table>
@@ -82,7 +90,7 @@ export default function ReadinessPage() {
               </tr>
             </thead>
             <tbody>
-              {readinessRows.map((row) => (
+              {historicalPlanningChecklist.map((row) => (
                 <tr key={row.area}>
                   <td>{row.area}</td>
                   <td>{row.requiredFor}</td>
@@ -96,24 +104,24 @@ export default function ReadinessPage() {
 
       <section className="panel">
         <div className="panel-heading">
-          <h2>Special route status</h2>
-          <p>Current non-standard model/provider findings that affect planning.</p>
+          <h2>Historical route and provider notes</h2>
+          <p>Legacy planning observations preserved without presenting them as current route or provider status.</p>
         </div>
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
                 <th>Route/provider</th>
-                <th>Status</th>
-                <th>Planning note</th>
+                <th>Historical note</th>
+                <th>Source/date</th>
               </tr>
             </thead>
             <tbody>
-              {statusRows.map((row) => (
+              {historicalRouteNotes.map((row) => (
                 <tr key={row.route}>
                   <td className="mono">{row.route}</td>
-                  <td><span className="status">{row.status}</span></td>
                   <td>{row.note}</td>
+                  <td>{row.sourceDate}</td>
                 </tr>
               ))}
             </tbody>

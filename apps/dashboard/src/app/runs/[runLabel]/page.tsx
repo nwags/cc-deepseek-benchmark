@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "../../../components/AppShell";
+import { DataFreshnessNotice } from "../../../components/DataFreshnessNotice";
 import { MetricCard } from "../../../components/MetricCard";
 import { QualityBadge, QualityPassRate, buildSuspectNoopHref } from "../../../components/QualityContext";
 import { InvalidReason, ValidityBadge, invalidCategory, validityLabel } from "../../../components/ValidityContext";
@@ -9,9 +10,11 @@ import {
   getArmRunQualityByRunLabels,
   getInvalidArmRunRowsByRunLabels,
   getRunArtifacts,
-  getRunDetail,
+  getRunDetailResolution,
   getRunTrials
 } from "../../../lib/dashboard-data";
+import { buildRegisteredOperationalFreshness } from "../../../lib/data-freshness-server";
+import { DETAIL_ROUTE_FRESHNESS_SOURCES } from "../../../lib/data-freshness-sources";
 import {
   formatBytes,
   formatRecordedCost, formatCurrency,
@@ -42,11 +45,49 @@ export default async function RunDetailPage({
 }) {
   const { runLabel } = await params;
   const decodedRunLabel = decodeURIComponent(runLabel);
-  const run = await getRunDetail(decodedRunLabel);
+  const resolution = await getRunDetailResolution(decodedRunLabel);
 
-  if (!run) {
+  if (resolution.status === "not_found") {
     notFound();
   }
+
+  if (resolution.status === "ambiguous") {
+    const queriedAt = new Date().toISOString();
+    const freshness = buildRegisteredOperationalFreshness(
+      DETAIL_ROUTE_FRESHNESS_SOURCES.runDetail,
+      { queryStatus: "available", value: null },
+      queriedAt,
+      `The run label matches ${resolution.matches.length} Phase 3 records across run modes. Exact run identity is ambiguous, so no record or execution timestamp was selected.`,
+    );
+    return (
+      <AppShell title="Run identity ambiguous" description="The requested run label does not identify exactly one Phase 3 database row.">
+        <DataFreshnessNotice freshness={freshness} />
+        <section className="panel warning-panel">
+          <div className="panel-heading">
+            <div>
+              <h2>Multiple Phase 3 runs share this label</h2>
+              <p>No latest row or alternate phase/mode was selected. This bare-label route cannot render one record without a stronger identity.</p>
+            </div>
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Run label</th><th>Mode</th><th>Run id</th><th>Finished</th></tr></thead>
+              <tbody>{resolution.matches.map((match) => (
+                <tr key={match.run_id}>
+                  <td className="mono">{safeText(match.run_label)}</td>
+                  <td>{safeText(match.mode)}</td>
+                  <td className="mono">{match.run_id}</td>
+                  <td>{match.finished_at ?? "Unavailable"}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        </section>
+      </AppShell>
+    );
+  }
+
+  const run = resolution.run;
 
   const [trials, artifacts, qualityRows, invalidRows] = await Promise.all([
     getRunTrials(run.run_id),
@@ -57,9 +98,16 @@ export default async function RunDetailPage({
   const quality = qualityRows[0] ?? null;
   const invalidRow = invalidRows[0] ?? null;
   const suspectNoopCount = quality?.suspect_noop_count ?? 0;
+  const queriedAt = new Date().toISOString();
+  const freshness = buildRegisteredOperationalFreshness(
+    DETAIL_ROUTE_FRESHNESS_SOURCES.runDetail,
+    { queryStatus: "available", value: run.finished_at },
+    queriedAt,
+  );
 
   return (
     <AppShell title="Run detail">
+      <DataFreshnessNotice freshness={freshness} />
       <section className="panel">
         <div className="panel-heading">
           <div>

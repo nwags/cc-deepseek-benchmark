@@ -9,6 +9,11 @@ export type OverviewRow = {
   missing_cost_count: number;
   completed_runs: number;
   noncompleted_runs: number;
+  latest_included_execution_at: string | null;
+};
+
+export type LatestIncludedExecutionRow = {
+  latest_included_execution_at: string | null;
 };
 
 export type ModeStatusRow = {
@@ -79,7 +84,8 @@ export async function getOverview(): Promise<OverviewRow> {
       coalesce(sum(cost_row_count), 0)::int as cost_row_count,
       coalesce(sum(missing_cost_count), 0)::int as missing_cost_count,
       count(*) filter (where status = 'completed')::int as completed_runs,
-      count(*) filter (where status <> 'completed')::int as noncompleted_runs
+      count(*) filter (where status <> 'completed')::int as noncompleted_runs,
+      max(runs.finished_at)::text as latest_included_execution_at
     from benchmark.v_dashboard_runs runs
     join valid_runs
       on valid_runs.run_id = runs.run_id
@@ -87,6 +93,20 @@ export async function getOverview(): Promise<OverviewRow> {
   `);
 
   return rows[0];
+}
+
+export async function getValidSuiteLatestIncludedExecutionAt(
+  suiteId: string,
+): Promise<string | null> {
+  const rows = await queryRows<LatestIncludedExecutionRow>(
+    `
+      select max(finished_at)::text as latest_included_execution_at
+      from benchmark.v_valid_arm_run_summary
+      where suite_id = $1
+    `,
+    [suiteId],
+  );
+  return rows[0]?.latest_included_execution_at ?? null;
 }
 
 export async function getModeStatusRows(): Promise<ModeStatusRow[]> {
@@ -145,6 +165,30 @@ export async function getTaskRows(): Promise<TaskRow[]> {
     where trial_count > 0
     order by task_name
   `);
+}
+
+export async function getAllImportedArmLatestIncludedExecutionAt(): Promise<string | null> {
+  const rows = await queryRows<LatestIncludedExecutionRow>(`
+    select max(r.finished_at)::text as latest_included_execution_at
+    from benchmark.benchmark_trials t
+    join benchmark.benchmark_arms a
+      on a.arm_id = t.arm_id
+    join benchmark.benchmark_runs r
+      on r.id = t.run_id
+  `);
+  return rows[0]?.latest_included_execution_at ?? null;
+}
+
+export async function getAllImportedTaskLatestIncludedExecutionAt(): Promise<string | null> {
+  const rows = await queryRows<LatestIncludedExecutionRow>(`
+    select max(r.finished_at)::text as latest_included_execution_at
+    from benchmark.benchmark_trials t
+    join benchmark.benchmark_tasks task
+      on task.task_id = t.task_id
+    join benchmark.benchmark_runs r
+      on r.id = t.run_id
+  `);
+  return rows[0]?.latest_included_execution_at ?? null;
 }
 
 export async function getRecentRuns(): Promise<RecentRunRow[]> {
@@ -326,6 +370,7 @@ export type ArtifactDetailRow = {
   retention_class: string | null;
   notes: string | null;
   run_label: string;
+  run_finished_at: string | null;
   suite_id: string | null;
   logical_mode: string | null;
   storage_mode: string | null;
@@ -382,12 +427,18 @@ export type TrialEvidenceRow = {
   invalidated_by: string | null;
   invalid_raw_metadata: Record<string, unknown> | null;
   run_started_at: string | null;
+  run_finished_at: string | null;
   provider_family: string | null;
   backend_model: string | null;
   router_model: string | null;
 };
 
-export async function getRunDetail(runLabel: string): Promise<RunDetailRow | null> {
+export type RunDetailResolution =
+  | Readonly<{ status: "not_found"; matches: readonly RunDetailRow[] }>
+  | Readonly<{ status: "found"; run: RunDetailRow; matches: readonly RunDetailRow[] }>
+  | Readonly<{ status: "ambiguous"; matches: readonly RunDetailRow[] }>;
+
+export async function getRunDetailResolution(runLabel: string): Promise<RunDetailResolution> {
   const rows = await queryRows<RunDetailRow>(
     `
       select
@@ -427,12 +478,14 @@ export async function getRunDetail(runLabel: string): Promise<RunDetailRow | nul
       from benchmark.v_dashboard_runs
       where phase = 'phase3'
         and run_label = $1
-      limit 1
+      order by mode, run_id
     `,
     [runLabel]
   );
 
-  return rows[0] ?? null;
+  if (rows.length === 0) return Object.freeze({ status: "not_found", matches: Object.freeze([]) });
+  if (rows.length > 1) return Object.freeze({ status: "ambiguous", matches: Object.freeze(rows) });
+  return Object.freeze({ status: "found", run: rows[0], matches: Object.freeze([rows[0]]) });
 }
 
 export async function getRunTrials(runId: string): Promise<RunTrialRow[]> {
@@ -548,6 +601,7 @@ function artifactBrowserQueryParts(filters: ArtifactBrowserFilters = {}) {
         r.id::text as run_id,
         r.run_label,
         r.started_at,
+        r.finished_at,
         coalesce(t.arm_run_id, ar.id)::text as arm_run_id,
         coalesce(q.suite_id, ar.suite_id) as suite_id,
         coalesce(q.logical_mode, ar.logical_mode) as logical_mode,
@@ -718,6 +772,20 @@ export async function getArtifactBrowserPage(
   };
 }
 
+export async function getArtifactBrowserLatestIncludedExecutionAt(
+  filters: ArtifactBrowserFilters = {},
+): Promise<string | null> {
+  const { ctes, params } = artifactBrowserQueryParts(filters);
+  const rows = await queryRows<LatestIncludedExecutionRow>(
+    `${ctes}
+      select max(finished_at)::text as latest_included_execution_at
+      from matching_artifacts
+    `,
+    params,
+  );
+  return rows[0]?.latest_included_execution_at ?? null;
+}
+
 export async function getArtifactBrowserFilterOptions(): Promise<ArtifactBrowserFilterOptions> {
   const rows = await queryRows<ArtifactBrowserFilterOptions>(`
     with quality_rows as (
@@ -785,6 +853,7 @@ const artifactDetailSelect = `
     art.retention_class,
     art.notes,
     r.run_label,
+    r.finished_at::text as run_finished_at,
     coalesce(q.suite_id, ar.suite_id) as suite_id,
     coalesce(q.logical_mode, ar.logical_mode) as logical_mode,
     coalesce(q.storage_mode, ar.storage_mode, r.mode) as storage_mode,
@@ -923,6 +992,7 @@ export async function getTrialEvidence(trialId: string): Promise<TrialEvidenceRo
         invalid.invalidated_by,
         invalid.raw_metadata as invalid_raw_metadata,
         r.started_at::text as run_started_at,
+        r.finished_at::text as run_finished_at,
         ar.provider_family,
         ar.backend_model,
         ar.router_model
@@ -1020,6 +1090,47 @@ export type ArmRunSummaryRow = {
   output_tokens: number | string;
   artifact_count: number;
   r2_artifact_count: number;
+};
+
+export type ReviewedSelectedArmRunDbRow = {
+  arm_run_id: string;
+  run_id: string;
+  run_label: string;
+  arm_id: string;
+  provider_family: string | null;
+  backend_model: string | null;
+  router_model: string | null;
+  suite_id: string | null;
+  suite_type: string | null;
+  logical_mode: string;
+  storage_mode: string | null;
+  status: string;
+  started_at: string | null;
+  finished_at: string | null;
+  task_count: number;
+  trial_count: number;
+  success_count: number;
+  failure_count: number;
+  median_runtime_seconds: number | null;
+  trial_cost_usd: string | null;
+  cost_row_count: number;
+  missing_cost_count: number;
+  artifact_count: number;
+  r2_artifact_count: number;
+};
+
+export type ReviewedSelectedRunAdjustedCostDbRow = {
+  run_label: string;
+  arm_id: string;
+  suite_id: string | null;
+  trial_count: number;
+  recorded_cost_usd: string | null;
+  adjusted_known_cost_usd: string | null;
+  accounting_gap_usd: string | null;
+  missing_recorded_cost_count: number;
+  unresolved_adjusted_cost_count: number;
+  adjusted_cost_sources: string[];
+  adjusted_cost_confidences: string[];
 };
 
 export type InvalidArmRunRow = {
@@ -1120,6 +1231,17 @@ export async function getEvalSuites(): Promise<EvalSuiteRow[]> {
       case s.suite_type when 'canary' then 1 when 'smoke' then 2 when 'full' then 3 else 9 end,
       s.suite_id
   `);
+}
+
+export async function getPhase3EvalSuiteLatestIncludedExecutionAt(): Promise<string | null> {
+  const rows = await queryRows<LatestIncludedExecutionRow>(`
+    select max(arm_run.finished_at)::text as latest_included_execution_at
+    from benchmark.v_valid_arm_run_summary arm_run
+    join benchmark.benchmark_eval_suites suite
+      on suite.suite_id = arm_run.suite_id
+    where suite.phase = 'phase3'
+  `);
+  return rows[0]?.latest_included_execution_at ?? null;
 }
 
 export async function getSuiteArmComparison(suiteId: string): Promise<SuiteArmComparisonRow[]> {
@@ -1226,6 +1348,115 @@ export async function getValidSuiteArmRunRows(suiteId: string, limit = 100): Pro
       limit $2
     `,
     [suiteId, limit]
+  );
+}
+
+export async function getReviewedSelectedArmRunRows(
+  runLabels: readonly string[]
+): Promise<ReviewedSelectedArmRunDbRow[]> {
+  if (runLabels.length === 0) return [];
+  if (new Set(runLabels).size !== runLabels.length) {
+    throw new Error("Reviewed selected run labels must be unique");
+  }
+
+  return queryRows<ReviewedSelectedArmRunDbRow>(
+    `
+      with selected_runs as (
+        select *
+        from benchmark.v_valid_arm_run_summary
+        where run_label = any($1::text[])
+      ),
+      task_counts as (
+        select
+          t.arm_run_id,
+          count(distinct t.task_id)::int as task_count
+        from benchmark.benchmark_trials t
+        join selected_runs selected
+          on selected.arm_run_id = t.arm_run_id
+        group by t.arm_run_id
+      )
+      select
+        selected.arm_run_id::text,
+        selected.run_id::text,
+        selected.run_label,
+        selected.arm_id,
+        selected.provider_family,
+        selected.backend_model,
+        selected.router_model,
+        selected.suite_id,
+        selected.suite_type,
+        selected.logical_mode,
+        selected.storage_mode,
+        selected.status,
+        selected.started_at::text,
+        selected.finished_at::text,
+        coalesce(tasks.task_count, 0)::int as task_count,
+        selected.trial_count::int,
+        selected.success_count::int,
+        selected.failure_count::int,
+        selected.median_runtime_seconds::float8,
+        case
+          when selected.cost_row_count = 0 then null
+          else selected.trial_cost_usd::text
+        end as trial_cost_usd,
+        selected.cost_row_count::int,
+        selected.missing_cost_count::int,
+        selected.artifact_count::int,
+        selected.r2_artifact_count::int
+      from selected_runs selected
+      left join task_counts tasks
+        on tasks.arm_run_id = selected.arm_run_id
+      order by selected.run_label, selected.arm_id
+    `,
+    [runLabels]
+  );
+}
+
+export async function getReviewedSelectedRunAdjustedCostRows(
+  runLabels: readonly string[]
+): Promise<ReviewedSelectedRunAdjustedCostDbRow[]> {
+  if (runLabels.length === 0) return [];
+  if (new Set(runLabels).size !== runLabels.length) {
+    throw new Error("Reviewed selected run labels must be unique");
+  }
+
+  return queryRows<ReviewedSelectedRunAdjustedCostDbRow>(
+    `
+      select
+        run_label,
+        arm_id,
+        suite_id,
+        count(*)::int as trial_count,
+        case
+          when count(recorded_cost_usd) = 0 then null
+          else sum(recorded_cost_usd)::text
+        end as recorded_cost_usd,
+        case
+          when count(adjusted_cost_usd) = 0 then null
+          else sum(adjusted_cost_usd)::text
+        end as adjusted_known_cost_usd,
+        case
+          when count(recorded_cost_usd) = 0 or count(adjusted_cost_usd) = 0 then null
+          else (sum(adjusted_cost_usd) - sum(recorded_cost_usd))::text
+        end as accounting_gap_usd,
+        count(*) filter (where recorded_cost_usd is null)::int as missing_recorded_cost_count,
+        count(*) filter (where adjusted_cost_usd is null)::int as unresolved_adjusted_cost_count,
+        coalesce(
+          array_agg(distinct cost_source order by cost_source)
+            filter (where cost_source is not null),
+          array[]::text[]
+        ) as adjusted_cost_sources,
+        coalesce(
+          array_agg(distinct cost_confidence order by cost_confidence)
+            filter (where cost_confidence is not null),
+          array[]::text[]
+        ) as adjusted_cost_confidences
+      from benchmark.v_trial_adjusted_cost_coverage
+      where run_label = any($1::text[])
+      group by run_label, arm_id, suite_id
+      order by run_label, arm_id, suite_id
+    `,
+    [runLabels]
   );
 }
 
@@ -1378,6 +1609,15 @@ export async function getEvalRows(): Promise<EvalSummaryRow[]> {
   `);
 }
 
+export async function getValidImportedEvalLatestIncludedExecutionAt(): Promise<string | null> {
+  const rows = await queryRows<LatestIncludedExecutionRow>(`
+    select max(finished_at)::text as latest_included_execution_at
+    from benchmark.v_valid_arm_run_summary
+    where trial_count > 0
+  `);
+  return rows[0]?.latest_included_execution_at ?? null;
+}
+
 export async function getEvalArmComparison(taskId: string): Promise<EvalArmComparisonRow[]> {
   return queryRows<EvalArmComparisonRow>(
     `
@@ -1401,6 +1641,22 @@ export async function getEvalArmComparison(taskId: string): Promise<EvalArmCompa
     `,
     [taskId]
   );
+}
+
+export async function getValidEvalTaskLatestIncludedExecutionAt(
+  taskId: string,
+): Promise<string | null> {
+  const rows = await queryRows<LatestIncludedExecutionRow>(
+    `
+      select max(arm_run.finished_at)::text as latest_included_execution_at
+      from benchmark.v_valid_arm_run_summary arm_run
+      join benchmark.benchmark_trials trial
+        on trial.arm_run_id = arm_run.arm_run_id
+      where trial.task_id = $1
+    `,
+    [taskId],
+  );
+  return rows[0]?.latest_included_execution_at ?? null;
 }
 
 
@@ -1538,6 +1794,50 @@ export type SuspectNoopTrialFilters = {
   task_id?: string;
 };
 
+export type DisplayedArmRunFreshnessIdentity = Readonly<{
+  suite_id: string | null;
+  arm_id: string;
+  run_label: string;
+}>;
+
+type DisplayedArmRunFreshnessMatchRow = DisplayedArmRunFreshnessIdentity & {
+  match_count: number;
+  finished_at: string | null;
+};
+
+export type DisplayedArmRunFreshnessResolution = Readonly<{
+  latestIncludedExecutionAt: string | null;
+  expectedIdentityCount: number;
+  resolvedIdentityCount: number;
+  unresolvedIdentities: readonly DisplayedArmRunFreshnessIdentity[];
+  duplicateIdentities: readonly DisplayedArmRunFreshnessIdentity[];
+  missingFinishedAtIdentities: readonly DisplayedArmRunFreshnessIdentity[];
+}>;
+
+function displayedArmRunFreshnessIdentityKey(identity: DisplayedArmRunFreshnessIdentity) {
+  return JSON.stringify([identity.suite_id, identity.arm_id, identity.run_label]);
+}
+
+export function deduplicateDisplayedArmRunFreshnessIdentities(
+  identities: readonly DisplayedArmRunFreshnessIdentity[],
+): DisplayedArmRunFreshnessIdentity[] {
+  const byKey = new Map<string, DisplayedArmRunFreshnessIdentity>();
+  for (const identity of identities) {
+    if (!identity.arm_id || !identity.run_label) {
+      throw new Error("Displayed arm-run freshness identities require arm_id and run_label");
+    }
+    const retained = Object.freeze({
+      suite_id: identity.suite_id,
+      arm_id: identity.arm_id,
+      run_label: identity.run_label,
+    });
+    byKey.set(displayedArmRunFreshnessIdentityKey(retained), retained);
+  }
+  return [...byKey.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([, identity]) => identity);
+}
+
 export async function getArmRunQualitySummaryRows(limit = 100): Promise<ArmRunQualitySummaryRow[]> {
   return queryRows<ArmRunQualitySummaryRow>(
     `
@@ -1575,6 +1875,100 @@ export async function getArmRunQualitySummaryRows(limit = 100): Promise<ArmRunQu
     `,
     [limit]
   );
+}
+
+export async function getDisplayedArmRunFreshnessResolution(
+  identities: readonly DisplayedArmRunFreshnessIdentity[],
+): Promise<DisplayedArmRunFreshnessResolution> {
+  const expected = deduplicateDisplayedArmRunFreshnessIdentities(identities);
+  if (expected.length === 0) {
+    return Object.freeze({
+      latestIncludedExecutionAt: null,
+      expectedIdentityCount: 0,
+      resolvedIdentityCount: 0,
+      unresolvedIdentities: Object.freeze([]),
+      duplicateIdentities: Object.freeze([]),
+      missingFinishedAtIdentities: Object.freeze([]),
+    });
+  }
+
+  const rows = await queryRows<DisplayedArmRunFreshnessMatchRow>(
+    `
+      with requested as (
+        select suite_id, arm_id, run_label
+        from jsonb_to_recordset($1::jsonb)
+          as identity(suite_id text, arm_id text, run_label text)
+      )
+      select
+        requested.suite_id,
+        requested.arm_id,
+        requested.run_label,
+        matched.match_count::int,
+        matched.finished_at
+      from requested
+      cross join lateral (
+        select
+          count(*)::int as match_count,
+          case
+            when count(*) = 1 then max(summary.finished_at)::text
+            else null
+          end as finished_at
+        from benchmark.v_arm_run_summary summary
+        where summary.phase = 'phase3'
+          and summary.suite_id is not distinct from requested.suite_id
+          and summary.arm_id = requested.arm_id
+          and summary.run_label = requested.run_label
+      ) matched
+      order by requested.suite_id nulls first, requested.arm_id, requested.run_label
+    `,
+    [JSON.stringify(expected)],
+  );
+
+  const rowsByIdentity = new Map(
+    rows.map((row) => [displayedArmRunFreshnessIdentityKey(row), row]),
+  );
+  const unresolvedIdentities: DisplayedArmRunFreshnessIdentity[] = [];
+  const duplicateIdentities: DisplayedArmRunFreshnessIdentity[] = [];
+  const missingFinishedAtIdentities: DisplayedArmRunFreshnessIdentity[] = [];
+  let resolvedIdentityCount = 0;
+  let latestIncludedExecutionAt: string | null = null;
+  let latestMilliseconds = Number.NEGATIVE_INFINITY;
+
+  for (const identity of expected) {
+    const row = rowsByIdentity.get(displayedArmRunFreshnessIdentityKey(identity));
+    if (!row || row.match_count === 0) {
+      unresolvedIdentities.push(identity);
+      continue;
+    }
+    if (row.match_count !== 1) {
+      duplicateIdentities.push(identity);
+      continue;
+    }
+
+    resolvedIdentityCount += 1;
+    if (row.finished_at === null) {
+      missingFinishedAtIdentities.push(identity);
+      continue;
+    }
+    const milliseconds = Date.parse(row.finished_at);
+    if (!Number.isFinite(milliseconds)) {
+      missingFinishedAtIdentities.push(identity);
+      continue;
+    }
+    if (milliseconds > latestMilliseconds) {
+      latestMilliseconds = milliseconds;
+      latestIncludedExecutionAt = row.finished_at;
+    }
+  }
+
+  return Object.freeze({
+    latestIncludedExecutionAt,
+    expectedIdentityCount: expected.length,
+    resolvedIdentityCount,
+    unresolvedIdentities: Object.freeze(unresolvedIdentities),
+    duplicateIdentities: Object.freeze(duplicateIdentities),
+    missingFinishedAtIdentities: Object.freeze(missingFinishedAtIdentities),
+  });
 }
 
 export async function getSuspectNoopTrialRows(limit = 100): Promise<SuspectTrialRow[]> {

@@ -361,3 +361,64 @@ test("immutable raw download response bytes are not redacted or rewritten", asyn
     globalThis.fetch = originalFetch;
   }
 });
+
+test("artifact provenance never treats an R2 URI alone as verified bytes", () => {
+  const provenance = contentModule.buildArtifactProvenance(
+    { r2_uri: "r2://test-bucket/path/result.json", size_bytes: 100, sha256: "a".repeat(64) },
+    {
+      available: false, source: "metadata", text: null, content_type: null,
+      is_text: false, is_json: false, truncated: false, completeness: "unavailable",
+      bytes_read: 0, total_bytes: 100, stored_total_bytes: 100,
+      remote_total_bytes: null, size_metadata_status: "remote_unverified",
+      analyzed_artifact_integrity_status: "unavailable", messages: [],
+    },
+    "2026-08-11T12:00:00Z",
+  );
+  assert.equal(provenance.retrievalStatus, "unavailable");
+  assert.equal(provenance.integrityStatus, "unavailable");
+  assert.equal(provenance.observedSizeBytes, null);
+  assert.match(provenance.warningMessage, /not verified/);
+});
+
+test("artifact provenance distinguishes verified complete R2 bytes from bounded evidence", () => {
+  const artifact = { r2_uri: "r2://test-bucket/path/result.json", size_bytes: 100, sha256: "b".repeat(64) };
+  const base = {
+    available: true, source: "r2", text: "{}", content_type: "application/json",
+    is_text: true, is_json: true, truncated: false, bytes_read: 100,
+    total_bytes: 100, stored_total_bytes: 100, remote_total_bytes: 100,
+    size_metadata_status: "consistent", messages: [],
+  };
+  const verified = contentModule.buildArtifactProvenance(artifact, {
+    ...base, completeness: "complete", analyzed_artifact_integrity_status: "verified",
+  }, "2026-08-11T12:00:00Z");
+  assert.equal(verified.retrievalStatus, "available");
+  assert.equal(verified.completenessStatus, "complete");
+  assert.equal(verified.integrityStatus, "verified");
+  assert.equal(verified.warningMessage, null);
+
+  const partial = contentModule.buildArtifactProvenance(artifact, {
+    ...base, truncated: true, bytes_read: 50, completeness: "head_tail_only",
+    analyzed_artifact_integrity_status: "not_checked_incomplete",
+  }, "2026-08-11T12:00:00Z");
+  assert.equal(partial.completenessStatus, "head_tail_only");
+  assert.equal(partial.integrityStatus, "partial");
+  assert.match(partial.warningMessage, /does not verify object bytes/);
+});
+
+test("local cache fallback is not represented as R2 integrity", () => {
+  const provenance = contentModule.buildArtifactProvenance(
+    { r2_uri: "r2://test-bucket/path/result.json", local_path: "path/result.json", size_bytes: 20 },
+    {
+      available: true, source: "local", text: "{}", content_type: "application/json",
+      is_text: true, is_json: true, truncated: false, completeness: "complete",
+      bytes_read: 20, total_bytes: 20, stored_total_bytes: 20,
+      remote_total_bytes: null, size_metadata_status: "unknown",
+      analyzed_artifact_integrity_status: "not_verifiable", messages: [],
+    },
+    "2026-08-11T12:00:00Z",
+  );
+  assert.equal(provenance.retrievalSource, "local_cache");
+  assert.equal(provenance.retrievalStatus, "unavailable");
+  assert.equal(provenance.integrityStatus, "unavailable");
+  assert.equal(provenance.bytesRead, 20);
+});

@@ -1,16 +1,25 @@
 import Link from "next/link";
 import { AppShell } from "../../components/AppShell";
+import { DataFreshnessNotice } from "../../components/DataFreshnessNotice";
 import { TermInfo } from "../../components/TermInfo";
 import { QualityBadge, buildSuspectNoopHref } from "../../components/QualityContext";
 import { InvalidReason, ValidityBadge, invalidCategory } from "../../components/ValidityContext";
 import { buildArtifactHref } from "../../lib/links";
 import { redactSecretsInText } from "../../lib/safe-display";
 import {
+  deduplicateDisplayedArmRunFreshnessIdentities,
   getArmRunQualitySummaryRows,
+  getDisplayedArmRunFreshnessResolution,
   getInvalidArmRunRows,
   getSuspectNoopTrialRowsFiltered,
   SuspectNoopTrialFilters
 } from "../../lib/dashboard-data";
+import { INDEX_ROUTE_FRESHNESS_SOURCES } from "../../lib/data-freshness-sources";
+import {
+  armRunFreshnessCoverageWarning,
+  buildRegisteredOperationalFreshness,
+  readFreshnessMetadata,
+} from "../../lib/data-freshness-server";
 
 export const dynamic = "force-dynamic";
 
@@ -71,6 +80,35 @@ export default async function TrialQualityPage({
     getSuspectNoopTrialRowsFiltered(suspectFilters, 120),
     getInvalidArmRunRows()
   ]);
+  const displayedArmRunIdentities = deduplicateDisplayedArmRunFreshnessIdentities([
+    ...summaries.map((row) => ({
+      suite_id: row.suite_id,
+      arm_id: row.arm_id,
+      run_label: row.run_label,
+    })),
+    ...suspectTrials.map((row) => ({
+      suite_id: row.suite_id,
+      arm_id: row.arm_id,
+      run_label: row.run_label,
+    })),
+    ...invalidRows.map((row) => ({
+      suite_id: row.suite_id,
+      arm_id: row.arm_id,
+      run_label: row.run_label,
+    })),
+  ]);
+  const freshnessRead = await readFreshnessMetadata(
+    () => getDisplayedArmRunFreshnessResolution(displayedArmRunIdentities),
+  );
+  const freshness = buildRegisteredOperationalFreshness(
+    INDEX_ROUTE_FRESHNESS_SOURCES.trialQuality,
+    {
+      queryStatus: freshnessRead.queryStatus,
+      value: freshnessRead.value?.latestIncludedExecutionAt ?? null,
+    },
+    new Date().toISOString(),
+    freshnessRead.value ? armRunFreshnessCoverageWarning(freshnessRead.value) : null,
+  );
 
   const invalidByRun = new Map(invalidRows.map((row) => [row.run_label, row]));
   const totalSuspect = summaries.reduce((acc, row) => acc + Number(row.suspect_noop_count ?? 0), 0);
@@ -98,6 +136,7 @@ export default async function TrialQualityPage({
           </div>
         </div>
       </section>
+      <DataFreshnessNotice freshness={freshness} />
 
       <section className="panel">
         <div className="panel-heading">
@@ -348,7 +387,7 @@ export default async function TrialQualityPage({
                       <td>{Number(row.input_tokens ?? 0).toLocaleString()} in / {Number(row.output_tokens ?? 0).toLocaleString()} out</td>
                       <td>{money(row.cost_usd)}</td>
                       <td>{redactSecretsInText(row.exception_type ?? "—")}</td>
-                      <td>{redactSecretsInText(row.exception_summary ?? "—")}</td>
+                      <td className="table-cell-wrap">{redactSecretsInText(row.exception_summary ?? "—")}</td>
                       <td>
                         <Link
                           href={buildArtifactHref({

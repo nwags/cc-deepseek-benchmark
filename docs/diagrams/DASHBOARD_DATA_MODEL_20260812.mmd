@@ -1,0 +1,50 @@
+flowchart LR
+  %% Reviewable high-level source. The semantic HTML on /data-model is the accessible fallback.
+  subgraph LIVE["A. Live / non-canonical execution state"]
+    LRUN["benchmark.live_runs"]
+    LEVENT["benchmark.live_run_events"]
+    LTRIAL["benchmark.live_trials"]
+    LART["benchmark.live_artifacts"]
+    LEVENT -->|"live_run_events.live_run_id references live_runs.live_run_id"| LRUN
+    LTRIAL -->|"live_trials.live_run_id references live_runs.live_run_id"| LRUN
+    LART -->|"live_artifacts.live_run_id references live_runs.live_run_id"| LRUN
+  end
+
+  subgraph CANON["B. Canonical benchmark metadata"]
+    BRUN["benchmark.benchmark_runs"]
+    BARM["benchmark.benchmark_arms"]
+    BTASK["benchmark.benchmark_tasks"]
+    BSUITE["benchmark.benchmark_eval_suites"]
+    BITEM["benchmark.benchmark_eval_suite_items"]
+    BARUN["benchmark.benchmark_arm_runs"]
+    BTRIAL["benchmark.benchmark_trials"]
+    BART["benchmark.benchmark_artifacts"]
+    BARUN -->|"benchmark_arm_runs.run_id references benchmark_runs.id"| BRUN
+    BARUN -->|"benchmark_arm_runs.arm_id references benchmark_arms.arm_id"| BARM
+    BARUN -->|"benchmark_arm_runs.suite_id references benchmark_eval_suites.suite_id"| BSUITE
+    BTRIAL -->|"benchmark_trials.run_id references benchmark_runs.id"| BRUN
+    BTRIAL -->|"benchmark_trials.arm_id references benchmark_arms.arm_id"| BARM
+    BTRIAL -->|"benchmark_trials.task_id references benchmark_tasks.task_id"| BTASK
+    BTRIAL -->|"benchmark_trials.arm_run_id references benchmark_arm_runs.id"| BARUN
+    BART -->|"benchmark_artifacts.run_id references benchmark_runs.id"| BRUN
+    BART -->|"benchmark_artifacts.trial_id references benchmark_trials.id"| BTRIAL
+  end
+
+  LRUN -.->|"live_runs.canonical_arm_run_id references benchmark_arm_runs.id — only direct live-to-canonical FK"| BARUN
+
+  DERIVED["C. Derived query layer\nvalidity · quality · dashboard · cost"]
+  CANON -->|"queries over canonical metadata"| DERIVED
+
+  R2[("D. Cloudflare R2\nartifact bytes outside Postgres")]
+  LART -.->|"r2_uri storage reference, not FK"| R2
+  BART -.->|"r2_uri storage reference, not FK"| R2
+
+  REVIEWED["E. Checked-in reviewed snapshots\nF1 · G1 · historical reporting · evidence review"]
+  CONSUMERS["F. Dashboard consumers\nlive · canonical/operational · reviewed/file-backed"]
+  LIVE -->|"live consumers"| CONSUMERS
+  DERIVED -->|"operational consumers"| CONSUMERS
+  R2 -->|"bounded preview / immutable download"| CONSUMERS
+  REVIEWED -->|"frozen reviewed facts"| CONSUMERS
+
+  NOTE["Live trial/artifact observations reconcile during final publication; no direct per-trial or per-artifact canonical FK exists."]
+  NOTE --- LRUN

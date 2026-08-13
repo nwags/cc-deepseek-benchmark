@@ -2,9 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { TermInfo } from "../../../components/TermInfo";
 import { AppShell } from "../../../components/AppShell";
+import { DataFreshnessNotice } from "../../../components/DataFreshnessNotice";
 import { SuiteHeatmap } from "../../../components/SuiteHeatmap";
 import { QualityPassRate, QualityBadge, buildSuspectNoopHref } from "../../../components/QualityContext";
-import { getEvalSuites, getSuiteArmComparison, getSuiteTaskDifficulty, getSuiteHeatmapCells, getSuiteArmQualityRows, getSuiteQualityTotals } from "../../../lib/dashboard-data";
+import { getEvalSuites, getSuiteArmComparison, getSuiteTaskDifficulty, getSuiteHeatmapCells, getSuiteArmQualityRows, getSuiteQualityTotals, getValidSuiteLatestIncludedExecutionAt } from "../../../lib/dashboard-data";
+import { buildRegisteredOperationalFreshness, readFreshnessMetadata } from "../../../lib/data-freshness-server";
+import { DETAIL_ROUTE_FRESHNESS_SOURCES } from "../../../lib/data-freshness-sources";
 import { formatRecordedCost, formatNumber, formatPercent, formatSeconds } from "../../../lib/format";
 
 export const dynamic = "force-dynamic";
@@ -16,13 +19,14 @@ export default async function EvalSuiteDetailPage({
 }) {
   const { suiteId } = await params;
   const decodedSuiteId = decodeURIComponent(suiteId);
-  const [suites, rows, difficultyRows, heatmapCells, qualityRows, qualityTotals] = await Promise.all([
+  const [suites, rows, difficultyRows, heatmapCells, qualityRows, qualityTotals, executionRead] = await Promise.all([
     getEvalSuites(),
     getSuiteArmComparison(decodedSuiteId),
     getSuiteTaskDifficulty(decodedSuiteId, 25),
     getSuiteHeatmapCells(decodedSuiteId),
     getSuiteArmQualityRows(decodedSuiteId),
-    getSuiteQualityTotals(decodedSuiteId)
+    getSuiteQualityTotals(decodedSuiteId),
+    readFreshnessMetadata(() => getValidSuiteLatestIncludedExecutionAt(decodedSuiteId))
   ]);
   const qualityByArm = new Map(qualityRows.map((row) => [row.arm_id, row]));
   const suite = suites.find((row) => row.suite_id === decodedSuiteId);
@@ -30,12 +34,23 @@ export default async function EvalSuiteDetailPage({
   if (!suite) {
     notFound();
   }
+  const queriedAt = new Date().toISOString();
+  const freshness = buildRegisteredOperationalFreshness(
+    DETAIL_ROUTE_FRESHNESS_SOURCES.evalSuiteDetail,
+    executionRead,
+    queriedAt,
+    executionRead.queryStatus === "unavailable"
+      ? "Suite comparison rows remain visible, but the secondary execution-completion lookup is unavailable."
+      : null,
+  );
 
   return (
     <AppShell
       title={suite.display_name}
       description={suite.description ?? "Suite-level cross-arm comparison."}
     >
+      <DataFreshnessNotice freshness={freshness} />
+      <p className="muted">The latest execution timestamp applies to this suite's valid-imported comparison population; suite catalog fields are definitions, not execution timestamps.</p>
       <section className="panel">
         <div className="panel-heading">
           <div>

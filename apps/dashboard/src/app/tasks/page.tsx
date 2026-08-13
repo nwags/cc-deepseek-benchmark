@@ -1,18 +1,30 @@
 import { AppShell } from "../../components/AppShell";
-import { getTaskRows } from "../../lib/dashboard-data";
+import { DataFreshnessNotice } from "../../components/DataFreshnessNotice";
+import { getAllImportedTaskLatestIncludedExecutionAt, getTaskRows } from "../../lib/dashboard-data";
+import { INDEX_ROUTE_FRESHNESS_SOURCES } from "../../lib/data-freshness-sources";
+import { buildRegisteredOperationalFreshness, readFreshnessMetadata } from "../../lib/data-freshness-server";
 import { formatRecordedCost, formatCurrency, formatNumber, formatPercent, formatSeconds } from "../../lib/format";
 
 export const dynamic = "force-dynamic";
 
 export default async function TasksPage() {
-  const tasks = await getTaskRows();
+  const [tasks, freshnessRead] = await Promise.all([
+    getTaskRows(),
+    readFreshnessMetadata(() => getAllImportedTaskLatestIncludedExecutionAt()),
+  ]);
+  const freshness = buildRegisteredOperationalFreshness(
+    INDEX_ROUTE_FRESHNESS_SOURCES.tasks,
+    freshnessRead,
+    new Date().toISOString(),
+  );
 
   return (
-    <AppShell title="Tasks" description="Task-level summary for imported canary and smoke trials.">
+    <AppShell title="Tasks — All imported" description="Task-level summary across all imported run classes with registered task rows.">
+      <DataFreshnessNotice freshness={freshness} />
       <section className="panel">
         <div className="panel-heading">
           <h2>Task summary</h2>
-          <p>Pass rate and runtime by Terminal-Bench task.</p>
+          <p>All-imported pass rate, runtime, and recorded cost by Terminal-Bench task; full-suite, smoke, canary, diagnostic, legacy, and other imported run classes may contribute.</p>
         </div>
         <div className="table-wrap">
           <table>
