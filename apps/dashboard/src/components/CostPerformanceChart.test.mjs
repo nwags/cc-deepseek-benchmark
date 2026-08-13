@@ -161,6 +161,17 @@ test("points and controls expose keyboard interaction and persistent evidence de
   assert.match(componentSource, /cost-performance-point-qualified/);
 });
 
+test("SVG title is one computed string rather than mixed React children", () => {
+  assert.match(
+    componentSource,
+    /<title id="cost-performance-svg-title">\{`\$\{selectedMetricLabel\} against reviewed pass rate`\}<\/title>/,
+  );
+  assert.doesNotMatch(
+    componentSource,
+    /<title id="cost-performance-svg-title">\{selectedMetricLabel\} against reviewed pass rate<\/title>/,
+  );
+});
+
 test("metric-unavailable arms remain explicit in the visible evidence table", () => {
   assert.match(componentSource, /view\.unavailableMetricArms\.map/);
   assert.match(componentSource, /arms=\{view\.selectedVisibleArms\}/);

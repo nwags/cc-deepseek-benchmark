@@ -1095,9 +1095,246 @@ def test_architecture_documents_execution_live_publication_and_read_paths() -> N
         assert stale_phrase not in page
 
 
+def test_dr014_architecture_explains_scoring_evidence_and_workflow_switches() -> None:
+    page = Path("apps/dashboard/src/app/architecture/page.tsx").read_text()
+
+    assert "are not the task instructions the agent is solving from" in page
+    assert "After the agent finishes, they inspect the resulting workspace" in page
+    assert "determine benchmark correctness and reward" in page
+    assert "dashboard diagnosis as interpretation rather than scoring authority" in page
+    assert "No LLM judge determines the benchmark reward" in page
+    assert "does not rescore the trial" in page
+
+    for artifact_type in (
+        "result",
+        "agent_transcript",
+        "verifier_stdout",
+        "trajectory",
+        "verifier_ctrf",
+        "verifier_reward",
+        "config",
+        "log",
+        "exception",
+    ):
+        assert f"<code>{artifact_type}</code>" in page
+    assert "availability varies by trial" in page
+    assert "No trial is represented as having every optional artifact" in page
+    assert "private model reasoning is not exposed" in page
+    assert 'href="/artifacts"' in page
+    assert 'href="/trial-quality"' in page
+
+    assert "supervise_live=true" in page
+    assert "Wraps the benchmark command with" in page
+    assert "Shared live database" in page
+    assert "depends on configured credentials" in page
+    assert "neither scores nor changes Harbor" in page
+    assert "supervise_live=false" in page
+    assert "without <code>scripts/run_arm_live.py</code> supervision" in page
+    assert "A separately requested final" in page
+    assert "progressive_artifacts=true" in page
+    assert "requires both <code>supervise_live=true</code> and <code>publish_results=true</code>" in page
+    assert "publish_results=true" in page
+    assert "whether or not live supervision was enabled" in page
+    assert "Current workflow_dispatch defaults" in page
+    assert "publish_results=false" in page
+    assert "does not mean canonical publication is globally disabled" in page
+
+    assert "is the workflow final canonical publisher" in page
+    assert "discovers the eligible final Harbor result directory" in page
+    assert "eligibility and path-safety checks" in page
+    assert "ingestion-manifest functionality" in page
+    assert "live database spool and progressive-artifact evidence" in page
+    assert "verifies checksum, size, and object integrity" in page
+    assert "transaction/rollback verification use one transaction" in page
+    assert "Final counts and" in page
+    assert "applicable live run is linked to its canonical arm run" in page
+    assert "Final publication without live supervision is supported" in page
+    assert 'href="/data-model"' in page
+
+
+def test_dr014_data_model_page_and_diagram_share_audited_relationships() -> None:
+    page_path = Path("apps/dashboard/src/app/data-model/page.tsx")
+    diagram_path = Path("docs/diagrams/DASHBOARD_DATA_MODEL_20260812.mmd")
+    page = page_path.read_text()
+    diagram = diagram_path.read_text()
+    shell = Path("apps/dashboard/src/components/AppShell.tsx").read_text()
+    css = Path("apps/dashboard/src/app/globals.css").read_text()
+
+    assert page_path.is_file()
+    assert diagram_path.is_file()
+    assert '{ href: "/data-model", label: "Data Model" }' in shell
+    assert shell.index('{ href: "/architecture"') < shell.index('{ href: "/data-model"') < shell.index('{ href: "/glossary"')
+    assert '{ href: "/runners"' not in shell
+    assert '{ href: "/readiness"' not in shell
+    assert "not a live schema inspector" in page
+    assert "without querying Supabase or R2" in page
+
+    for relation in (
+        "benchmark.live_runs",
+        "benchmark.live_run_events",
+        "benchmark.live_trials",
+        "benchmark.live_artifacts",
+        "benchmark.benchmark_runs",
+        "benchmark.benchmark_arms",
+        "benchmark.benchmark_tasks",
+        "benchmark.benchmark_trials",
+        "benchmark.benchmark_artifacts",
+        "benchmark.benchmark_eval_suites",
+        "benchmark.benchmark_eval_suite_items",
+        "benchmark.benchmark_arm_runs",
+    ):
+        assert relation in page
+        assert relation in diagram
+
+    relationship_pairs = (
+        ("live_run_events.live_run_id", "live_runs.live_run_id"),
+        ("live_trials.live_run_id", "live_runs.live_run_id"),
+        ("live_artifacts.live_run_id", "live_runs.live_run_id"),
+        ("live_runs.canonical_arm_run_id", "benchmark_arm_runs.id"),
+        ("benchmark_arm_runs.run_id", "benchmark_runs.id"),
+        ("benchmark_arm_runs.arm_id", "benchmark_arms.arm_id"),
+        ("benchmark_arm_runs.suite_id", "benchmark_eval_suites.suite_id"),
+        ("benchmark_trials.run_id", "benchmark_runs.id"),
+        ("benchmark_trials.arm_id", "benchmark_arms.arm_id"),
+        ("benchmark_trials.task_id", "benchmark_tasks.task_id"),
+        ("benchmark_trials.arm_run_id", "benchmark_arm_runs.id"),
+        ("benchmark_artifacts.run_id", "benchmark_runs.id"),
+        ("benchmark_artifacts.trial_id", "benchmark_trials.id"),
+    )
+    for child, parent in relationship_pairs:
+        assert child in page
+        assert parent in page
+        assert f"{child} references {parent}" in diagram
+
+    assert "the only direct live-to-canonical foreign key" in page
+    assert "only direct live-to-canonical FK" in diagram
+    assert "There is no direct" in page
+    assert "per-trial or per-artifact canonical foreign key" in page
+    assert "LTRIAL -->" in diagram
+    assert "LART -->" in diagram
+    assert "LTRIAL --> BTRIAL" not in diagram
+    assert "LART --> BART" not in diagram
+    assert "live_trials.trial_id references benchmark_trials.id" not in page + diagram
+    assert "live_artifacts.artifact_id references benchmark_artifacts.id" not in page + diagram
+
+    for relation in (
+        "benchmark.benchmark_invalid_arm_runs",
+        "benchmark.v_valid_arm_run_summary",
+        "benchmark.v_valid_suite_arm_comparison",
+        "benchmark.v_valid_eval_arm_comparison",
+        "benchmark.v_valid_suite_arm_quality_summary",
+        "benchmark.v_trial_quality_flags",
+        "benchmark.v_arm_run_quality_summary",
+        "benchmark.v_arm_run_summary",
+        "benchmark.v_arm_run_trials",
+        "benchmark.v_dashboard_runs",
+        "benchmark.v_dashboard_arms",
+        "benchmark.v_dashboard_tasks",
+        "benchmark.benchmark_trial_cost_coverage",
+        "benchmark.v_trial_adjusted_cost_coverage",
+        "benchmark.v_arm_outcome_cost_breakdown",
+        "benchmark.v_suite_adjusted_cost_frontier",
+    ):
+        assert relation in page
+    assert "not a second source of benchmark truth" in page
+
+    assert "live_artifacts.r2_uri" in page
+    assert "benchmark_artifacts.r2_uri" in page
+    assert "storage references, not database foreign keys" in page
+    assert "does not prove" in page
+    assert "bytes were retrieved, complete, or verified against recorded hash and size" in page
+    assert "r2_uri storage reference, not FK" in diagram
+    assert "F1 reviewed Phase 3 comparison snapshot" in page
+    assert "G1 reviewed run-selection snapshot" in page
+    assert "not silently refreshed from newer stored evidence" in page
+    for consumer in (
+        "/runs/live",
+        "/live-artifacts/[artifactId]",
+        "/runs",
+        "/artifacts",
+        "/trials/[trialId]",
+        "/arms",
+        "/eval-suites",
+        "/evals",
+        "/trial-quality",
+        "/cross-phase",
+        "/cost-coverage",
+        "/comprehensive-review",
+    ):
+        assert consumer in page
+    assert "semantic HTML below" in page
+    assert "accessible text equivalent" in page
+    assert "DASHBOARD_DATA_MODEL_20260812.mmd" in page
+    assert 'href="/architecture"' in page
+    assert 'href="/glossary"' in page
+    assert ".data-model-layer-body" in css
+    assert "grid-template-columns: repeat(auto-fit" in css
+    assert "@media (max-width: 1100px)" in css
+    assert ".data-model-snapshot-list li" in css
+    assert "overflow-wrap: anywhere" in css
+
+
+def test_dr015_glossary_related_links_reuse_typed_registry_and_term_info() -> None:
+    glossary = Path("apps/dashboard/src/lib/glossary.ts").read_text()
+    page = Path("apps/dashboard/src/app/glossary/page.tsx").read_text()
+    term_info = Path("apps/dashboard/src/components/TermInfo.tsx").read_text()
+
+    assert "links?: readonly" in glossary
+    assert "href: string;" in glossary
+    assert "label: string;" in glossary
+    assert 'export type GlossaryTerm = (typeof glossaryEntries)[number]["term"]' in glossary
+    assert "as const satisfies readonly GlossaryEntry[]" in glossary
+    assert "dangerouslySetInnerHTML" not in glossary + page + term_info
+
+    linked_terms = {
+        "Arm": ('href: "/arms"', "Open Arms"),
+        "Arm run": ('href: "/runs"', "Open Runs"),
+        "Eval": ('href: "/evals"', "Open Evals"),
+        "Eval suite": ('href: "/eval-suites"', "Open Eval Suites"),
+        "Trial": ('href: "/trial-quality"', "Open Trial Quality"),
+        "R2 artifact": ('href: "/artifacts"', "Open Artifacts"),
+        "Trajectory": ('href: "/artifacts"', "Open Artifacts"),
+        "Benchmark run class": ('href: "/runs"', "Open Runs"),
+        "Result source/storage location": ('href: "/data-model"', "Open Data Model"),
+        "Recorded cost": ('href: "/cost-coverage"', "Open Cost Coverage"),
+        "Adjusted known cost": ('href: "/cost-coverage"', "Open Cost Coverage"),
+        "Known accounting gap": ('href: "/cost-coverage"', "Open Cost Coverage"),
+        "Failure/incomplete spend": ('href: "/cost-coverage"', "Open Cost Coverage"),
+        "Cost per clean success": ('href: "/"', "Open Overview Chart"),
+    }
+    for term, (href, label) in linked_terms.items():
+        entry = glossary.split(f'term: "{term}"', 1)[1].split("  },", 1)[0]
+        assert href in entry
+        assert label in entry
+
+    href_lines = [line for line in glossary.splitlines() if "href:" in line and "href: string" not in line]
+    assert href_lines
+    assert all("?" not in line and "#" not in line for line in href_lines)
+    assert 'className="glossary-related-links"' in page
+    assert "aria-label={`Related pages for ${entry.term}`}" in page
+    assert "{link.label} →" in page
+    assert "entry.links?.[0]" in term_info
+    assert "{entry.links[0].label} →" in term_info
+    assert "Glossary →" in term_info
+    assert "createPortal" in term_info
+    assert 'event.key === "Escape"' in term_info
+    assert "onFocus={clearCloseTimer}" in term_info
+    assert "onBlur={scheduleClose}" in term_info
+    assert "aria-expanded={open}" in term_info
+
+    logical_mode = glossary.split('term: "Logical mode"', 1)[1].split("  },", 1)[0]
+    storage_mode = glossary.split('term: "Storage mode"', 1)[1].split("  },", 1)[0]
+    assert "internal field" in logical_mode
+    assert "public primary label" in logical_mode
+    assert "Benchmark run class" in logical_mode
+    assert "internal field" in storage_mode
+    assert "public Result source/storage location label" in storage_mode
+
+
 def test_architecture_glossary_uses_public_terms_and_retains_internal_compatibility() -> None:
     page = Path("apps/dashboard/src/app/architecture/page.tsx").read_text()
     glossary = Path("apps/dashboard/src/lib/glossary.ts").read_text()
+    css = Path("apps/dashboard/src/app/globals.css").read_text()
     r2_entry = glossary.split('term: "R2 artifact"', 1)[1].split("  },", 1)[0]
 
     assert 'term: "Benchmark run class"' in glossary
@@ -1113,3 +1350,12 @@ def test_architecture_glossary_uses_public_terms_and_retains_internal_compatibil
     assert "by final canonical publication" in r2_entry
     assert "Supabase stores the corresponding metadata and relationships" in r2_entry
     assert "other files collected during ingestion" not in r2_entry
+    assert 'className="concept-grid architecture-terminology-grid"' in page
+    assert page.count('className="term-label architecture-terminology-label"') == 4
+    assert page.count('className="architecture-terminology-text"') == 4
+    assert ".architecture-terminology-label" in css
+    assert ".architecture-terminology-text" in css
+    assert "white-space: normal;" in css
+    assert "overflow-wrap: anywhere;" in css
+    assert ".architecture-terminology-label .term-info-wrap" in css
+    assert "flex: 0 0 auto;" in css

@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { AppShell } from "../../components/AppShell";
 import { glossaryEntries } from "../../lib/glossary";
 
@@ -19,6 +21,13 @@ export default function GlossaryPage() {
             <article className="glossary-entry" id={entry.slug} key={entry.slug}>
               <h3>{entry.term}</h3>
               <p>{entry.definition}</p>
+              {"links" in entry && entry.links.length > 0 ? (
+                <nav className="glossary-related-links" aria-label={`Related pages for ${entry.term}`}>
+                  {entry.links.map((link) => (
+                    <Link href={link.href} key={link.href}>{link.label} →</Link>
+                  ))}
+                </nav>
+              ) : null}
             </article>
           ))}
         </div>

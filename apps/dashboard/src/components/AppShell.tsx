@@ -3,6 +3,7 @@ import Link from "next/link";
 const navItems = [
   { href: "/", label: "Overview" },
   { href: "/architecture", label: "Architecture" },
+  { href: "/data-model", label: "Data Model" },
   { href: "/glossary", label: "Glossary" },
   { href: "/trial-quality", label: "Trial Quality" },
   { href: "/cross-phase", label: "Cross-phase" },

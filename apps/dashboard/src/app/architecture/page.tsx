@@ -44,7 +44,7 @@ const executionAndScoringFlow: FlowItem[] = [
   },
   {
     title: "Held-out verifier/test execution",
-    detail: "After agent execution, task-specific held-out verifier tests inspect the resulting workspace and determine correctness."
+    detail: "The task-specific verifier and tests are not the task instructions the agent is solving from. After the agent finishes, they inspect the resulting workspace and determine benchmark correctness and reward. This keeps dashboard diagnosis as interpretation rather than scoring authority without claiming more secrecy or isolation than the retained benchmark contract supports."
   },
   {
     title: "Raw reward and result creation",
@@ -82,7 +82,7 @@ const liveObservationFlow: FlowItem[] = [
 const canonicalPublicationFlow: FlowItem[] = [
   {
     title: "Harbor final result directory and canonical trial artifacts",
-    detail: "Final Harbor output supplies the run result and complete trial evidence considered for canonical publication."
+    detail: "The final Harbor result directory supplies structured result/reward/status evidence plus the available trial artifacts considered for canonical publication; optional artifacts are not assumed to exist for every trial."
   },
   {
     title: "Publication discovery, eligibility, and path-safety checks",
@@ -90,7 +90,7 @@ const canonicalPublicationFlow: FlowItem[] = [
   },
   {
     title: "scripts/publish_phase3_run.py",
-    detail: "This is the workflow final publisher that coordinates the current canonical publication path after benchmark execution."
+    detail: "This is the workflow's final canonical publisher. It runs after benchmark execution and coordinates eligible-result discovery, manifest-backed verification, R2 reconciliation, transactional canonical metadata publication, final relationship checks, and the applicable live-to-canonical arm-run link."
   },
   {
     title: "scripts/ingest_phase3_run_metadata.py functionality",
@@ -177,7 +177,32 @@ export default function ArchitecturePage() {
 
       <section className="quality-context-panel">
         <strong>No LLM judge determines the benchmark reward.</strong> The held-out verifier/tests determine correctness,
-        and Harbor records the raw reward and result evidence.
+        and Harbor records the raw reward and result evidence. The dashboard can explain execution evidence, but it does not rescore the trial.
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Concrete retained Harbor evidence</h2>
+            <p>Representative artifacts explain what was scored and what the agent did; availability varies by trial.</p>
+          </div>
+          <div className="panel-heading-actions">
+            <Link href="/artifacts">Open Artifacts →</Link>
+            <Link href="/trial-quality">Open Trial Quality →</Link>
+          </div>
+        </div>
+        <dl className="architecture-evidence-list">
+          <div><dt><code>result</code></dt><dd>Harbor&apos;s structured result, reward, and status evidence.</dd></div>
+          <div><dt><code>agent_transcript</code></dt><dd>The observable agent interaction and task-execution record; private model reasoning is not exposed.</dd></div>
+          <div><dt><code>verifier_stdout</code></dt><dd>Human-readable output from the task-specific verifier or tests.</dd></div>
+          <div><dt><code>trajectory</code></dt><dd>Structured evidence of observable agent and tool behavior when retained.</dd></div>
+          <div><dt><code>verifier_ctrf</code></dt><dd>Structured test and assertion confirmation when produced.</dd></div>
+          <div><dt><code>verifier_reward</code></dt><dd>Raw confirmation of the verifier reward.</dd></div>
+        </dl>
+        <p className="architecture-evidence-note">
+          Additional <code>config</code>, <code>log</code>, or <code>exception</code> evidence may be retained when present.
+          No trial is represented as having every optional artifact.
+        </p>
       </section>
 
       <FlowPanel
@@ -202,21 +227,82 @@ export default function ArchitecturePage() {
         </p>
       </section>
 
+      <section className="panel architecture-switch-panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Live and publication controls</h2>
+            <p>Current workflow defaults are safety settings; they are separate from architectural capability.</p>
+          </div>
+        </div>
+        <div className="architecture-switch-layout">
+          <dl className="architecture-switch-behavior">
+            <div>
+              <dt><code>supervise_live=true</code></dt>
+              <dd>
+                Wraps the benchmark command with <code>scripts/run_arm_live.py</code> so observable execution metadata,
+                events, heartbeats, completed-trial evidence, and stable artifacts can be captured. Shared live database
+                publication still depends on configured credentials. The wrapper neither scores nor changes Harbor&apos;s result.
+              </dd>
+            </div>
+            <div>
+              <dt><code>supervise_live=false</code></dt>
+              <dd>
+                Runs the benchmark without <code>scripts/run_arm_live.py</code> supervision. A separately requested final
+                canonical publication may still run after execution.
+              </dd>
+            </div>
+            <div>
+              <dt><code>progressive_artifacts=true</code></dt>
+              <dd>
+                For a paid run, requires both <code>supervise_live=true</code> and <code>publish_results=true</code>.
+                Stable completed-trial artifacts may then be uploaded while the benchmark runs.
+              </dd>
+            </div>
+            <div>
+              <dt><code>publish_results=true</code></dt>
+              <dd>
+                Runs the workflow&apos;s after-execution final publication step with <code>scripts/publish_phase3_run.py</code>.
+                This can run whether or not live supervision was enabled.
+              </dd>
+            </div>
+          </dl>
+          <aside className="architecture-config-defaults" aria-label="Current workflow dispatch defaults">
+            <h3>Current workflow_dispatch defaults</h3>
+            <dl>
+              <div><dt><code>supervise_live</code></dt><dd><strong>true</strong></dd></div>
+              <div><dt><code>publish_results</code></dt><dd><strong>false</strong> · Phase 3 closeout safety default</dd></div>
+              <div><dt><code>progressive_artifacts</code></dt><dd><strong>false</strong></dd></div>
+            </dl>
+            <p>The <code>publish_results=false</code> default does not mean canonical publication is globally disabled.</p>
+          </aside>
+        </div>
+      </section>
+
       <FlowPanel
         title="3. Final canonical publication after execution"
-        description="A distinct after-execution path validates complete Harbor output before any canonical mutation."
+        description="A distinct after-execution path validates the complete Harbor result directory and retained trial evidence before any canonical mutation."
         items={canonicalPublicationFlow}
         variant="artifact"
       />
 
       <section className="quality-context-panel">
+        <p className="architecture-publisher-lead">
+          <strong><code>scripts/publish_phase3_run.py</code> is the workflow final canonical publisher.</strong>
+        </p>
         <p>
           <strong>Publication eligibility:</strong> Complete error-bearing runs may be publishable when structurally complete;
           interrupted, partial, ambiguous, or inconsistent runs remain live-only.
         </p>
         <p>
+          It discovers the eligible final Harbor result directory, applies eligibility and path-safety checks, builds or reuses
+          ingestion-manifest functionality, and reconciles live database spool and progressive-artifact evidence when applicable.
+          When object upload is requested, it uploads missing canonical R2 objects and verifies checksum, size, and object integrity
+          before canonical database publication.
+        </p>
+        <p>
           R2 upload and remote object verification occur before canonical database commit. Canonical database publication
-          and transaction/rollback verification use one transaction and roll back on failed verification.
+          and transaction/rollback verification use one transaction and roll back on failed verification. Final counts and
+          relationships are verified, and the applicable live run is linked to its canonical arm run.
         </p>
         <p>
           Supabase stores canonical run, trial, and artifact metadata and relationships. Cloudflare R2 stores immutable,
@@ -233,7 +319,10 @@ export default function ArchitecturePage() {
             <h2>4. Dashboard storage and read paths</h2>
             <p>Dashboard pages declare their evidence source; not every page reads from one common store.</p>
           </div>
-          <Link href="/glossary">Glossary →</Link>
+          <div className="panel-heading-actions">
+            <Link href="/data-model">Data Model →</Link>
+            <Link href="/glossary">Glossary →</Link>
+          </div>
         </div>
         <div className="concept-grid">
           <article>
@@ -268,21 +357,41 @@ export default function ArchitecturePage() {
           <h2>Public dashboard terminology</h2>
           <p>Public labels describe intent; internal compatibility fields remain documented in the glossary.</p>
         </div>
-        <div className="concept-grid">
+        <div className="concept-grid architecture-terminology-grid">
           <article>
-            <h3><span className="term-label">Benchmark run class <TermInfo term="Benchmark run class" /></span></h3>
+            <h3>
+              <span className="term-label architecture-terminology-label">
+                <span className="architecture-terminology-text">Benchmark run class</span>
+                <TermInfo term="Benchmark run class" />
+              </span>
+            </h3>
             <p>User-facing interpretation of an execution, such as canary, smoke, full, ad-hoc, diagnostic, or dry-run where applicable.</p>
           </article>
           <article>
-            <h3><span className="term-label">Result source/storage location <TermInfo term="Result source/storage location" /></span></h3>
+            <h3>
+              <span className="term-label architecture-terminology-label">
+                <span className="architecture-terminology-text">Result source/storage location</span>
+                <TermInfo term="Result source/storage location" />
+              </span>
+            </h3>
             <p>Where result evidence originated or is retained across Harbor/local directories, Supabase, R2, or historical snapshots.</p>
           </article>
           <article>
-            <h3><span className="term-label">R2 artifact <TermInfo term="R2 artifact" /></span></h3>
+            <h3>
+              <span className="term-label architecture-terminology-label">
+                <span className="architecture-terminology-text">R2 artifact</span>
+                <TermInfo term="R2 artifact" />
+              </span>
+            </h3>
             <p>Evidence bytes stored in Cloudflare R2 rather than directly in Supabase.</p>
           </article>
           <article>
-            <h3><span className="term-label">Recorded cost <TermInfo term="Recorded cost" /></span></h3>
+            <h3>
+              <span className="term-label architecture-terminology-label">
+                <span className="architecture-terminology-text">Recorded cost</span>
+                <TermInfo term="Recorded cost" />
+              </span>
+            </h3>
             <p>Known captured cost. If rows are missing, treat it as a lower bound.</p>
           </article>
         </div>

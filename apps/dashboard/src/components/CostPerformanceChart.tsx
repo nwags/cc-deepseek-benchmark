@@ -340,7 +340,7 @@ export function CostPerformanceChart({
             aria-labelledby="cost-performance-svg-title cost-performance-svg-description"
             preserveAspectRatio="xMidYMid meet"
           >
-            <title id="cost-performance-svg-title">{selectedMetricLabel} against reviewed pass rate</title>
+            <title id="cost-performance-svg-title">{`${selectedMetricLabel} against reviewed pass rate`}</title>
             <desc id="cost-performance-svg-description">
               Interactive scatter plot of selected reviewed Phase 3 arms. Lower horizontal values and higher
               vertical values are better. Focus a point to show its complete evidence details beside the plot.

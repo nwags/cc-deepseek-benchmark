@@ -1,7 +1,7 @@
 # Dashboard Revision Specification
 
 **Date:** 2026-08-04
-**Status:** Draft v0.1 for implementation
+**Status:** Corrective implementation complete; second comprehensive manual visual acceptance passed 2026-08-12
 **Target repository:** `cc-deepseek-bench`
 **Target branch:** `dashboard-revision-scope-and-stale-pages`
 **Primary objective:** Correct dashboard scope/provenance inconsistencies and contain stale operational pages before layout polish or new charts.
@@ -369,6 +369,8 @@ Implemented Commit Group D design:
 
 ### DR-007 — Add a dated post-merge dashboard review record
 
+**Acceptance status:** Passed 2026-08-12. The dated review record now preserves the failed first pass and the successful comprehensive second pass.
+
 Create a new review document rather than modifying the July 31/August 1 acceptance evidence.
 
 Suggested path:
@@ -393,13 +395,13 @@ Acceptance criteria:
 
 ## 6A. Corrective requirements confirmed by the 2026-08-05 manual review
 
-These requirements record the corrective work required before a second manual visual acceptance pass. DR-008 and DR-009 are implemented through Commit Groups F1/F2, DR-012 is implemented through Commit Groups G1/G2, and DR-010 is implemented through Groups G3/G4a/G4b/G4c; all await second manual visual acceptance. Group G4c completes the freshness/provenance implementation across live supervision, live-artifact metadata and bytes, raw live-artifact download semantics, and API health. Groups H1/H2 complete the DR-011/DR-301 chart implementation through the reviewed policy foundation, interactive SVG, Overview controls, point evidence inspector, and visible non-hover evidence table. Group I1 completes the bounded DR-013 layout corrections. DR-011/DR-301 and DR-013 now await second manual visual acceptance; DR-014 and DR-015 remain open.
+These requirements record the corrective work required by the failed 2026-08-05 review. DR-008 and DR-009 were implemented through Commit Groups F1/F2, DR-012 through Commit Groups G1/G2, DR-010 through Groups G3/G4a/G4b/G4c, DR-011/DR-301 through Groups H1/H2, DR-013 through Group I1, and DR-014/DR-015 through Group I2. The comprehensive second manual visual acceptance passed on 2026-08-12.
 
 ### DR-008 — Reconcile and integrate Kimi K3 cost evidence
 
 **Priority:** P0
 
-**Implementation status:** Implemented in Commit Groups F1/F2; pending second manual visual acceptance.
+**Implementation status:** Implemented in Commit Groups F1/F2; visually accepted 2026-08-12.
 
 Required outcome:
 
@@ -418,7 +420,7 @@ Required outcome:
 
 **Priority:** P0
 
-**Implementation status:** Implemented in Commit Groups F1/F2; pending second manual visual acceptance.
+**Implementation status:** Implemented in Commit Groups F1/F2; visually accepted 2026-08-12.
 
 Required outcome:
 
@@ -432,7 +434,7 @@ Required outcome:
 
 **Priority:** P0
 
-**Implementation status:** Implemented through Groups G3/G4a/G4b/G4c; pending second manual visual acceptance.
+**Implementation status:** Implemented through Groups G3/G4a/G4b/G4c; visually accepted 2026-08-12.
 
 Every dynamic Supabase-backed page must expose:
 
@@ -457,13 +459,13 @@ Group G4c completes the production-route rollout. `/runs/live` names the exact l
 
 **Priority:** P0 — prerequisite for the second manual acceptance pass
 
-**Implementation status:** Groups H1/H2 implementation complete as of 2026-08-12; DR-011 remains pending second manual visual acceptance.
+**Implementation status:** Groups H1/H2 implementation complete and visually accepted 2026-08-12.
 
 DR-301 is the detailed interaction and presentation specification for this requirement; DR-011 and DR-301 describe one chart, not two duplicate chart requirements.
 
 Group H1 established the reviewed chart data contract, metric-availability rules, frozen selected-run links, canonical presentation provider-family filters that retain raw F1 provider values, deterministic Pareto-frontier computation, and accessible non-hover table/model. It uses F1 reviewed facts for quantitative values and G1 only for frozen run identity. It preserves Kimi K3's qualified retained-rate basis for the adjusted-cost-per-attempt comparison while leaving its F1-null cost-per-clean-success and outcome-spend values unavailable.
 
-Group H2 renders that contract as the single responsive Overview SVG frontier. The surrounding G2 Overview headline and leaderboard remain the current reviewed Phase 3 extended comparison. The chart has its own explicit reviewed scope control, persisted as `chart_scope=phase3-extended` or `chart_scope=phase3-core`, so selecting historical core does not imply a page-wide scope change. Native chart-scope, metric, provider-family, and arm controls retain independent selection semantics; the client-safe view module delegates plotted eligibility and frontier membership to the single H1 implementation without importing the reviewed F1/G1 construction layer into the browser. Provider-family color, a categorical qualification/accounting-gap ring, focusable points, Enter/Space activation, a persistent evidence inspector, explicit empty/unavailable states, and the committed visible evidence table provide the required non-hover material facts and frozen arm/run links. Point size remains fixed, so no unavailable failure/incomplete-spend evidence is presented as zero. Implementation is complete, but axes, clipping, color distinction, frontier readability, Kimi qualification prominence, control behavior, focus visibility, table usability, page height, and narrow-viewport behavior must be assessed in the second manual visual pass.
+Group H2 renders that contract as the single responsive Overview SVG frontier. The surrounding G2 Overview headline and leaderboard remain the current reviewed Phase 3 extended comparison. The chart has its own explicit reviewed scope control, persisted as `chart_scope=phase3-extended` or `chart_scope=phase3-core`, so selecting historical core does not imply a page-wide scope change. Native chart-scope, metric, provider-family, and arm controls retain independent selection semantics; the client-safe view module delegates plotted eligibility and frontier membership to the single H1 implementation without importing the reviewed F1/G1 construction layer into the browser. Provider-family color, a categorical qualification/accounting-gap ring, focusable points, Enter/Space activation, a persistent evidence inspector, explicit empty/unavailable states, and the committed visible evidence table provide the required non-hover material facts and frozen arm/run links. Point size remains fixed, so no unavailable failure/incomplete-spend evidence is presented as zero. The second pass accepted the chart's controls, interactions, tooltip/deep links, accessible non-hover evidence, responsive presentation, and corrected single-string SVG title.
 
 Required outcome:
 
@@ -478,7 +480,7 @@ Required outcome:
 
 **Priority:** P0
 
-**Implementation status:** Implemented in Commit Groups G1/G2; pending second manual visual acceptance.
+**Implementation status:** Implemented in Commit Groups G1/G2; visually accepted 2026-08-12.
 
 Required outcome:
 
@@ -495,7 +497,7 @@ Required outcome:
 
 **Priority:** P1
 
-**Implementation status:** Implemented in Group I1 as of 2026-08-12; pending second manual visual acceptance.
+**Implementation status:** Implemented in Group I1 and visually accepted 2026-08-12.
 
 Required outcome:
 
@@ -506,11 +508,13 @@ Required outcome:
 - Verify table overflow and right-edge readability.
 - Preserve a usable layout at 1920×1080 and narrower desktop widths.
 
-Group I1 retains the existing visual language while allowing canonical heatmap headers to wrap without truncation, converting the Cross-phase summaries into structured source-backed cards, and omitting only empty or em-dash secondary ARM identity labels. Runner Fleet retains its non-live deprecation semantics with body content aligned to the panel geometry. Shared table containment now provides explicit horizontal scrolling, wrapping headers and long identifiers, and targeted wrapping for dense right-edge evidence cells without introducing page-wide overflow suppression. The second visual pass must confirm these behaviors at 1920px, 1440px, and 1280px desktop widths and verify that the H2 chart remains unaffected.
+Group I1 retains the existing visual language while allowing canonical heatmap headers to wrap without truncation, converting the Cross-phase summaries into structured source-backed cards, and omitting only empty or em-dash secondary ARM identity labels. Runner Fleet retains its non-live deprecation semantics with body content aligned to the panel geometry. Shared table containment provides explicit horizontal scrolling, wrapping headers and long identifiers, and targeted wrapping for dense right-edge evidence cells without introducing page-wide overflow suppression. These behaviors and the unaffected H2 chart passed the second visual review at 1920px, 1440px, and 1280px.
 
 ### DR-014 — Expand Architecture and add a Data Model page
 
 **Priority:** P1
+
+**Implementation status:** Implemented in Group I2 and visually accepted 2026-08-12.
 
 Required outcome:
 
@@ -523,15 +527,21 @@ Required outcome:
 - Use a checked-in Mermaid source plus generated SVG or another reviewable, accessible equivalent.
 - Provide an HTML/text fallback.
 
+Group I2 preserves the four-part Architecture foundation while explaining held-out verifier scoring in plain language, naming representative retained Harbor evidence, separating `supervise_live`, `progressive_artifacts`, and `publish_results` behavior from current workflow defaults, and identifying `scripts/publish_phase3_run.py` as the final canonical publisher. The new no-query `/data-model` documentation route separates live state, canonical metadata, derived views, external R2 bytes, checked-in reviewed snapshots, and dashboard consumers. It shows only audited direct relationships, identifies `live_runs.canonical_arm_run_id -> benchmark_arm_runs.id` as the sole direct live-to-canonical foreign key, and keeps per-trial/per-artifact reconciliation distinct from a database FK. The checked-in Mermaid source and complete semantic HTML/text representation document the same intentional model without a runtime diagram dependency.
+
 ### DR-015 — Add contextual glossary links
 
 **Priority:** P1
+
+**Implementation status:** Implemented in Group I2 and visually accepted 2026-08-12.
 
 Required outcome:
 
 - Relevant glossary entries link to dashboard pages or evidence views.
 - Links are explicit and accessible.
 - Internal compatibility entries remain technical and do not replace public labels.
+
+Group I2 extends the existing typed glossary registry with optional static internal links. The Glossary page renders complete explicit related-link sets, while the portal-backed `TermInfo` popover exposes only the primary contextual destination plus its existing glossary anchor. Keyboard, Escape, viewport positioning, click/touch, and type-safe term behavior remain intact. `Logical mode` and `Storage mode` remain compatibility entries beneath the public `Benchmark run class` and `Result source/storage location` language.
 
 ## 7. P1 requirements
 
@@ -695,7 +705,7 @@ Scope and Kimi cost integration must be completed first so chart inputs are stab
 
 **Priority:** P0 — detailed implementation specification for DR-011
 
-**Implementation status:** Groups H1/H2 implementation complete as of 2026-08-12; DR-301 remains pending second manual visual acceptance.
+**Implementation status:** Groups H1/H2 implementation complete and visually accepted 2026-08-12.
 
 DR-301 is promoted into the corrective pre-second-acceptance work. It supplies the detailed interaction and presentation requirements for DR-011 and is not a separate duplicate chart requirement.
 
@@ -778,10 +788,10 @@ Show:
 
 1. Scope selection and qualified Kimi pricing-provenance/cost integration (`DR-008`, `DR-009`) were completed in Commit Groups F1/F2 and now provide the stable reviewed inputs.
 2. The reviewed run-selection and Overview run/cost contract (`DR-012`) was completed in Commit Groups G1/G2 against those stable inputs.
-3. The Group G3/G4a/G4b/G4c freshness rollout (`DR-010`) is implementation-complete; retain it for the second manual visual acceptance pass.
-4. Groups H1/H2 completed the reviewed data/model/accessibility foundation and interactive Overview SVG rendering for the single chart specified jointly by `DR-011` and `DR-301`; retain it for the second manual visual acceptance pass.
-5. Group I1 completed the required bounded layout corrections (`DR-013`); retain them for the second manual visual acceptance pass, then complete Architecture/Data Model and glossary-link corrections (`DR-014`, `DR-015`).
-6. Run the second manual visual acceptance pass and finish `DR-007` only after the chart and other corrective P0 work are complete.
+3. The Group G3/G4a/G4b/G4c freshness rollout (`DR-010`) completed the freshness implementation.
+4. Groups H1/H2 completed the reviewed data/model/accessibility foundation and interactive Overview SVG rendering for the single chart specified jointly by `DR-011` and `DR-301`.
+5. Group I1 completed the required bounded layout corrections (`DR-013`), and Group I2 completed the Architecture/Data Model and glossary-link corrections (`DR-014`, `DR-015`).
+6. The comprehensive second manual visual acceptance passed on 2026-08-12, completing `DR-007` and accepting the implementation-complete corrective requirements above.
 
 Additional taxonomy, failure-composition, and spend-decomposition work may follow later; the DR-011/DR-301 chart no longer waits until after P0 acceptance.
 
@@ -853,20 +863,30 @@ At 1920×1080:
 
 ### Corrective second manual acceptance checklist
 
-At 1920×1080 and a narrower desktop width:
+At 1920px, 1440px, and 1280px desktop widths:
 
-- [ ] Confirm Cross-phase and Cost Coverage default to the reviewed Phase 3 extended corpus and provide an explicit Phase 3 core historical alternate.
-- [ ] Confirm Kimi K3 is included with qualified retained-rate wording, low arm-run/provider-log allocation confidence, unresolved trial allocation, incomplete pricing-source provenance, and a clear statement that the estimate is not invoice-level/provider-billed spend.
-- [ ] Confirm dynamic pages show source/view, latest included run, canonical publication time, render/query time, data age, and stale or publication-lag warning state.
-- [ ] Confirm Overview identifies and links each frozen selected reviewed arm run, discloses the run-selection rule, and does not substitute newer database runs.
-- [ ] Confirm Overview distinguishes recorded cost from adjusted known or qualified retained-rate cost and shows missing/unresolved counts, accounting gap, source, confidence, and reconciliation state.
-- [ ] Exercise the DR-011/DR-301 chart controls, arm/run links, cost basis, confidence and accounting-gap disclosure, keyboard navigation, and accessible non-hover equivalent.
-- [ ] Confirm heatmap headers wrap without truncation, phase-summary cards are visually coherent, no meaningless secondary ARM dashes remain, Runner Fleet body content is aligned, and rightmost table content remains reachable.
-- [ ] Confirm Architecture explains held-out tests in plain language, names concrete Harbor result/artifact evidence, and identifies `scripts/publish_phase3_run.py` as the final publisher.
-- [ ] Confirm `/data-model` provides the required live/canonical tables and views, R2 relationships, live-to-canonical linkage, file-backed snapshots, dashboard consumers, a reviewable diagram, and an accessible text fallback.
-- [ ] Confirm relevant glossary entries provide explicit, accessible dashboard or evidence links without replacing public terms with internal compatibility fields.
-- [ ] Confirm the corrected pages remain usable at 1920px, 1440px, and 1280px desktop widths without accidental page-wide horizontal scroll, overlap, or inaccessible right-edge content, and confirm the H2 chart remains unaffected.
-- [ ] Confirm no frozen historical evidence changed.
+- [x] Confirm Cross-phase and Cost Coverage default to the reviewed Phase 3 extended corpus and provide an explicit Phase 3 core historical alternate.
+- [x] Confirm Kimi K3 is included with qualified retained-rate wording, low arm-run/provider-log allocation confidence, unresolved trial allocation, incomplete pricing-source provenance, and a clear statement that the estimate is not invoice-level/provider-billed spend.
+- [x] Confirm dynamic pages show source/view, latest included run, canonical publication time, render/query time, data age, and stale or publication-lag warning state.
+- [x] Confirm Overview identifies and links each frozen selected reviewed arm run, discloses the run-selection rule, and does not substitute newer database runs.
+- [x] Confirm Overview distinguishes recorded cost from adjusted known or qualified retained-rate cost and shows missing/unresolved counts, accounting gap, source, confidence, and reconciliation state.
+- [x] Exercise the DR-011/DR-301 chart controls, arm/run links, cost basis, confidence and accounting-gap disclosure, keyboard navigation, and accessible non-hover equivalent.
+- [x] Confirm heatmap headers wrap without truncation, phase-summary cards are visually coherent, no meaningless secondary ARM dashes remain, Runner Fleet body content is aligned, and rightmost table content remains reachable.
+- [x] Confirm Architecture explains held-out tests without benchmark jargon, names concrete result/transcript/verifier/trajectory evidence, makes live enable/disable and publication behavior understandable, visibly identifies `scripts/publish_phase3_run.py` as the final publisher, and has no overlap or clipping.
+- [x] Confirm `/data-model` makes live/canonical and direct-FK/reconciliation boundaries obvious, keeps R2 visibly external, provides understandable checked-in diagram source and HTML/text fallback, and remains readable at 1920px, 1440px, and 1280px.
+- [x] Confirm Glossary contextual links are visible and meaningful, `TermInfo` remains keyboard/touch usable, and internal `Logical mode` / `Storage mode` compatibility fields remain secondary to public terminology.
+- [x] Confirm the corrected pages remain usable at 1920px, 1440px, and 1280px desktop widths without accidental page-wide horizontal scroll, overlap, or inaccessible right-edge content, and confirm the H2 chart remains unaffected.
+- [x] Confirm no frozen historical evidence changed.
+
+### 2026-08-12 second-pass closeout evidence
+
+- The comprehensive responsive review covered the relevant Overview, Architecture, Data Model, Glossary, Cross-phase, Cost Coverage, Runner Fleet/deprecation, Trial Quality, and other rendered dashboard surfaces at 1920px, 1440px, and 1280px.
+- Overview chart controls, point details/tooltips and deep links, keyboard behavior, and the accessible non-hover evidence presentation passed. `TermInfo` mouse, keyboard, focus-transfer, Escape, contextual-link, Glossary-link, and viewport-placement behavior also passed.
+- Acceptance found a React warning because an SVG `<title>` received two child values. It was corrected to one computed string child and covered by a regression test before acceptance.
+- The first local capture saw tenant/user connection failures on database-backed routes. The two configured local sources had the same sanitized connection fingerprint and each subsequently passed a read-only `SELECT 1`. A production-build recapture returned HTTP 200 for `/`, `/trial-quality`, `/arms`, `/evals`, `/runs`, and `/artifacts` in three consecutive rounds (18/18), with an empty server warning/error audit. This was treated as transient local acceptance-environment behavior, not an application/query defect; no fallback or database semantic change was introduced.
+- The final Architecture terminology containment defect was corrected with scoped wrapping/shrink containment. At 1920px and 1440px all four terminology cards remained in one row; at 1280px three cards remained on the first row and Recorded cost moved to a second row, with every label and information trigger contained and readable.
+- No benchmark rerun, paid provider probe, migration 009 execution, Supabase write, or R2 write was performed during acceptance.
+- **Outcome:** PASS. DR-007 is complete; DR-008 through DR-015 and DR-301 are accepted. DR-302 and DR-303 remain later requirements outside this acceptance closeout.
 
 ## 13. Out of scope for the first implementation pass
 
