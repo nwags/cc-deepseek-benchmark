@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import csv
+import hashlib
 import json
 import shutil
 import tempfile
@@ -9,13 +10,21 @@ from pathlib import Path
 
 import pytest
 
+import scripts.generate_failure_taxonomy_snapshot as generator
 from scripts.generate_failure_taxonomy_snapshot import (
+    ACCEPTED_CLASSIFICATION_OUTPUT_HASHES,
     AXIS_IDS,
+    CANONICAL_OUTPUT_DIR,
+    CANONICAL_MANIFEST_SCHEMA_VERSION,
     SourceContractError,
     SourcePaths,
+    build_manifest,
     canonical_source_paths,
+    generate_canonical_snapshot,
     generate_preview,
+    render_canonical_snapshot,
     sha256,
+    validate_sources,
     validate_trial_sets,
 )
 
@@ -258,3 +267,79 @@ def test_output_directory_is_explicit_preview_only_and_outside_repository(previe
     (existing / "keep.txt").write_text("keep")
     with pytest.raises(FileExistsError, match="not empty"):
         generate_preview(existing)
+
+
+def test_canonical_mode_accepts_only_the_exact_repository_snapshot_path() -> None:
+    assert generator._validate_canonical_output_path(CANONICAL_OUTPUT_DIR) == (
+        CANONICAL_OUTPUT_DIR.absolute()
+    )
+    with pytest.raises(ValueError, match="canonical output must be exactly"):
+        generator._validate_canonical_output_path(
+            ROOT / "results/manual_verification/failure_taxonomy_other"
+        )
+    with pytest.raises(ValueError, match="canonical output must be exactly"):
+        generator._validate_canonical_output_path(Path("/tmp/failure-taxonomy-canonical"))
+
+
+def test_canonical_mode_refuses_populated_target(
+    preview_tmp_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    equivalent = preview_tmp_dir / "repo/results/manual_verification/failure_taxonomy_20260813"
+    equivalent.mkdir(parents=True)
+    (equivalent / "keep.txt").write_text("keep")
+    monkeypatch.setattr(generator, "CANONICAL_OUTPUT_DIR", equivalent)
+    with pytest.raises(FileExistsError, match="canonical output directory is not empty"):
+        generate_canonical_snapshot(equivalent)
+    assert (equivalent / "keep.txt").read_text() == "keep"
+
+
+def test_canonical_source_validation_precedes_target_creation(
+    preview_tmp_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    equivalent = preview_tmp_dir / "repo/results/manual_verification/failure_taxonomy_20260813"
+    monkeypatch.setattr(generator, "CANONICAL_OUTPUT_DIR", equivalent)
+
+    def reject_sources():
+        raise SourceContractError("fixture source rejection")
+
+    monkeypatch.setattr(generator, "validate_sources", reject_sources)
+    with pytest.raises(SourceContractError, match="fixture source rejection"):
+        generate_canonical_snapshot(equivalent)
+    assert not equivalent.exists()
+
+
+def test_canonical_in_memory_render_is_deterministic_and_keeps_accepted_data_bytes() -> None:
+    sources = validate_sources()
+    first_files, first_counts = render_canonical_snapshot(sources)
+    second_files, second_counts = render_canonical_snapshot(sources)
+    assert first_files == second_files
+    assert first_counts == second_counts
+    for name, expected_hash in ACCEPTED_CLASSIFICATION_OUTPUT_HASHES.items():
+        assert hashlib.sha256(first_files[name]).hexdigest() == expected_hash
+
+    first_manifest = build_manifest(
+        first_files,
+        first_counts,
+        sources,
+        schema_version=CANONICAL_MANIFEST_SCHEMA_VERSION,
+        snapshot_kind="canonical_offline_derived",
+    )
+    second_manifest = build_manifest(
+        second_files,
+        second_counts,
+        sources,
+        schema_version=CANONICAL_MANIFEST_SCHEMA_VERSION,
+        snapshot_kind="canonical_offline_derived",
+    )
+    assert first_manifest == second_manifest
+
+
+def test_canonical_mode_fails_closed_if_accepted_classification_bytes_change() -> None:
+    sources = validate_sources()
+    files, _counts = render_canonical_snapshot(sources)
+    changed = dict(files)
+    changed["taxonomy_counts.json"] += b"\n"
+    with pytest.raises(SourceContractError, match="accepted J2A.1 output hash mismatch"):
+        generator._validate_accepted_classification_hashes(changed)

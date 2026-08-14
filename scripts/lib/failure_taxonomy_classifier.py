@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import Any, Iterable, Mapping, Sequence
 
 
-CLASSIFIER_VERSION = "failure-taxonomy-classifier-v1.1.0-preview"
+CLASSIFIER_VERSION = "failure-taxonomy-classifier-v1.1.0"
 
 # Explicit classifier precedence. Registry ``order`` is display-only.
 STRICT_PRIMARY_PRECEDENCE = (

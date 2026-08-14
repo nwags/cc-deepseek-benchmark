@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Generate a deterministic J2A preview from the frozen comprehensive review.
+"""Generate deterministic J2 failure-taxonomy preview or canonical outputs.
 
 The command has no database, object-storage, HTTP, or connector dependency.
-It requires an explicit output directory outside the repository and validates
-the complete J1 source contract before creating any output file.
+It validates the complete J1 source contract before creating any output file.
+Preview output must be outside the repository. Canonical output is restricted
+to the fixed, new snapshot directory and can never replace populated output.
 """
 
 from __future__ import annotations
@@ -30,15 +31,23 @@ from scripts.lib.failure_taxonomy_classifier import (
 )
 
 
-GENERATOR_VERSION = "failure-taxonomy-preview-generator-v1.1.0"
-MANIFEST_SCHEMA_VERSION = "failure-taxonomy-preview-manifest-v1"
+GENERATOR_VERSION = "failure-taxonomy-generator-v1.1.0"
+PREVIEW_MANIFEST_SCHEMA_VERSION = "failure-taxonomy-preview-manifest-v1"
+CANONICAL_MANIFEST_SCHEMA_VERSION = "failure-taxonomy-manifest-v1"
 TRIAL_SCHEMA_VERSION = "failure-taxonomy-trial-v1"
 COUNTS_SCHEMA_VERSION = "failure-taxonomy-counts-v1"
+CANONICAL_SNAPSHOT_ID = "failure_taxonomy_20260813"
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CANONICAL_REVIEW_DIR = REPO_ROOT / "results/manual_verification/comprehensive_review_20260731"
+CANONICAL_OUTPUT_DIR = REPO_ROOT / f"results/manual_verification/{CANONICAL_SNAPSHOT_ID}"
 CANONICAL_REGISTRY = REPO_ROOT / "configs/dashboard/failure_taxonomy_v1.json"
 CLASSIFIER_PATH = REPO_ROOT / "scripts/lib/failure_taxonomy_classifier.py"
 GENERATOR_PATH = Path(__file__).resolve()
+ACCEPTED_CLASSIFICATION_OUTPUT_HASHES = {
+    "trial_failure_taxonomy.jsonl": "ccb4b9cbcc524d34336d4669abbb30c29b741cb03e7f76a9cb21c7fdd2b2eda1",
+    "taxonomy_counts.json": "e1284625f3e48e2dcb69a569acb0e73ff326410ffd8b9bc8878cfe5b8863e9cd",
+    "review_queue.csv": "aeb8eab2037ce5dd11bb0ef94cda4e0c28013b9c2d887aecdf129d77ea78e883",
+}
 AXIS_IDS = (
     "response_path_class",
     "verifier_failure_category",
@@ -51,6 +60,7 @@ OUTPUT_NAMES = (
     "review_queue.csv",
     "README.md",
 )
+SNAPSHOT_FILENAMES = (*OUTPUT_NAMES, "failure_taxonomy_manifest.json")
 
 
 class SourceContractError(RuntimeError):
@@ -479,7 +489,7 @@ def build_review_queue(classified: Sequence[Mapping[str, Any]]) -> list[Mapping[
     return sorted(rows, key=lambda row: str(row["trial_id"]))
 
 
-def _readme(counts: Mapping[str, Any], queue_count: int) -> bytes:
+def _preview_readme(counts: Mapping[str, Any], queue_count: int) -> bytes:
     lines = [
         "# Failure taxonomy J2A preview",
         "",
@@ -499,7 +509,37 @@ def _readme(counts: Mapping[str, Any], queue_count: int) -> bytes:
     return "\n".join(lines).encode("utf-8")
 
 
-def render_preview(sources: ValidatedSources) -> tuple[Mapping[str, bytes], Mapping[str, Any]]:
+def _canonical_readme(counts: Mapping[str, Any], queue_count: int) -> bytes:
+    lines = [
+        "# Frozen J2 failure and trajectory taxonomy",
+        "",
+        f"Snapshot: `{CANONICAL_SNAPSHOT_ID}`",
+        "",
+        f"Classifier: `{CLASSIFIER_VERSION}`",
+        "",
+        f"Generator: `{GENERATOR_VERSION}`",
+        "",
+        f"Frozen input scope: `{counts['trial_count']}` reviewed trials.",
+        "",
+        f"Manual-review queue: `{queue_count}` trials.",
+        "",
+        "This is the frozen, offline J2 derived failure and trajectory taxonomy snapshot. Its source is the manifest-bound checked-in comprehensive review. It is derived evidence, not raw benchmark truth. Raw reward, raw outcome, exception, policy, termination, and activity remain independent source axes and are not replaced by this snapshot.",
+        "",
+        "Legacy suspected no-op terminology is retained only for compatibility; it is not a primary diagnosis in this taxonomy. No hidden or private model reasoning is retained, required, inferred, or displayed. These categories do not make causal attributions to a provider, router, or harness.",
+        "",
+        "Some taxonomy values intentionally have zero population because the classifier uses conservative evidence requirements and explicit fallback states. Medium-confidence refinements and other diagnoses marked for manual review remain reviewable through retained supporting artifact IDs rather than copied verifier or transcript excerpts.",
+        "",
+        "Dashboard consumers must validate and consume this manifest-bound snapshot, join it to reviewed trials by `trial_id`, and fail closed on a manifest or input mismatch. They must not reclassify trials in the browser.",
+        "",
+        "`trial_failure_taxonomy.jsonl` contains one row per frozen trial. `taxonomy_counts.json` contains complete enum counts, cross-tabs, diagnostics, and representative IDs. `review_queue.csv` contains the union of trials with at least one diagnosis requiring manual review. `failure_taxonomy_manifest.json` binds the frozen inputs, producer implementations, and all other snapshot outputs.",
+        "",
+    ]
+    return "\n".join(lines).encode("utf-8")
+
+
+def _render_data_outputs(
+    sources: ValidatedSources,
+) -> tuple[dict[str, bytes], Mapping[str, Any], int]:
     classified = tuple(
         classify_trial(row, sources.evidence_by_trial[str(row["trial_id"])], sources.registry)
         for row in sources.review_rows
@@ -515,8 +555,21 @@ def render_preview(sources: ValidatedSources) -> tuple[Mapping[str, bytes], Mapp
         "trial_failure_taxonomy.jsonl": _jsonl_bytes(classified),
         "taxonomy_counts.json": _json_bytes(counts),
         "review_queue.csv": _csv_bytes(queue, queue_fields),
-        "README.md": _readme(counts, len(queue)),
     }
+    return files, counts, len(queue)
+
+
+def render_preview(sources: ValidatedSources) -> tuple[Mapping[str, bytes], Mapping[str, Any]]:
+    files, counts, queue_count = _render_data_outputs(sources)
+    files["README.md"] = _preview_readme(counts, queue_count)
+    return files, counts
+
+
+def render_canonical_snapshot(
+    sources: ValidatedSources,
+) -> tuple[Mapping[str, bytes], Mapping[str, Any]]:
+    files, counts, queue_count = _render_data_outputs(sources)
+    files["README.md"] = _canonical_readme(counts, queue_count)
     return files, counts
 
 
@@ -531,6 +584,9 @@ def build_manifest(
     files: Mapping[str, bytes],
     counts: Mapping[str, Any],
     sources: ValidatedSources,
+    *,
+    schema_version: str = PREVIEW_MANIFEST_SCHEMA_VERSION,
+    snapshot_kind: str = "preview",
 ) -> Mapping[str, Any]:
     queue_rows = max(files["review_queue.csv"].count(b"\n") - 1, 0)
     output_rows = {
@@ -540,28 +596,39 @@ def build_manifest(
         "README.md": None,
     }
     return {
-        "schema_version": MANIFEST_SCHEMA_VERSION,
+        "schema_version": schema_version,
+        "snapshot_id": CANONICAL_SNAPSHOT_ID,
+        "snapshot_kind": snapshot_kind,
+        "snapshot_files": list(SNAPSHOT_FILENAMES),
         "trial_schema_version": TRIAL_SCHEMA_VERSION,
         "taxonomy_schema_version": sources.registry["schema_version"],
         "taxonomy_version": sources.registry["taxonomy_version"],
         "classifier_version": CLASSIFIER_VERSION,
         "generator_version": GENERATOR_VERSION,
-        "source_generated_at": sources.review_manifest.get("generated_at"),
+        "source_provenance": {
+            "comprehensive_review_generated_at": sources.review_manifest.get("generated_at"),
+            "note": "Source snapshot provenance; not J2 generation time.",
+        },
         "scope_fingerprint": sources.review_manifest["scope_fingerprint"],
         "inputs": {
             "taxonomy_registry": {
                 "path": _logical_repo_path(CANONICAL_REGISTRY),
                 "sha256": sources.hashes["taxonomy_registry"],
+                "schema_version": sources.registry["schema_version"],
+                "taxonomy_version": sources.registry["taxonomy_version"],
             },
             "comprehensive_review_manifest": {
                 "path": _logical_repo_path(CANONICAL_REVIEW_DIR / "review_manifest.json"),
                 "sha256": sources.hashes["review_manifest"],
+                "schema_version": sources.review_manifest.get("schema_version"),
             },
             "trial_review.csv": {
+                "path": _logical_repo_path(CANONICAL_REVIEW_DIR / "trial_review.csv"),
                 "sha256": sources.hashes["trial_review.csv"],
                 "rows": len(sources.review_rows),
             },
             "trial_evidence.jsonl": {
+                "path": _logical_repo_path(CANONICAL_REVIEW_DIR / "trial_evidence.jsonl"),
                 "sha256": sources.hashes["trial_evidence.jsonl"],
                 "rows": len(sources.evidence_by_trial),
             },
@@ -602,6 +669,46 @@ def _validate_preview_output_path(output_dir: Path) -> Path:
     return resolved
 
 
+def _validate_canonical_output_path(output_dir: Path) -> Path:
+    candidate = output_dir.absolute()
+    expected = CANONICAL_OUTPUT_DIR.absolute()
+    if candidate != expected:
+        raise ValueError(
+            "canonical output must be exactly "
+            f"{CANONICAL_OUTPUT_DIR.relative_to(REPO_ROOT).as_posix()}"
+        )
+    return candidate
+
+
+def _require_empty_output_directory(output_dir: Path, label: str) -> None:
+    if output_dir.exists():
+        if not output_dir.is_dir():
+            raise FileExistsError(f"{label} output path is not a directory: {output_dir}")
+        if any(output_dir.iterdir()):
+            raise FileExistsError(f"{label} output directory is not empty: {output_dir}")
+
+
+def _validate_accepted_classification_hashes(files: Mapping[str, bytes]) -> None:
+    for name, expected in ACCEPTED_CLASSIFICATION_OUTPUT_HASHES.items():
+        actual = hashlib.sha256(files[name]).hexdigest()
+        if actual != expected:
+            raise SourceContractError(
+                f"accepted J2A.1 output hash mismatch for {name}: "
+                f"expected {expected}, got {actual}"
+            )
+
+
+def _write_snapshot(
+    output_dir: Path,
+    files: Mapping[str, bytes],
+    manifest: Mapping[str, Any],
+) -> None:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for name, content in files.items():
+        (output_dir / name).write_bytes(content)
+    (output_dir / "failure_taxonomy_manifest.json").write_bytes(_json_bytes(manifest))
+
+
 def generate_preview(
     output_dir: Path,
     *,
@@ -612,15 +719,31 @@ def generate_preview(
     sources = validate_sources(source_paths)
     files, counts = render_preview(sources)
     manifest = build_manifest(files, counts, sources)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    for name, content in files.items():
-        (output_dir / name).write_bytes(content)
-    (output_dir / "failure_taxonomy_manifest.json").write_bytes(_json_bytes(manifest))
+    _write_snapshot(output_dir, files, manifest)
     return counts
 
 
-def _print_report(output_dir: Path, counts: Mapping[str, Any]) -> None:
-    print(f"preview_output={output_dir}")
+def generate_canonical_snapshot(output_dir: Path) -> Mapping[str, Any]:
+    output_dir = _validate_canonical_output_path(output_dir)
+    _require_empty_output_directory(output_dir, "canonical")
+    # Complete source validation and accepted-byte verification intentionally
+    # precede directory creation and every output write.
+    sources = validate_sources()
+    files, counts = render_canonical_snapshot(sources)
+    _validate_accepted_classification_hashes(files)
+    manifest = build_manifest(
+        files,
+        counts,
+        sources,
+        schema_version=CANONICAL_MANIFEST_SCHEMA_VERSION,
+        snapshot_kind="canonical_offline_derived",
+    )
+    _write_snapshot(output_dir, files, manifest)
+    return counts
+
+
+def _print_report(output_dir: Path, counts: Mapping[str, Any], mode: str) -> None:
+    print(f"{mode}_output={output_dir}")
     print(f"trial_count={counts['trial_count']}")
     for axis in AXIS_IDS:
         print(f"{axis}={json.dumps(counts['axis_distributions'][axis], sort_keys=True)}")
@@ -634,14 +757,18 @@ def _print_report(output_dir: Path, counts: Mapping[str, Any]) -> None:
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--mode", choices=("preview", "canonical"), default="preview")
     parser.add_argument("--output-dir", type=Path, required=True)
     return parser.parse_args(argv)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
-    counts = generate_preview(args.output_dir)
-    _print_report(args.output_dir.resolve(), counts)
+    if args.mode == "canonical":
+        counts = generate_canonical_snapshot(args.output_dir)
+    else:
+        counts = generate_preview(args.output_dir)
+    _print_report(args.output_dir.resolve(), counts, args.mode)
     return 0
 
 
