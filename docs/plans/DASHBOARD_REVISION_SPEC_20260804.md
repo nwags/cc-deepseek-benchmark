@@ -547,6 +547,8 @@ Group I2 extends the existing typed glossary registry with optional static inter
 
 ### DR-101 — Retire “suspected no-op” as a primary diagnosis
 
+**Implementation status:** In progress. Group J1 defines the reviewed offline taxonomy contract; the 960-trial J2 classification snapshot and dashboard integration are not yet implemented or accepted.
+
 Use current response-path classifications:
 
 - `synthetic_retry_empty_completion`
@@ -563,6 +565,8 @@ Rules:
 - Preserve raw reward and exception fields independently.
 
 ### DR-102 — Surface verifier failure taxonomy
+
+**Implementation status:** In progress. Group J1 defines the primary and secondary failure registries and evidence thresholds; no comprehensive-review trial has been reclassified.
 
 Primary verifier/failure categories:
 
@@ -594,6 +598,8 @@ Requirements:
 
 ### DR-103 — Add trajectory-disposition as a separate axis
 
+**Implementation status:** In progress. Group J1 defines the independent trajectory axis, including `successful_completion`; J2 generation and later dashboard integration remain pending.
+
 Proposed values:
 
 - no substantive attempt
@@ -613,6 +619,16 @@ Every disposition must include:
 - evidence basis;
 - artifact links;
 - manual-review requirement.
+
+### Group J1 — Offline failure/trajectory taxonomy foundation
+
+Group J1 establishes `configs/dashboard/failure_taxonomy_v1.json` as the single machine-readable registry for DR-101, DR-102, and DR-103. The registry is consumed directly by a dependency-free TypeScript loader and is ordinary JSON for the future Python generator. Its full design and evidence rules are recorded in [DASHBOARD_FAILURE_TAXONOMY_J1.md](DASHBOARD_FAILURE_TAXONOMY_J1.md).
+
+The accepted comprehensive review under `results/manual_verification/comprehensive_review_20260731/` remains a frozen input. J2 must be an offline second-stage derivation bound to the exact checked-in review manifest, scope fingerprint, input hashes, taxonomy hash, and classifier implementation hash. Initial generation requires no Supabase or R2 reread and must not use `.review-cache` as canonical evidence. The derived snapshot must remain separate from raw reward, raw outcome, exception fields, historical quality flags, and the existing comprehensive-review classifications.
+
+The public `response_path_class` is separate from existing `ActivitySubtype` and `ExecutionValidity` fields. Existing `empty_completion_zero_usage` normalizes to public `empty_completion`; `suspect_noop_zero_token` and `suspect_noop_count` remain compatibility data only and are not new primary diagnoses. The trajectory axis includes `successful_completion` because ordinary successful trials must not be forced into `indeterminate` merely because no failure narrative applies. It is an ordinary-success fallback only when retained evidence supports no more specific anomalous trajectory disposition; a successful raw outcome never overrides stronger positive trajectory evidence.
+
+The J1 evidence policy is conservative: absence-sensitive labels require complete or explicitly adequate coverage; compound diagnoses require positive support for every constituent; generic failure, zero reward, elapsed time, or missing excerpts do not justify specific narratives. The verifier axis is independent from response-path, policy, and termination axes: `none` may describe an independently explained non-success, `unclassified_failure` requires an established verifier/task/solution failure, and `timeout_inside_verifier` requires verifier-specific timeout evidence. Incomplete or nonspecific evidence uses only the fallback justified for that axis. Registry `order` fields are display order, never implicit classifier precedence; J2 must define and test any needed precedence explicitly. No hidden or private model reasoning may be required, retained, inferred, or displayed. DR-101, DR-102, and DR-103 remain implementation-in-progress until J2 produces the reviewed snapshot and later work integrates and accepts it.
 
 ### DR-104 — Consolidate Tasks and Evals
 
