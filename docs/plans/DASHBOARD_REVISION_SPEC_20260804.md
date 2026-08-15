@@ -547,7 +547,7 @@ Group I2 extends the existing typed glossary registry with optional static inter
 
 ### DR-101 — Retire “suspected no-op” as a primary diagnosis
 
-**Implementation status:** In progress. Groups J2A/J2B produced the frozen, manifest-bound 960-trial offline derived snapshot; dashboard integration and representative/manual review are not yet implemented or accepted.
+**Implementation status:** In progress. Groups J2A/J2B produced the frozen, manifest-bound 960-trial offline derived snapshot. J2C manifest-bound dashboard consumption is implemented as of 2026-08-14 but is not manually/visually accepted; J2D representative/manual review remains pending.
 
 Use current response-path classifications:
 
@@ -566,7 +566,7 @@ Rules:
 
 ### DR-102 — Surface verifier failure taxonomy
 
-**Implementation status:** In progress. Groups J2A/J2B produced the frozen primary/secondary derived classifications without changing the accepted comprehensive review; dashboard integration and representative/manual review remain pending.
+**Implementation status:** In progress. Groups J2A/J2B produced the frozen primary/secondary derived classifications without changing the accepted comprehensive review. J2C dashboard filters, compact presentation, and evidence drilldown are implemented but not manually/visually accepted; J2D representative/manual review remains pending.
 
 Primary verifier/failure categories:
 
@@ -598,7 +598,7 @@ Requirements:
 
 ### DR-103 — Add trajectory-disposition as a separate axis
 
-**Implementation status:** In progress. Groups J2A/J2B produced the frozen independent trajectory axis, including ordinary-success fallback behavior; dashboard integration and representative/manual review remain pending.
+**Implementation status:** In progress. Groups J2A/J2B produced the frozen independent trajectory axis, including ordinary-success fallback behavior. J2C dashboard consumption is implemented but not manually/visually accepted; J2D representative/manual review remains pending.
 
 Proposed values:
 
@@ -630,7 +630,7 @@ The public `response_path_class` is separate from existing `ActivitySubtype` and
 
 The J1 evidence policy is conservative: absence-sensitive labels require complete or explicitly adequate coverage; compound diagnoses require positive support for every constituent; generic failure, zero reward, elapsed time, or missing excerpts do not justify specific narratives. The verifier axis is independent from response-path, policy, and termination axes: `none` may describe an independently explained non-success, `unclassified_failure` requires an established verifier/task/solution failure, and `timeout_inside_verifier` requires verifier-specific timeout evidence. Incomplete or nonspecific evidence uses only the fallback justified for that axis. Registry `order` fields are display order, never implicit classifier precedence; J2 defines and tests its classifier precedence explicitly. No hidden or private model reasoning may be required, retained, inferred, or displayed.
 
-Groups J2A/J2B freeze the accepted offline derivation at `results/manual_verification/failure_taxonomy_20260813/`. The manifest-bound snapshot, accepted hashes, distributions, producer policy, and later fail-closed dashboard consumption boundary are recorded in [DASHBOARD_FAILURE_TAXONOMY_J2.md](DASHBOARD_FAILURE_TAXONOMY_J2.md). The 960-row derived snapshot does not alter the accepted comprehensive review or raw benchmark truth. DR-101, DR-102, and DR-103 remain implementation-in-progress until the dashboard consumes the frozen snapshot and representative/manual review is completed and accepted.
+Groups J2A/J2B freeze the accepted offline derivation at `results/manual_verification/failure_taxonomy_20260813/`. Group J2C implements server-side manifest/hash/schema/scope/trial-set validation, exact trial-ID-only joins, registry-derived filters and display metadata, explicit outside-scope availability, and structured evidence drilldown on Trial Quality and trial detail. The manifest-bound snapshot, accepted hashes, distributions, producer policy, and J2C fail-closed consumption boundary are recorded in [DASHBOARD_FAILURE_TAXONOMY_J2.md](DASHBOARD_FAILURE_TAXONOMY_J2.md). The 960-row derived snapshot does not alter the accepted comprehensive review or raw benchmark truth. DR-101, DR-102, and DR-103 remain implementation-in-progress: J2C is not yet manually/visually accepted, and J2D representative/manual review remains pending.
 
 ### DR-104 — Consolidate Tasks and Evals
 

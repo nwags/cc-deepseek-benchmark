@@ -341,3 +341,9 @@ No benchmark rerun, paid provider probe, migration 009 execution, Supabase write
 ### Acceptance decision
 
 Passed. DR-007 is complete, and DR-008 through DR-015, including DR-011/DR-301, are accepted. The transient local database incident was cleared by the successful production recapture and did not require a product change.
+
+## Post-acceptance J2C implementation note — 2026-08-14
+
+J2C adds manifest-bound dashboard consumption of the frozen 960-trial J2 failure/trajectory taxonomy after the accepted corrective pass above. `/trial-quality` now has exact registry-value filters and compact four-axis rows, and trial detail has persistent definitions, confidence, review requirements, structured evidence facts, supporting artifact links, and snapshot provenance. The server loader validates the manifest, bound source and producer hashes, schema, scope fingerprint, counts, exact trial set, and artifact-ID membership before exposing any row; it joins only by exact `trial_id` and fails closed without a database, R2, or live-analysis taxonomy fallback.
+
+This note records implementation status, not visual evidence. J2C has not received manual/visual acceptance under this review, and J2D representative/manual evidence review remains pending. DR-101, DR-102, and DR-103 therefore remain in progress rather than complete. A later pass must verify the new taxonomy table/filter usability, exact-value labels and help, explicit outside-scope unavailable state, trial-detail evidence/provenance readability, artifact destinations, and responsive behavior before those requirements can be accepted.

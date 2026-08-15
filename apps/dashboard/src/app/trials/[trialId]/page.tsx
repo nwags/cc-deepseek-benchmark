@@ -4,6 +4,7 @@ import { AppShell } from "../../../components/AppShell";
 import { DataFreshnessNotice } from "../../../components/DataFreshnessNotice";
 import { ArtifactEvidenceGuide } from "../../../components/ArtifactEvidenceGuide";
 import { ArtifactTypeLabel } from "../../../components/ArtifactTypeInfo";
+import { FailureTaxonomyDetails } from "../../../components/FailureTaxonomyDetails";
 import { InvalidReason, ValidityBadge } from "../../../components/ValidityContext";
 import { buildSuspectNoopHref } from "../../../components/QualityContext";
 import {
@@ -20,6 +21,7 @@ import { buildArtifactHref } from "../../../lib/links";
 import { formatBytes, formatCurrency, formatNumber, formatSeconds } from "../../../lib/format";
 import { sanitizeDisplayedUri, sanitizeEvidenceText } from "../../../lib/safe-display";
 import { getComprehensiveTrialReview } from "../../../lib/review-data";
+import { getFailureTaxonomyForTrial } from "../../../lib/failure-taxonomy-snapshot";
 import { buildRegisteredOperationalFreshness } from "../../../lib/data-freshness-server";
 import { DETAIL_ROUTE_FRESHNESS_SOURCES } from "../../../lib/data-freshness-sources";
 
@@ -113,10 +115,11 @@ export default async function TrialEvidencePage({
   const trial = await getTrialEvidence(decodedTrialId);
   if (!trial) notFound();
 
-  const [artifacts, taskInstruction, comprehensiveReview] = await Promise.all([
+  const [artifacts, taskInstruction, comprehensiveReview, failureTaxonomy] = await Promise.all([
     getArtifactsForTrial(decodedTrialId),
     getTaskInstructionPreview(trial.task_id),
-    getComprehensiveTrialReview(decodedTrialId)
+    getComprehensiveTrialReview(decodedTrialId),
+    getFailureTaxonomyForTrial(decodedTrialId),
   ]);
   const query = searchParams ? await searchParams : {};
   const liveRequested = firstParam(query.live_analysis) === "1";
@@ -225,6 +228,8 @@ export default async function TrialEvidencePage({
           <div><span>Result artifact URI</span><strong className="mono">{compactPath(trial.result_artifact_uri)}</strong></div>
         </div>
       </section>
+
+      <FailureTaxonomyDetails result={failureTaxonomy} />
 
       <section className="panel diagnosis-panel">
         <div className="panel-heading">

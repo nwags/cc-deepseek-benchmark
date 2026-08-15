@@ -1359,3 +1359,111 @@ def test_architecture_glossary_uses_public_terms_and_retains_internal_compatibil
     assert "overflow-wrap: anywhere;" in css
     assert ".architecture-terminology-label .term-info-wrap" in css
     assert "flex: 0 0 auto;" in css
+
+
+def test_j2c_failure_taxonomy_loader_is_manifest_bound_and_fail_closed() -> None:
+    import re
+
+    loader = Path("apps/dashboard/src/lib/failure-taxonomy-snapshot.ts").read_text()
+    package = Path("apps/dashboard/package.json").read_text()
+    next_config = Path("apps/dashboard/next.config.mjs").read_text()
+
+    assert 'SNAPSHOT_SCHEMA_VERSION = "failure-taxonomy-manifest-v1"' in loader
+    assert 'import "server-only"' in loader
+    assert 'FROZEN_CANONICAL_MANIFEST_SHA256 = "71e1c0fbee99d07fe18512902ed62c3fa2eb752d9e08c68c3d75a1dc1a4e3088"' in loader
+    assert "canonical_manifest_hash_mismatch" in loader
+    assert "FROZEN_CLASSIFICATION_OUTPUT_SHA256" in loader
+    assert "frozen_output_identity_mismatch" in loader
+    assert 'TRIAL_SCHEMA_VERSION = "failure-taxonomy-trial-v1"' in loader
+    assert 'SNAPSHOT_SCOPE = "phase3-extended"' in loader
+    assert "EXPECTED_TRIAL_COUNT = 960" in loader
+    assert "EXPECTED_ARM_COUNT = 16" in loader
+    assert 'path.join(directory, "failure_taxonomy_manifest.json")' in loader
+    assert "output_hash_or_size_mismatch" in loader
+    assert "registry_binding_mismatch" in loader
+    assert "review_scope_or_schema_mismatch" in loader
+    assert "implementation_binding_mismatch" in loader
+    assert "frozen_trial_set_mismatch" in loader
+    assert "frozen_trial_set_fingerprint_mismatch" in loader
+    assert "review_queue_union_mismatch" in loader
+    assert "taxonomy_artifact_not_bound_to_trial_evidence" in loader
+    assert "byTrialId.get(trialId)" in loader
+    assert "reviewById.get(row.trial_id)" in loader
+    assert "outside_frozen_scope" in loader
+    assert "not the taxonomy value ‘Not applicable’" in loader
+    assert "rows: []" in loader
+    assert 'state === "invalid" ? "snapshot_invalid"' in loader
+    imports = re.findall(r'from\s+["\']([^"\']+)["\']', loader)
+    for forbidden in ("./db", "dashboard-data", "@aws-sdk", "node:http", "failure_taxonomy_classifier"):
+        assert all(forbidden not in specifier for specifier in imports)
+    assert "failure-taxonomy-snapshot.test.mjs" in package
+    assert 'new URL("../..", import.meta.url)' in next_config
+    assert "outputFileTracingRoot: repositoryRoot" in next_config
+    assert '"/trial-quality": failureTaxonomyRuntimeFiles' in next_config
+    assert '"/trials/**": failureTaxonomyRuntimeFiles' in next_config
+    assert "root: repositoryRoot" in next_config
+    for required_runtime_file in (
+        "../../configs/dashboard/failure_taxonomy_v1.json",
+        "../../results/manual_verification/failure_taxonomy_20260813/failure_taxonomy_manifest.json",
+        "../../results/manual_verification/failure_taxonomy_20260813/trial_failure_taxonomy.jsonl",
+        "../../results/manual_verification/failure_taxonomy_20260813/taxonomy_counts.json",
+        "../../results/manual_verification/failure_taxonomy_20260813/review_queue.csv",
+        "../../results/manual_verification/failure_taxonomy_20260813/README.md",
+        "../../results/manual_verification/comprehensive_review_20260731/review_manifest.json",
+        "../../results/manual_verification/comprehensive_review_20260731/trial_review.csv",
+        "../../results/manual_verification/comprehensive_review_20260731/trial_evidence.jsonl",
+        "../../scripts/lib/failure_taxonomy_classifier.py",
+        "../../scripts/generate_failure_taxonomy_snapshot.py",
+    ):
+        assert required_runtime_file in next_config
+
+
+def test_j2c_trial_quality_uses_exact_registry_filters_and_frozen_details() -> None:
+    page = Path("apps/dashboard/src/app/trial-quality/page.tsx").read_text()
+    detail_page = Path("apps/dashboard/src/app/trials/[trialId]/page.tsx").read_text()
+    component = Path("apps/dashboard/src/components/FailureTaxonomyDetails.tsx").read_text()
+    css = Path("apps/dashboard/src/app/globals.css").read_text()
+
+    assert "getFailureTaxonomySnapshot()" in page
+    assert "normalizeFailureTaxonomyFilters(rawTaxonomyFilters)" in page
+    assert 'name={axisId}' in page
+    assert 'value={entry.id}' in page
+    assert "Apply exact filters" in page
+    assert "Filters accept only canonical registry IDs" in page
+    assert "getFailureTaxonomyAxis(axisId)" in page
+    assert "axis.definition" in page
+    assert "entry.definition" in page
+    assert "FailureTaxonomyCompactDiagnosis" in page
+    assert "no operational source is substituted" in page
+    assert "Legacy suspect no-op zero-token compatibility rows" in page
+    assert "not a primary J2 failure or trajectory diagnosis" in page
+
+    assert "getFailureTaxonomyForTrial(decodedTrialId)" in detail_page
+    assert "<FailureTaxonomyDetails result={failureTaxonomy} />" in detail_page
+    assert "FAILURE_TAXONOMY_AXIS_IDS.map" in component
+    assert "diagnosis.label" in component
+    assert "diagnosis.definition" in component
+    assert "diagnosis.confidence" in component
+    assert "diagnosis.manual_review_required" in component
+    assert "diagnosis.evidence_basis.map" in component
+    assert "diagnosis.supporting_artifact_ids.map" in component
+    assert '`/artifacts/${encodeURIComponent(artifactId)}`' in component
+    assert "No database, live artifact, or browser-side classification is used as a fallback" in component
+    assert "does not retain or infer hidden/private reasoning" in component
+    assert "manifest verified" in component
+    assert ".taxonomy-filter-grid" in css
+    assert ".taxonomy-axis-detail-grid" in css
+    assert ".taxonomy-table" in css
+
+
+def test_j2c_frozen_classification_outputs_retain_accepted_hashes() -> None:
+    import hashlib
+
+    snapshot = Path("results/manual_verification/failure_taxonomy_20260813")
+    expected = {
+        "trial_failure_taxonomy.jsonl": "ccb4b9cbcc524d34336d4669abbb30c29b741cb03e7f76a9cb21c7fdd2b2eda1",
+        "taxonomy_counts.json": "e1284625f3e48e2dcb69a569acb0e73ff326410ffd8b9bc8878cfe5b8863e9cd",
+        "review_queue.csv": "aeb8eab2037ce5dd11bb0ef94cda4e0c28013b9c2d887aecdf129d77ea78e883",
+    }
+    for name, digest in expected.items():
+        assert hashlib.sha256((snapshot / name).read_bytes()).hexdigest() == digest

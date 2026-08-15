@@ -1,8 +1,8 @@
 # Dashboard failure taxonomy J2 snapshot
 
-Date: 2026-08-13
+Date: 2026-08-14
 
-Status: J2B canonical offline snapshot frozen; dashboard integration and representative/manual evidence review remain pending.
+Status: J2B canonical offline snapshot frozen; J2C manifest-bound dashboard consumption implemented but not manually/visually accepted; representative/manual evidence review remains pending in J2D.
 
 ## Provenance and source boundary
 
@@ -41,4 +41,18 @@ Every unlisted registry value has zero population. Those zeroes are intentional:
 
 The canonical producer uses classifier version `failure-taxonomy-classifier-v1.1.0`, generator version `failure-taxonomy-generator-v1.1.0`, and manifest schema `failure-taxonomy-manifest-v1`. Preview mode remains available only for explicit output directories outside the repository. Canonical mode can write only the fixed snapshot directory and refuses a populated target; it has no force or replacement option.
 
-Later dashboard integration must validate this manifest-bound snapshot, join by exact `trial_id`, and fail closed on manifest, hash, scope, row-count, or trial-set disagreement. It must not rerun the classifier in the browser. DR-101, DR-102, and DR-103 remain implementation-in-progress until dashboard integration and the planned representative/manual review are complete and accepted.
+Dashboard consumers must validate this manifest-bound snapshot, join by exact `trial_id`, and fail closed on manifest, hash, scope, row-count, or trial-set disagreement. They must not rerun the classifier in the browser.
+
+## J2C dashboard consumption
+
+Implemented 2026-08-14, pending manual/visual acceptance.
+
+The server-only J2C loader validates the canonical manifest schema and identity; registry, comprehensive-review manifest, source-input, classifier, generator, and output hashes; output byte and row counts; the frozen scope fingerprint; the exact 960-trial set shared by the taxonomy, reviewed CSV, and reviewed evidence JSONL; the 16-arm extended population; axis distributions; and the exact 243-trial manual-review union. Supporting artifact IDs must be UUIDs retained for the same reviewed trial. Any disagreement produces an explicit invalid or unavailable state with no taxonomy rows and no database, R2, or live-analysis substitute.
+
+J2C.4 additionally pins the raw canonical manifest bytes to accepted J2B SHA-256 `71e1c0fbee99d07fe18512902ed62c3fa2eb752d9e08c68c3d75a1dc1a4e3088` before parsing any taxonomy row, and pins the three classification-bearing output identities as defense in depth. A self-consistent alternate output/manifest set is therefore rejected even through the deployment/test directory override. Next production output tracing is rooted at the repository and explicitly includes only the registry, five canonical J2 files, three comprehensive-review inputs, and two producer sources for `/trial-quality` and trial-detail routes; Turbopack's repository root remains a separate compile-time requirement for the canonical registry import.
+
+The join is a unique exact-`trial_id` map lookup. Arm, task, and raw-outcome fields are checked after that join only as identity-integrity assertions; they are never fallback join keys. A dashboard trial outside the frozen 960-row scope displays a separate `unavailable` state, which is not the `response_path_class=not_applicable` diagnosis.
+
+`/trial-quality` now provides compact response-path, verifier, assertion, and trajectory columns; canonical registry-value filters; registry-derived labels, definitions, and help text; deterministic server pagination; compact snapshot provenance; and exact trial-detail links. Trial detail renders all four labels and definitions, confidence, manual-review requirement, structured evidence facts, and exact retained artifact-ID links. The browser neither receives nor executes classifier logic, and hidden/private reasoning is not required, retained, inferred, or displayed.
+
+J2C is an implementation milestone only. DR-101, DR-102, and DR-103 remain implementation-in-progress until J2D representative/manual evidence review and the required manual/visual acceptance are completed.
