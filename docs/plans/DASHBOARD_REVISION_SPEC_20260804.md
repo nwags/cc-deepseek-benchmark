@@ -547,7 +547,7 @@ Group I2 extends the existing typed glossary registry with optional static inter
 
 ### DR-101 — Retire “suspected no-op” as a primary diagnosis
 
-**Implementation status:** In progress. Groups J2A/J2B produced the frozen, manifest-bound 960-trial offline derived snapshot. J2C manifest-bound dashboard consumption is implemented as of 2026-08-14 but is not manually/visually accepted; J2D representative/manual review remains pending.
+**Implementation status:** Complete. Groups J2A/J2B produced the frozen, manifest-bound 960-trial offline derived snapshot, J2C added fail-closed dashboard consumption, and J2D representative/manual evidence and visual review were accepted 2026-08-16 after the bounded Quick diagnosis wording recapture passed.
 
 Use current response-path classifications:
 
@@ -566,7 +566,7 @@ Rules:
 
 ### DR-102 — Surface verifier failure taxonomy
 
-**Implementation status:** In progress. Groups J2A/J2B produced the frozen primary/secondary derived classifications without changing the accepted comprehensive review. J2C dashboard filters, compact presentation, and evidence drilldown are implemented but not manually/visually accepted; J2D representative/manual review remains pending.
+**Implementation status:** Complete. Groups J2A/J2B produced the frozen primary/secondary derived classifications without changing the accepted comprehensive review, J2C added registry-derived filters and evidence drilldown, and J2D representative/manual evidence and visual review were accepted 2026-08-16 after the bounded Quick diagnosis wording recapture passed.
 
 Primary verifier/failure categories:
 
@@ -598,7 +598,7 @@ Requirements:
 
 ### DR-103 — Add trajectory-disposition as a separate axis
 
-**Implementation status:** In progress. Groups J2A/J2B produced the frozen independent trajectory axis, including ordinary-success fallback behavior. J2C dashboard consumption is implemented but not manually/visually accepted; J2D representative/manual review remains pending.
+**Implementation status:** Complete. Groups J2A/J2B produced the frozen independent trajectory axis, including ordinary-success fallback behavior, J2C added manifest-bound dashboard consumption, and J2D representative/manual evidence and visual review were accepted 2026-08-16 after the bounded Quick diagnosis wording recapture passed.
 
 Proposed values:
 
@@ -630,7 +630,11 @@ The public `response_path_class` is separate from existing `ActivitySubtype` and
 
 The J1 evidence policy is conservative: absence-sensitive labels require complete or explicitly adequate coverage; compound diagnoses require positive support for every constituent; generic failure, zero reward, elapsed time, or missing excerpts do not justify specific narratives. The verifier axis is independent from response-path, policy, and termination axes: `none` may describe an independently explained non-success, `unclassified_failure` requires an established verifier/task/solution failure, and `timeout_inside_verifier` requires verifier-specific timeout evidence. Incomplete or nonspecific evidence uses only the fallback justified for that axis. Registry `order` fields are display order, never implicit classifier precedence; J2 defines and tests its classifier precedence explicitly. No hidden or private model reasoning may be required, retained, inferred, or displayed.
 
-Groups J2A/J2B freeze the accepted offline derivation at `results/manual_verification/failure_taxonomy_20260813/`. Group J2C implements server-side manifest/hash/schema/scope/trial-set validation, exact trial-ID-only joins, registry-derived filters and display metadata, explicit outside-scope availability, and structured evidence drilldown on Trial Quality and trial detail. The manifest-bound snapshot, accepted hashes, distributions, producer policy, and J2C fail-closed consumption boundary are recorded in [DASHBOARD_FAILURE_TAXONOMY_J2.md](DASHBOARD_FAILURE_TAXONOMY_J2.md). The 960-row derived snapshot does not alter the accepted comprehensive review or raw benchmark truth. DR-101, DR-102, and DR-103 remain implementation-in-progress: J2C is not yet manually/visually accepted, and J2D representative/manual review remains pending.
+Groups J2A/J2B freeze the accepted offline derivation at `results/manual_verification/failure_taxonomy_20260813/`. Group J2C implements server-side manifest/hash/schema/scope/trial-set validation, exact trial-ID-only joins, registry-derived filters and display metadata, explicit outside-scope availability, and structured evidence drilldown on Trial Quality and trial detail. The manifest-bound snapshot, accepted hashes, distributions, producer policy, J2C fail-closed consumption boundary, and J2D acceptance are recorded in [DASHBOARD_FAILURE_TAXONOMY_J2.md](DASHBOARD_FAILURE_TAXONOMY_J2.md). The 960-row derived snapshot does not alter the accepted comprehensive review or raw benchmark truth. DR-101, DR-102, and DR-103 are complete as of the accepted J2D review on 2026-08-16.
+
+J2D's deterministic packet covered all 960 frozen trials and the exact 243-trial review queue: all four response anomalies, all five dependency/import cases, both missing-file/content cases, the successful-timeout control and its 19-case raw-success population, deterministic high/medium no-substantive controls, ordinary success, indeterminate, and a real out-of-scope dashboard control. Trial Quality and representative details passed visual review. The out-of-scope trial correctly showed J2 unavailable rather than `response_path_class=not_applicable`, with no database, live, or browser taxonomy substitute. The only finding was ambiguous adjacent “live fallback” wording on the independent Quick diagnosis surface; the bounded “operational live analysis” correction and explicit non-replacement statement passed post-fix recapture.
+
+Final visual acceptance used production mode because Next 16 Turbopack development mode separately exhibited React Client Manifest errors and approximately 50-second application-code renders. Local production observations were approximately 1.50 seconds for `/`, 0.80 seconds for filtered `/trial-quality`, 2.24 seconds for a representative detail, 0.52 seconds for the successful-timeout detail, 4.07 seconds for the initial out-of-scope detail, and 1.78 seconds for the post-fix out-of-scope recapture. These observations are not performance guarantees. The unresolved development-mode defect is a separate workflow follow-up, not accepted dashboard behavior and not a blocker to production J2D acceptance.
 
 ### DR-104 — Consolidate Tasks and Evals
 

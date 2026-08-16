@@ -236,8 +236,9 @@ export default async function TrialEvidencePage({
           <div>
             <h2>Quick diagnosis <span className="derived-label">derived</span></h2>
             <p>{safeDisplay(display.summary)}</p>
+            {!comprehensiveReview ? <p className="muted">This operational live analysis is separate from the frozen J2 taxonomy and does not fill or replace an unavailable J2 diagnosis.</p> : null}
           </div>
-          <div className="evidence-group-badges"><span className="derived-label">{comprehensiveReview ? "validated snapshot" : "live fallback"}</span><span className={display.confidence === "high" ? "quality-badge" : "quality-badge quality-badge-warn"}>{display.confidence} confidence</span>{display.manual_review_required ? <span className="quality-badge quality-badge-warn">manual review required · {display.manual_review_priority}</span> : null}</div>
+          <div className="evidence-group-badges"><span className="derived-label">{comprehensiveReview ? "validated snapshot" : "operational live analysis"}</span><span className={display.confidence === "high" ? "quality-badge" : "quality-badge quality-badge-warn"}>{display.confidence} confidence</span>{display.manual_review_required ? <span className="quality-badge quality-badge-warn">manual review required · {display.manual_review_priority}</span> : null}</div>
         </div>
         <div className="diagnosis-grid">
           <article><span>Raw outcome</span><strong>{display.raw_outcome}</strong><small>Database reward remains the source of truth.</small></article>
@@ -262,7 +263,7 @@ export default async function TrialEvidencePage({
           <p><strong>Harbor result evidence:</strong> reward {display.result_reward_present ? display.result_reward_value ?? "recorded but non-numeric" : "not recorded"} · status {safeDisplay(display.result_status)} · termination {safeDisplay(display.result_termination_reason)}. Database reward remains authoritative.</p>
           {liveAnalysis?.verifier_failure_headline ? <p><strong>Live verifier headline:</strong> {safeDisplay(liveAnalysis.verifier_failure_headline)} {artifactLink(firstArtifact(artifacts, "verifier_stdout"), "source")}</p> : null}
           <p className="muted">Analyzer {display.analyzer_version} · evidence {display.evidence_complete ? "complete for this diagnosis" : "incomplete or ambiguous"}.</p>
-          {comprehensiveReview ? <p className="muted"><Link href="/comprehensive-review">Open corpus review</Link> · {liveRequested ? <Link href={`/trials/${decodedTrialId}`}>Hide optional live reanalysis</Link> : <Link href={`/trials/${decodedTrialId}?live_analysis=1`}>Run optional cached live reanalysis</Link>}</p> : <p className="muted">No validated corpus snapshot covers this trial; showing bounded live fallback analysis.</p>}
+          {comprehensiveReview ? <p className="muted"><Link href="/comprehensive-review">Open corpus review</Link> · {liveRequested ? <Link href={`/trials/${decodedTrialId}`}>Hide optional live reanalysis</Link> : <Link href={`/trials/${decodedTrialId}?live_analysis=1`}>Run optional cached live reanalysis</Link>}</p> : <p className="muted">No validated corpus snapshot covers this trial; showing bounded operational live analysis.</p>}
           {liveDifferences.length ? <div className="evidence-warning"><strong>Snapshot/live difference:</strong> optional live reanalysis differs for {liveDifferences.join(", ")}. The validated snapshot remains primary until regeneration.</div> : null}
           <p className="muted">Thinking event counts may be used as metadata. Thinking and reasoning content is not parsed or displayed.</p>
         </div>

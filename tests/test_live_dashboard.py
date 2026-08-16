@@ -1456,6 +1456,20 @@ def test_j2c_trial_quality_uses_exact_registry_filters_and_frozen_details() -> N
     assert ".taxonomy-table" in css
 
 
+def test_j2d_trial_detail_keeps_operational_live_analysis_separate_from_j2() -> None:
+    detail_page = Path("apps/dashboard/src/app/trials/[trialId]/page.tsx").read_text()
+    taxonomy_component = Path("apps/dashboard/src/components/FailureTaxonomyDetails.tsx").read_text()
+    live_sources = Path("apps/dashboard/src/lib/data-freshness-sources.ts").read_text()
+
+    assert '"live fallback"' not in detail_page
+    assert '"operational live analysis"' in detail_page
+    assert "This operational live analysis is separate from the frozen J2 taxonomy" in detail_page
+    assert "does not fill or replace an unavailable J2 diagnosis" in detail_page
+    assert "showing bounded operational live analysis" in detail_page
+    assert "No database, live artifact, or browser-side classification is used as a fallback" in taxonomy_component
+    assert 'sourceKind: "cloud_operational" | "local_fallback"' in live_sources
+
+
 def test_j2c_frozen_classification_outputs_retain_accepted_hashes() -> None:
     import hashlib
 
