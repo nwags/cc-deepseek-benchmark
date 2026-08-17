@@ -99,21 +99,21 @@ export function validateRunPlan(input: RunPlanValidationInput): RunPlanValidatio
     findings.push({
       severity: "blocker",
       title: "Runner-slot capacity exceeded",
-      detail: `${input.selectedArms.length} workflow jobs requested across ${runnerSlots} current runner slots. Split the wave or add runners.`,
+      detail: `${input.selectedArms.length} workflow jobs requested against the ${runnerSlots}-slot configured planner assumption. Split the planned wave and verify actual runner capacity separately.`,
     });
   } else {
     findings.push({
       severity: "ok",
       title: "Runner-slot capacity",
-      detail: `${input.selectedArms.length} workflow jobs requested across ${runnerSlots} current runner slots.`,
+      detail: `${input.selectedArms.length} workflow jobs requested against the ${runnerSlots}-slot configured planner assumption.`,
     });
   }
 
   if (harborConcurrency > 1) {
     findings.push({
       severity: "warning",
-      title: "Harbor concurrency above current safe setting",
-      detail: `n_concurrent=${harborConcurrency}; current safe setting is n_concurrent=1 per runner job.`,
+      title: "Harbor concurrency above checked-in assumption",
+      detail: `n_concurrent=${harborConcurrency}; the checked-in planner concurrency assumption is n_concurrent=1 per runner job.`,
     });
   }
 
@@ -136,13 +136,13 @@ export function validateRunPlan(input: RunPlanValidationInput): RunPlanValidatio
       severity: "blocker",
       title: "Gemini provider-family concurrency exceeded",
       detail:
-        "Gemini is capped at 1 concurrent arm until quota/rate-limit behavior is verified or raised.",
+        "The checked-in planner rule caps Gemini at 1 concurrent arm; it does not establish current quota, availability, or readiness.",
     });
   } else if ((providerCounts.gemini ?? 0) === 1) {
     findings.push({
       severity: "ok",
       title: "Gemini provider-family concurrency",
-      detail: "One Gemini-family arm selected.",
+      detail: "One Gemini-family arm satisfies the checked-in planner rule; current provider readiness is not verified here.",
     });
   }
 
@@ -152,14 +152,14 @@ export function validateRunPlan(input: RunPlanValidationInput): RunPlanValidatio
       severity: "blocker",
       title: "Qwen full sweep blocked",
       detail:
-        "Qwen full-sweep dispatch is blocked until Alibaba identity verification and usage-metering reconciliation are complete.",
+        "The checked-in planner rule blocks Qwen full sweeps while Alibaba identity and usage-metering review remains unresolved; this is not a live provider observation.",
     });
   } else if (hasQwen) {
     findings.push({
       severity: "warning",
       title: "Qwen billing-verification risk",
       detail:
-        "Qwen is allowed only for reviewed diagnostics/smoke while Alibaba verification and usage-metering reconciliation remain open.",
+        "The checked-in planner rule permits Qwen only for reviewed diagnostics/smoke while Alibaba identity and usage-metering review remains unresolved.",
     });
   }
 
@@ -167,8 +167,8 @@ export function validateRunPlan(input: RunPlanValidationInput): RunPlanValidatio
   if (hasFable) {
     findings.push({
       severity: "blocker",
-      title: "Fable availability blocked",
-      detail: "Fable remains blocked until provider availability/access is restored.",
+      title: "Fable planner gate",
+      detail: "The checked-in planner rule blocks Fable; it does not establish current provider availability, access, or readiness.",
     });
   }
 

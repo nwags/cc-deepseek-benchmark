@@ -80,7 +80,7 @@ test("3 arms with n_concurrent=2 warns and gives effective concurrency 6", () =>
   assert.equal(result.effectiveTaskParallelism, 6);
   assert.equal(result.harborConcurrency, 2);
   assert.equal(result.status, "review");
-  assert.equal(hasFinding(result, "Harbor concurrency above current safe setting", "warning"), true);
+  assert.equal(hasFinding(result, "Harbor concurrency above checked-in assumption", "warning"), true);
 });
 
 test("2 Gemini arms is blocked", () => {
@@ -98,7 +98,7 @@ test("Qwen full mode is blocked", () => {
 test("Fable selected is blocked", () => {
   const result = plan({ selectedArms: [fable] });
   assert.equal(result.status, "blocked");
-  assert.equal(hasFinding(result, "Fable availability blocked", "blocker"), true);
+  assert.equal(hasFinding(result, "Fable planner gate", "blocker"), true);
 });
 
 test("4 selected arms exceeds 3-slot runner capacity", () => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { ArmOption, TaskSetOption } from "./PlannerCommandBuilder";
+import type { ArmOption, TaskSetOption } from "../lib/planner-types";
 import {
   DEFAULT_RUNNER_SLOTS,
   classifyProviderFamily,
@@ -137,11 +137,11 @@ export function RunPlanBuilder({
         <div>
           <h2>Run plan builder</h2>
           <p>
-            Select arms from the registry, validate runner/provider constraints, then copy reviewed
+            Select arms from the registry, review checked-in runner/provider planning rules, then copy reviewed
             dispatch commands. The dashboard still does not launch runs.
           </p>
         </div>
-        <a href="/scaffold">Create new arm YAML</a>
+        <a href="/planner?mode=arm">Draft new arm configuration</a>
       </div>
 
       <div className="run-plan-layout">
@@ -237,11 +237,11 @@ export function RunPlanBuilder({
           <div className="metric-detail">blocked / review / clear</div>
         </div>
         <div className="metric-card">
-          <div className="metric-label">Runner slots</div>
+          <div className="metric-label">Planner slots</div>
           <div className="metric-value">
             {selectedArms.length} / {RUNNER_SLOTS}
           </div>
-          <div className="metric-detail">workflow jobs requested</div>
+          <div className="metric-detail">configured planner slot assumption</div>
         </div>
         <div className="metric-card">
           <div className="metric-label">Max task concurrency</div>

@@ -1,8 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
+import { ArmConfigDraftBuilder } from "../../components/ArmConfigDraftBuilder";
 import { AppShell } from "../../components/AppShell";
-import type { ArmOption, TaskSetOption } from "../../components/PlannerCommandBuilder";
+import { PlannerModeSelector } from "../../components/PlannerModeSelector";
 import { RunPlanBuilder } from "../../components/RunPlanBuilder";
+import { selectPlannerMode } from "../../lib/planner-modes";
+import type { ArmOption, TaskSetOption } from "../../lib/planner-types";
 
 export const dynamic = "force-dynamic";
 
@@ -67,72 +70,100 @@ function readTaskSets(): TaskSetOption[] {
     .sort((left, right) => left.file_name.localeCompare(right.file_name));
 }
 
-export default function PlannerPage() {
+type PlannerPageProps = {
+  searchParams?: Promise<{ mode?: string | string[] }>;
+};
+
+export default async function PlannerPage({ searchParams }: PlannerPageProps) {
+  const query = await (searchParams ?? Promise.resolve<{ mode?: string | string[] }>({}));
+  const selection = selectPlannerMode(query.mode);
   const arms = readArms();
-  const taskSets = readTaskSets();
+  const taskSets = selection.mode === "run" ? readTaskSets() : [];
 
   return (
     <AppShell
       title="Planner"
-      description="Read-only planner that generates reviewable GitHub Actions dispatch commands."
+      description="One read-only surface for reviewing benchmark run plans and drafting future arm configuration YAML."
     >
-      <RunPlanBuilder arms={arms} taskSets={taskSets} />
+      {selection.warningMessage ? (
+        <p className="warning-text" role="alert">
+          <strong>Planner mode warning:</strong> {selection.warningMessage}
+        </p>
+      ) : null}
+      <PlannerModeSelector selectedMode={selection.mode} />
 
-      <section className="panel">
-        <div className="panel-heading">
-          <h2>Available task sets</h2>
-          <p>Parsed from configs/tasks for planning visibility.</p>
-        </div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Task file</th>
-                <th>Tasks</th>
-                <th>Sample</th>
-              </tr>
-            </thead>
-            <tbody>
-              {taskSets.map((taskSet) => (
-                <tr key={taskSet.id}>
-                  <td className="mono">{taskSet.file_name}</td>
-                  <td>{taskSet.task_count}</td>
-                  <td className="mono">{taskSet.sample_tasks.join(", ") || "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      {selection.mode === "run" ? (
+        <>
+          <section className="quality-context-panel">
+            <h2>Checked-in planning assumptions</h2>
+            <p>
+              Runner-slot, per-job concurrency, and provider-family gates below are repository planning rules.
+              They are not live runner-capacity, provider-availability, quota, or readiness observations.
+              Review current operational evidence separately before executing any copied command.
+            </p>
+          </section>
 
-      <section className="panel">
-        <div className="panel-heading">
-          <h2>Available arms</h2>
-          <p>Parsed from configs/arms. Generated commands use these arm IDs.</p>
-        </div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Arm</th>
-                <th>Provider</th>
-                <th>Model</th>
-                <th>Backend model</th>
-              </tr>
-            </thead>
-            <tbody>
-              {arms.map((arm) => (
-                <tr key={arm.arm_id}>
-                  <td className="mono">{arm.arm_id}</td>
-                  <td>{arm.provider ?? "—"}</td>
-                  <td className="mono">{arm.model ?? "—"}</td>
-                  <td className="mono">{arm.backend_model ?? "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+          <RunPlanBuilder arms={arms} taskSets={taskSets} />
+
+          <section className="panel">
+            <div className="panel-heading">
+              <h2>Available task sets</h2>
+              <p>Parsed from configs/tasks for planning visibility.</p>
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Task file</th>
+                    <th>Tasks</th>
+                    <th>Sample</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {taskSets.map((taskSet) => (
+                    <tr key={taskSet.id}>
+                      <td className="mono">{taskSet.file_name}</td>
+                      <td>{taskSet.task_count}</td>
+                      <td className="mono">{taskSet.sample_tasks.join(", ") || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section className="panel">
+            <div className="panel-heading">
+              <h2>Available arms</h2>
+              <p>Parsed from configs/arms. Generated commands use these arm IDs.</p>
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Arm</th>
+                    <th>Provider</th>
+                    <th>Model</th>
+                    <th>Backend model</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {arms.map((arm) => (
+                    <tr key={arm.arm_id}>
+                      <td className="mono">{arm.arm_id}</td>
+                      <td>{arm.provider ?? "—"}</td>
+                      <td className="mono">{arm.model ?? "—"}</td>
+                      <td className="mono">{arm.backend_model ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </>
+      ) : (
+        <ArmConfigDraftBuilder existingArmIds={arms.map((arm) => arm.arm_id)} />
+      )}
     </AppShell>
   );
 }

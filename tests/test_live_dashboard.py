@@ -1096,8 +1096,74 @@ def test_stale_operational_pages_are_removed_from_primary_navigation() -> None:
     assert '{ href: "/readiness"' not in shell
     assert '{ href: "/runs/live", label: "Live Runs" }' in shell
     assert '{ href: "/planner", label: "Planner" }' in shell
+    assert '{ href: "/scaffold", label: "Arm Scaffold" }' not in shell
     assert '{ href: "/tasks", label: "Tasks" }' not in shell
     assert '{ href: "/evals", label: "Evals" }' in shell
+
+
+def test_dr105_consolidates_planner_and_arm_scaffold_without_mutation() -> None:
+    planner = Path("apps/dashboard/src/app/planner/page.tsx").read_text()
+    scaffold = Path("apps/dashboard/src/app/scaffold/page.tsx").read_text()
+    selector = Path("apps/dashboard/src/components/PlannerModeSelector.tsx").read_text()
+    run_builder = Path("apps/dashboard/src/components/RunPlanBuilder.tsx").read_text()
+    arm_builder = Path("apps/dashboard/src/components/ArmConfigDraftBuilder.tsx").read_text()
+    mode_source = Path("apps/dashboard/src/lib/planner-modes.ts").read_text()
+    draft_source = Path("apps/dashboard/src/lib/arm-config-draft.ts").read_text()
+    validation = Path("apps/dashboard/src/lib/run-plan-validation.ts").read_text()
+    package = Path("apps/dashboard/package.json").read_text()
+
+    assert 'DEFAULT_PLANNER_MODE: PlannerMode = "run"' in mode_source
+    assert 'value === "run" || value === "arm"' in mode_source
+    assert 'warning: "invalid_mode"' in mode_source
+    assert 'warning: "repeated_mode"' in mode_source
+    assert "Unknown or empty planner mode" in mode_source
+    assert "Repeated planner mode values" in mode_source
+    assert "selectPlannerMode(query.mode)" in planner
+    assert "selection.warningMessage" in planner
+    assert 'role="alert"' in planner
+    assert 'href={`/planner?mode=${option.id}`}' in selector
+    assert 'aria-current={selected ? "page" : undefined}' in selector
+    assert "Plan benchmark run" in mode_source
+    assert "Draft new arm configuration" in mode_source
+
+    assert 'redirect("/planner?mode=arm")' in scaffold
+    assert "RunPlanBuilder" in planner
+    assert 'selection.mode === "run"' in planner
+    assert "ArmConfigDraftBuilder" in planner
+    assert "existingArmIds={arms.map((arm) => arm.arm_id)}" in planner
+    assert 'href="/planner?mode=arm"' in run_builder
+    assert not Path("apps/dashboard/src/components/PlannerCommandBuilder.tsx").exists()
+    assert not Path("apps/dashboard/src/components/PlaceholderPanel.tsx").exists()
+    assert "../lib/planner-types" in run_builder
+
+    assert "Draft only — no repository file is created" in arm_builder
+    assert "normal Git review" in arm_builder
+    assert "does not request or generate API keys or tokens" in arm_builder
+    assert "not ready to run" in arm_builder
+    assert "existing checked-in arm" in arm_builder
+    assert "router: litellm" in draft_source
+    assert "agent: claude-code" in draft_source
+    assert "existingArmIds.includes(input.armId)" in draft_source
+    for forbidden_mutation in ("writeFile", "appendFile", "createWriteStream", "use server", "fetch("):
+        assert forbidden_mutation not in arm_builder
+        assert forbidden_mutation not in draft_source
+    assert "gh workflow" not in arm_builder
+    assert "gh workflow" not in draft_source
+
+    assert "Checked-in planning assumptions" in planner
+    assert "not live runner-capacity, provider-availability, quota, or readiness observations" in planner
+    assert "configured planner assumption" in validation
+    assert "checked-in planner concurrency assumption" in validation
+    assert "current runner slots" not in validation
+    assert "current safe setting" not in validation
+    assert "export const DEFAULT_RUNNER_SLOTS = 3" in validation
+    assert "harborConcurrency > 1" in validation
+    assert "(providerCounts.gemini ?? 0) > 1" in validation
+    assert 'hasQwen && input.runMode === "full"' in validation
+    assert "if (hasFable)" in validation
+
+    assert "planner-modes.test.mjs" in package
+    assert "arm-config-draft.test.mjs" in package
 
 
 def test_runner_fleet_route_is_a_non_live_deprecation_destination() -> None:
