@@ -236,6 +236,36 @@ test("available operational evidence has unknown freshness without repository po
   assert.equal(freshness.canonicalPublicationText(result), "Not recorded");
 });
 
+test("operational freshness preserves canonical RFC3339 behavior", () => {
+  const result = freshness.buildOperationalFreshness({
+    ...operationalBase,
+    queriedAt: "2026-07-31T17:09:09.208Z",
+    latestIncludedExecutionAt: "2026-07-31T16:09:09.208Z",
+  });
+  assert.equal(result.freshnessReason, "threshold_not_configured");
+  assert.equal(result.dataAgeSeconds, 3600);
+  assert.equal(result.latestIncludedExecutionAt, "2026-07-31T16:09:09.208Z");
+});
+
+test("operational freshness accepts constrained PostgreSQL timestamptz text", () => {
+  const cases = [
+    "2026-07-31 16:09:09.208372+00",
+    "2026-07-31 12:09:09.208372-04",
+    "2026-07-31 21:39:09.123456+05:30",
+  ];
+
+  for (const latestIncludedExecutionAt of cases) {
+    const result = freshness.buildOperationalFreshness({
+      ...operationalBase,
+      queriedAt: "2026-07-31T17:09:09.208Z",
+      latestIncludedExecutionAt,
+    });
+    assert.equal(result.freshnessReason, "threshold_not_configured");
+    assert.notEqual(result.dataAgeSeconds, null);
+    assert.equal(result.latestIncludedExecutionAt, latestIncludedExecutionAt);
+  }
+});
+
 test("unavailable operational query cannot become current", () => {
   const result = freshness.buildOperationalFreshness({
     ...operationalBase,
@@ -271,6 +301,19 @@ test("missing and malformed timestamps fail safely", () => {
   });
   assert.equal(malformedQuery.freshnessReason, "query_timestamp_invalid");
   assert.equal(malformedQuery.dataAgeSeconds, null);
+
+  for (const malformedTimestamp of [
+    "2026-08-10",
+    "2026-07-31 16:09:09.208372",
+    "July 31, 2026 16:09 UTC",
+  ]) {
+    const malformedPostgres = freshness.buildOperationalFreshness({
+      ...operationalBase,
+      latestIncludedExecutionAt: malformedTimestamp,
+    });
+    assert.equal(malformedPostgres.freshnessReason, "execution_timestamp_invalid");
+    assert.equal(malformedPostgres.dataAgeSeconds, null);
+  }
 });
 
 test("future execution completion reports possible clock skew without negative age", () => {
@@ -323,6 +366,20 @@ test("latest execution selection is deterministic and reports malformed values",
   });
 });
 
+test("latest execution selection compares mixed timestamp syntax and preserves source text", () => {
+  const selectedSourceTimestamp = "2026-07-31 12:09:10.208372-04";
+  const result = freshness.findLatestIncludedExecutionAt([
+    "2026-07-31T16:09:09.208Z",
+    "2026-07-31 21:39:09.123456+05:30",
+    "not-a-timestamp",
+    selectedSourceTimestamp,
+  ]);
+  assert.deepEqual(result, {
+    latestTimestamp: selectedSourceTimestamp,
+    invalidTimestampCount: 1,
+  });
+});
+
 test("live heartbeat threshold is an explicit liveness-only boundary", () => {
   const atBoundary = freshness.buildLiveHeartbeatLiveness({
     queryStatus: "available",
@@ -346,6 +403,20 @@ test("live heartbeat threshold is an explicit liveness-only boundary", () => {
   const ordinary = freshness.buildOperationalFreshness(operationalBase);
   assert.equal(ordinary.freshnessStatus, "unknown");
   assert.equal(ordinary.freshnessReason, "threshold_not_configured");
+});
+
+test("live heartbeat accepts constrained PostgreSQL timestamptz text", () => {
+  const postgresHeartbeat = "2026-07-31 16:09:09.208372+00";
+  const result = freshness.buildLiveHeartbeatLiveness({
+    queryStatus: "available",
+    observedAt: "2026-07-31T16:10:00Z",
+    latestHeartbeatAt: postgresHeartbeat,
+    latestEventAt: null,
+    heartbeatThresholdSeconds: 90,
+  });
+  assert.equal(result.livenessStatus, "active");
+  assert.equal(result.livenessReason, "heartbeat_within_live_threshold");
+  assert.equal(result.latestHeartbeatAt, postgresHeartbeat);
 });
 
 test("live heartbeat missing, malformed, future, and failed reads never become active", () => {
