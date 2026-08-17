@@ -120,10 +120,23 @@ export type LiveHeartbeatLivenessInput = Readonly<{
 
 const ISO_TIMESTAMP_PATTERN =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+const POSTGRES_TIMESTAMP_PATTERN =
+  /^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?)([+-]\d{2})(?::(\d{2}))?$/;
+
+function normalizeTimestampForParsing(value: string): string | null {
+  if (ISO_TIMESTAMP_PATTERN.test(value)) return value;
+
+  const postgresMatch = POSTGRES_TIMESTAMP_PATTERN.exec(value);
+  if (postgresMatch === null) return null;
+
+  const [, localTimestamp, offsetHours, offsetMinutes = "00"] = postgresMatch;
+  return `${localTimestamp.replace(" ", "T")}${offsetHours}:${offsetMinutes}`;
+}
 
 function parseIsoTimestamp(value: string): number | null {
-  if (!ISO_TIMESTAMP_PATTERN.test(value)) return null;
-  const parsed = Date.parse(value);
+  const normalized = normalizeTimestampForParsing(value);
+  if (normalized === null) return null;
+  const parsed = Date.parse(normalized);
   return Number.isFinite(parsed) ? parsed : null;
 }
 
