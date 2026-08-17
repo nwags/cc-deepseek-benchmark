@@ -410,6 +410,8 @@ def test_comparative_pages_disclose_their_distinct_corpus_scopes() -> None:
     cross_phase = Path("apps/dashboard/src/app/cross-phase/page.tsx").read_text()
     arms = Path("apps/dashboard/src/app/arms/page.tsx").read_text()
     evals = Path("apps/dashboard/src/app/evals/page.tsx").read_text()
+    eval_detail = Path("apps/dashboard/src/app/evals/[taskId]/page.tsx").read_text()
+    eval_scopes = Path("apps/dashboard/src/lib/eval-scopes.ts").read_text()
     cost = Path("apps/dashboard/src/app/cost-coverage/page.tsx").read_text()
     data = Path("apps/dashboard/src/lib/dashboard-data.ts").read_text()
 
@@ -436,10 +438,17 @@ def test_comparative_pages_disclose_their_distinct_corpus_scopes() -> None:
     assert "All imported" in arms
     assert "not a valid full-suite leaderboard denominator" in arms
 
-    assert 'scopeId="valid-imported"' in evals
-    assert "Valid imported inventory" in evals
+    assert "selectEvalInventoryScope(params.scope)" in evals
+    assert "EvalScopeSelector" in evals
+    assert 'scopeId={selection.scopeId}' in evals
+    assert '"valid-imported"' in eval_scopes
+    assert '"all-imported"' in eval_scopes
+    assert "Valid imported" in evals
+    assert "All imported" in evals
     assert "Invalid and quarantined arm runs are excluded" in evals
     assert "not a fixed full-suite leaderboard denominator" in evals
+    assert "selectEvalInventoryScope(query.scope)" in eval_detail
+    assert 'href={`/evals?scope=${selection.scopeId}`}' in eval_detail
     assert "from benchmark.v_valid_eval_arm_comparison" in data
 
     assert "scope.costEvidence" in cost
@@ -464,6 +473,94 @@ def test_comparative_pages_disclose_their_distinct_corpus_scopes() -> None:
     assert "sponsor-facing" not in cost
     assert "intentionally does not synthesize an extended adjusted-cost total" not in cost
     assert "getAdjustedCostOverview" in data
+
+
+def test_dr104_consolidates_tasks_into_scope_aware_evals_without_population_substitution() -> None:
+    index = Path("apps/dashboard/src/app/evals/page.tsx").read_text()
+    detail = Path("apps/dashboard/src/app/evals/[taskId]/page.tsx").read_text()
+    tasks = Path("apps/dashboard/src/app/tasks/page.tsx").read_text()
+    selector = Path("apps/dashboard/src/components/EvalScopeSelector.tsx").read_text()
+    scopes = Path("apps/dashboard/src/lib/eval-scopes.ts").read_text()
+    data = Path("apps/dashboard/src/lib/dashboard-data.ts").read_text()
+    freshness = Path("apps/dashboard/src/lib/data-freshness-sources.ts").read_text()
+    shell = Path("apps/dashboard/src/components/AppShell.tsx").read_text()
+    package = Path("apps/dashboard/package.json").read_text()
+
+    assert 'DEFAULT_EVAL_INVENTORY_SCOPE: EvalInventoryScopeId = "valid-imported"' in scopes
+    assert 'value === "valid-imported" || value === "all-imported"' in scopes
+    assert 'warning: "invalid_scope"' in scopes
+    assert 'warning: "repeated_scope"' in scopes
+    assert "Unknown scope value; Valid imported was selected." in scopes
+    assert "Repeated scope values are not supported; Valid imported was selected." in scopes
+    assert "selection.warningMessage" in index
+    assert 'role="alert"' in index
+    assert "selection.warningMessage" in detail
+    assert 'role="alert"' in detail
+    assert 'href={`/evals?scope=${option.id}`}' in selector
+    assert "Valid imported" in selector
+    assert "All imported" in selector
+
+    assert "allImported ? getAllImportedEvalRows() : getEvalRows()" in index
+    assert "getValidImportedEvalLatestIncludedExecutionAt()" in index
+    assert "getAllImportedTaskLatestIncludedExecutionAt()" in index
+    assert "INDEX_ROUTE_FRESHNESS_SOURCES.evals[selection.scopeId]" in index
+    assert 'href={`/evals/${encodeURIComponent(row.task_id)}?scope=${selection.scopeId}`}' in index
+    assert "formatRecordedCost(row.trial_cost_usd, row.cost_row_count, row.missing_cost_count)" in index
+    assert "not a fixed full-suite" in index
+
+    valid_index = data[data.index("export async function getEvalRows") : data.index(
+        "export async function getAllImportedEvalRows"
+    )]
+    all_index = data[data.index("export async function getAllImportedEvalRows") : data.index(
+        "export async function getValidImportedEvalLatestIncludedExecutionAt"
+    )]
+    valid_detail = data[data.index("export async function getEvalArmComparison") : data.index(
+        "export async function getAllImportedEvalArmComparison"
+    )]
+    all_detail = data[data.index("export async function getAllImportedEvalArmComparison") : data.index(
+        "export async function getValidEvalTaskLatestIncludedExecutionAt"
+    )]
+    assert "benchmark.v_valid_eval_arm_comparison" in valid_index
+    assert "benchmark.v_dashboard_tasks" not in valid_index
+    assert "benchmark.v_dashboard_tasks" in all_index
+    assert "benchmark.benchmark_trials" in all_index
+    assert "benchmark.v_valid_eval_arm_comparison" not in all_index
+    assert "cost_row_count" in valid_index and "missing_cost_count" in valid_index
+    assert "cost_row_count" in all_index and "missing_cost_count" in all_index
+    assert "benchmark.v_valid_eval_arm_comparison" in valid_detail
+    assert "benchmark.benchmark_trials trial" in all_detail
+    assert "left join lateral (" in all_detail
+    assert "benchmark.benchmark_invalid_arm_runs invalid_record" in all_detail
+    assert "select true as is_invalid" in all_detail
+    assert "invalid_record.run_label = run.run_label" in all_detail
+    assert "limit 1" in all_detail
+    assert ") invalid_lookup on true" in all_detail
+    assert "invalid_lookup.is_invalid is true" in all_detail
+    assert "left join benchmark.benchmark_invalid_arm_runs" not in all_detail
+    assert "invalid_or_quarantined" in all_detail
+    assert "trial.arm_run_id is null then 'unlinked'" in all_detail
+    assert "benchmark.v_valid_eval_arm_comparison" not in all_detail
+
+    assert "allImported ? getAllImportedEvalArmComparison(decodedTaskId)" in detail
+    assert "getEvalArmComparison(decodedTaskId)" in detail
+    assert 'href={`/evals?scope=${selection.scopeId}`}' in detail
+    assert "DETAIL_ROUTE_FRESHNESS_SOURCES.evalTaskDetail[selection.scopeId]" in detail
+    assert "Invalid / quarantined" in detail
+    assert "Linked / unflagged" in detail
+    assert "Valid / unflagged" not in detail
+    assert "Imported / unlinked" in detail
+
+    assert '"valid-imported": Object.freeze({' in freshness
+    assert '"all-imported": Object.freeze({' in freshness
+    assert "Supabase/Postgres valid-imported eval inventory" in freshness
+    assert "Supabase/Postgres all-imported eval inventory" in freshness
+    assert "Supabase/Postgres valid-imported eval/task detail" in freshness
+    assert "Supabase/Postgres all-imported eval/task detail" in freshness
+
+    assert 'redirect("/evals?scope=all-imported")' in tasks
+    assert '{ href: "/tasks", label: "Tasks" }' not in shell
+    assert '{ href: "/evals", label: "Evals" }' in shell
+    assert "eval-scopes.test.mjs" in package
 
 
 def test_overview_uses_frozen_reviewed_runs_and_exact_database_reconciliation() -> None:
@@ -824,7 +921,6 @@ def test_primary_cloud_indexes_use_population_specific_freshness_contracts() -> 
         "evalSuites": Path("apps/dashboard/src/app/eval-suites/page.tsx").read_text(),
         "evals": Path("apps/dashboard/src/app/evals/page.tsx").read_text(),
         "runs": Path("apps/dashboard/src/app/runs/page.tsx").read_text(),
-        "tasks": Path("apps/dashboard/src/app/tasks/page.tsx").read_text(),
         "trialQuality": Path("apps/dashboard/src/app/trial-quality/page.tsx").read_text(),
     }
     sources = Path("apps/dashboard/src/lib/data-freshness-sources.ts").read_text()
@@ -862,10 +958,7 @@ def test_primary_cloud_indexes_use_population_specific_freshness_contracts() -> 
         "All registered arms; latest execution is derived from imported "
         "trial-bearing runs across run classes"
     ) in sources
-    assert (
-        "All registered tasks; latest execution is derived from imported "
-        "trial-bearing runs across run classes"
-    ) in sources
+    assert "All imported trial-bearing task rows across run classes and validity states" in sources
 
     latest_execution_section = data[data.index(
         "export async function getAllImportedArmLatestIncludedExecutionAt"
@@ -876,11 +969,10 @@ def test_primary_cloud_indexes_use_population_specific_freshness_contracts() -> 
     assert "max(r.created_at)" not in latest_execution_section
     assert "max(r.updated_at)" not in latest_execution_section
 
-    tasks = page_sources["tasks"]
-    assert "Tasks — All imported" in tasks
-    assert "all imported run classes" in tasks
-    assert "full-suite, smoke, canary, diagnostic, legacy" in tasks
-    assert "imported canary and smoke trials" not in tasks
+    tasks = Path("apps/dashboard/src/app/tasks/page.tsx").read_text()
+    assert 'redirect("/evals?scope=all-imported")' in tasks
+    assert "DataFreshnessNotice" not in tasks
+    assert "getTaskRows" not in tasks
 
     eval_suites = page_sources["evalSuites"]
     assert "distinct arms represented by valid imported rows" in eval_suites
@@ -982,6 +1074,8 @@ def test_cloud_detail_routes_expose_exact_freshness_and_artifact_provenance() ->
     assert "valid-imported comparison population" in suite_page
     task_page = pages["evalTaskDetail"]
     assert "getValidEvalTaskLatestIncludedExecutionAt(decodedTaskId)" in task_page
+    assert "getAllImportedEvalTaskLatestIncludedExecutionAt(decodedTaskId)" in task_page
+    assert "DETAIL_ROUTE_FRESHNESS_SOURCES.evalTaskDetail[selection.scopeId]" in task_page
     eval_freshness = data[data.index("export async function getValidEvalTaskLatestIncludedExecutionAt") :]
     assert "max(arm_run.finished_at)::text" in eval_freshness
     assert "join benchmark.benchmark_trials trial" in eval_freshness
@@ -1002,6 +1096,8 @@ def test_stale_operational_pages_are_removed_from_primary_navigation() -> None:
     assert '{ href: "/readiness"' not in shell
     assert '{ href: "/runs/live", label: "Live Runs" }' in shell
     assert '{ href: "/planner", label: "Planner" }' in shell
+    assert '{ href: "/tasks", label: "Tasks" }' not in shell
+    assert '{ href: "/evals", label: "Evals" }' in shell
 
 
 def test_runner_fleet_route_is_a_non_live_deprecation_destination() -> None:

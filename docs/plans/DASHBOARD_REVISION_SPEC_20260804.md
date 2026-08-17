@@ -638,14 +638,21 @@ Final visual acceptance used production mode because Next 16 Turbopack developme
 
 ### DR-104 — Consolidate Tasks and Evals
 
-Preferred result:
+**Implementation status:** Complete and manually/visually accepted 2026-08-17.
 
-- Keep `Evals` as the primary page.
-- Add scope toggle:
-  - valid full-suite
-  - all imported
-- Redirect `/tasks` to the valid-imported Evals view; a future explicit scope toggle may expose an all-imported alternative.
-- Explain why counts differ by scope.
+Accepted design:
+
+- `Evals` is the single primary inventory surface and remains `valid-imported` by default.
+- `/evals?scope=valid-imported` preserves the established `benchmark.v_valid_eval_arm_comparison` population: invalid/quarantined arm runs are excluded, multiple valid imported run classes may contribute, and the inventory is not a fixed full-suite denominator.
+- `/evals?scope=all-imported` exposes the broader former Tasks population from `benchmark.v_dashboard_tasks` and its underlying imported trial/run relations. It retains run classes and validity states excluded from the valid-only view and is likewise not a fixed full-suite denominator.
+- `/tasks` is a compatibility redirect to `/evals?scope=all-imported`; Tasks is no longer an independent table or primary-navigation destination.
+- Index-to-detail and Back links preserve the selected scope. Valid detail remains valid-only; all-imported detail aggregates the same broader trial population and visibly distinguishes invalid/quarantined and unlinked evidence.
+- Index and detail freshness definitions are scope-specific. Recorded-cost totals retain row coverage, so unrecorded or partially recorded cost is never displayed as a complete zero-cost fact.
+- Unknown or repeated scope values fail safely to `valid-imported` with a visible warning.
+
+Counts can differ because `valid-imported` applies the established invalid/quarantined exclusion while `all-imported` retains the broader imported evidence population. Neither dynamic inventory should be called “valid full-suite” or used as a fixed leaderboard denominator.
+
+The production-mode DR-104 review passed on 2026-08-17 at 1920px, 1440px, and 1280px. Both selector states, invalid/repeated-scope fallback warnings, `/tasks` compatibility redirect, scope-preserving index/detail/Back links, scope-aligned freshness, recorded-cost coverage, all-imported validity presentation, and responsive tables/layout were accepted. `terminal-bench-2.0:multi-source-data-merger` served as the known differing-population control: valid-imported rendered 48 trials / 46 successes / 95.8%, while all-imported rendered 57 trials / 47 successes / 82.5%, with the corresponding recorded-cost coverage differences retained. The accepted all-imported label is “Linked / unflagged,” which reports the directly established linkage/invalidation state without overstating membership in the valid-only view. DR-104 did not change J2 or frozen-result semantics.
 
 ### DR-105 — Consolidate Planner and Arm Scaffold
 

@@ -400,3 +400,63 @@ test("eval detail execution metadata is restricted to the exact displayed task p
   assert.deepEqual(captured.params, ["terminal-bench-2.0:task"]);
   assert.doesNotMatch(captured.sql, /created_at|updated_at|uploaded_at|invalidated_at/);
 });
+
+test("scope-aware eval loaders preserve distinct valid and all-imported populations", async () => {
+  const calls = [];
+  globalThis.__dashboardQueryHandler = async (sql, params) => {
+    calls.push({ sql, params });
+    return [];
+  };
+
+  await dashboardData.getEvalRows();
+  await dashboardData.getAllImportedEvalRows();
+  await dashboardData.getEvalArmComparison("terminal-bench-2.0:task");
+  await dashboardData.getAllImportedEvalArmComparison("terminal-bench-2.0:task");
+
+  assert.match(calls[0].sql, /from benchmark\.v_valid_eval_arm_comparison/);
+  assert.match(calls[0].sql, /sum\(cost_row_count\)/);
+  assert.match(calls[0].sql, /sum\(missing_cost_count\)/);
+  assert.doesNotMatch(calls[0].sql, /v_dashboard_tasks/);
+
+  assert.match(calls[1].sql, /from benchmark\.v_dashboard_tasks task/);
+  assert.match(calls[1].sql, /from benchmark\.benchmark_trials/);
+  assert.match(calls[1].sql, /count\(distinct arm_id\)/);
+  assert.doesNotMatch(calls[1].sql, /v_valid_eval_arm_comparison|v_valid_arm_run_summary/);
+
+  assert.match(calls[2].sql, /from benchmark\.v_valid_eval_arm_comparison/);
+  assert.match(calls[2].sql, /'valid'::text as validity_status/);
+  assert.deepEqual(calls[2].params, ["terminal-bench-2.0:task"]);
+
+  assert.match(calls[3].sql, /from benchmark\.benchmark_trials trial/);
+  assert.match(calls[3].sql, /left join benchmark\.benchmark_runs run/);
+  assert.match(calls[3].sql, /left join lateral \(/);
+  assert.match(calls[3].sql, /select true as is_invalid/);
+  assert.match(calls[3].sql, /from benchmark\.benchmark_invalid_arm_runs invalid_record/);
+  assert.match(calls[3].sql, /invalid_record\.run_label = run\.run_label/);
+  assert.match(calls[3].sql, /limit 1\s+\) invalid_lookup on true/);
+  assert.match(calls[3].sql, /invalid_lookup\.is_invalid is true/);
+  assert.doesNotMatch(calls[3].sql, /left join benchmark\.benchmark_invalid_arm_runs/);
+  assert.match(calls[3].sql, /invalid_or_quarantined/);
+  assert.match(calls[3].sql, /trial\.arm_run_id is null then 'unlinked'/);
+  assert.doesNotMatch(calls[3].sql, /v_valid_eval_arm_comparison|v_valid_arm_run_summary/);
+  assert.deepEqual(calls[3].params, ["terminal-bench-2.0:task"]);
+});
+
+test("all-imported eval detail freshness uses the exact unfiltered task population", async () => {
+  let captured;
+  globalThis.__dashboardQueryHandler = async (sql, params) => {
+    captured = { sql, params };
+    return [{ latest_included_execution_at: "2026-08-09T00:00:00Z" }];
+  };
+
+  const latest = await dashboardData.getAllImportedEvalTaskLatestIncludedExecutionAt(
+    "terminal-bench-2.0:task",
+  );
+  assert.equal(latest, "2026-08-09T00:00:00Z");
+  assert.match(captured.sql, /max\(run\.finished_at\)::text/);
+  assert.match(captured.sql, /from benchmark\.benchmark_trials trial/);
+  assert.match(captured.sql, /join benchmark\.benchmark_runs run/);
+  assert.match(captured.sql, /trial\.task_id = \$1/);
+  assert.doesNotMatch(captured.sql, /v_valid_|benchmark_invalid_arm_runs/);
+  assert.deepEqual(captured.params, ["terminal-bench-2.0:task"]);
+});

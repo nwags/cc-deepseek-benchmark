@@ -2,7 +2,7 @@
 
 **Repository:** `cc-deepseek-bench`
 **Branch:** `dashboard-revision-scope-and-stale-pages`
-**Status:** Second comprehensive manual visual acceptance passed 2026-08-12
+**Status:** Second comprehensive manual visual acceptance passed 2026-08-12; DR-104 production visual acceptance passed 2026-08-17
 **Review type:** Post-merge manual dashboard acceptance and revision tracking
 
 ## Source material
@@ -15,6 +15,7 @@
 - Prior interactive cost/performance chart
 - Manual visual review performed 2026-08-05 at approximately 1920×1080
 - Second comprehensive manual visual acceptance performed 2026-08-12 at 1920px, 1440px, and 1280px widths
+- DR-104 production-mode manual/visual acceptance performed 2026-08-17 at 1920px, 1440px, and 1280px widths
 - `docs/reports/phase3/KIMI_K3_PROVIDER_LOG_RECONCILIATION_20260805.md`
 - `docs/reports/phase3/KIMI_K3_PROVIDER_EXPORT_DUPLICATE_CHECK_20260805.md`
 - `results/phase3/reporting/kimi_k3_provider_log_reconciliation_20260805.csv`
@@ -62,6 +63,7 @@ Migration 009 must not be rerun. No paid benchmark runs, provider probes, Supaba
 - [x] DR-013 visual layout corrections — Group I1 complete and visually accepted 2026-08-12
 - [x] DR-014 Architecture/Data Model expansion — Group I2 complete and visually accepted 2026-08-12
 - [x] DR-015 contextual glossary links — Group I2 complete and visually accepted 2026-08-12
+- [x] DR-104 Tasks/Evals consolidation — implemented and visually accepted 2026-08-17
 
 ## Observations versus confirmed defects
 
@@ -72,7 +74,7 @@ Migration 009 must not be rerun. No paid benchmark runs, provider probes, Supaba
 | O-003 | Runner Fleet hardcodes current runner state | Confirmed | `/runners` page text | Stale fleet-state containment passed the first visual review; the Group I1 body-alignment correction passed the second visual acceptance. |
 | O-004 | Route Readiness contains static historical route findings | Confirmed | `/readiness` page rows | The 2026-08-05 visual review passed historical/non-live containment. |
 | O-005 | Architecture omits current live publication and VPS path | Confirmed | `/architecture` page and source inspection of the workflow, live wrapper, final publisher, manifest/ingestion helper, live data path, and artifact reader | The structural flow passed the first visual review. The Group I2 scoring/evidence/control detail, audited Data Model reference, and final terminology containment correction passed the second visual acceptance. |
-| O-006 | Evals was initially labeled all-imported | Confirmed | `getEvalRows()` reads `benchmark.v_valid_eval_arm_comparison`, whose underlying valid-only view excludes entries in `benchmark.benchmark_invalid_arm_runs`. | The valid-imported source correction remains implemented. This route was not separately assessed in the supplied 2026-08-05 visual review. |
+| O-006 | Evals was initially labeled all-imported | Confirmed | `getEvalRows()` reads `benchmark.v_valid_eval_arm_comparison`, whose underlying valid-only view excludes entries in `benchmark.benchmark_invalid_arm_runs`. | Evals now defaults to valid-imported and exposes the former broader Tasks population only through the explicit all-imported alternate. Both states and their provenance passed the 2026-08-17 DR-104 production visual review. |
 
 The Implementation log below preserves the status recorded when each earlier group was completed. Those historical entries are superseded for current visual status by the dated second-pass record under “2026-08-12 second comprehensive manual visual acceptance.”
 
@@ -103,6 +105,7 @@ The Implementation log below preserves the status recorded when each earlier gro
 | 2026-08-12 | DR-014; DR-015 — Group I2 | Preserved the existing four-part Architecture foundation while adding a plain-language held-out verifier explanation, concrete retained Harbor evidence types, audited live/publication switch behavior and defaults, and prominent final-publisher responsibilities. Added a no-query Data Model route with six explicit source layers, audited live/canonical relationships, the sole direct live-to-canonical FK, external R2 storage references, reviewed snapshots, representative consumers, a checked-in Mermaid source, and complete semantic HTML/text fallback. Extended the authoritative typed glossary registry with static internal related links; rendered full link sets on Glossary and a primary contextual link in the existing portal-backed `TermInfo` popover while retaining internal compatibility terminology. | `/architecture`; `/data-model`; `docs/diagrams/DASHBOARD_DATA_MODEL_20260812.mmd`; Glossary registry/page/popover; AppShell navigation; scoped responsive CSS; focused source tests; specification and this record | Focused DR-014/DR-015 plus DR-013/H1/H2 regression tests followed by the full dashboard and repository validation suite | Implementation complete; second manual visual acceptance pending. Review Architecture comprehension/evidence/control/publisher hierarchy and clipping; Data Model layer/direct-versus-reconciliation/R2 boundaries and 1920px/1440px/1280px readability; contextual-link meaning and TermInfo keyboard/touch behavior; and secondary compatibility terminology. |
 | 2026-08-12 | DR-007; DR-008–DR-015; DR-301 — second manual acceptance | Recorded the comprehensive responsive and interactive acceptance pass, the two corrected presentation findings, and the transient local database incident followed by a successful production recapture. | This file; `docs/plans/DASHBOARD_REVISION_SPEC_20260804.md` | Manual review at 1920px, 1440px, and 1280px; targeted production recapture; final containment-fix checks | Passed; DR-007 and the implementation-complete corrective requirements covered by this pass are accepted. |
 | 2026-08-16 | DR-101; DR-102; DR-103 — J2D | Completed deterministic representative/manual evidence review and production-mode visual acceptance for the frozen, manifest-bound J2 taxonomy. Trial Quality, representative in-scope details, the real out-of-scope control, and the post-fix operational-live-analysis boundary passed. | Frozen J2/review evidence; `/trial-quality`; representative trial details; this file; J2 and revision plans | Deterministic 960/243 review packet; representative evidence/artifact checks; production visual review; bounded wording recapture; repository validation | Accepted; DR-101, DR-102, and DR-103 complete. The separate Next 16 Turbopack dev-mode defect was corrected afterward without changing this acceptance. |
+| 2026-08-17 | DR-104 — Tasks/Evals consolidation | Made Evals the single primary task inventory with URL-backed `valid-imported` default and `all-imported` alternate populations, scope-aligned index/detail queries and freshness, explicit cost coverage, and scope-preserving links. Replaced Tasks with an all-imported Evals redirect and removed it from primary navigation. Invalid or repeated scope values visibly fall back to valid-imported. | `/evals`; `/evals/[taskId]`; `/tasks`; AppShell; scope helper/selector; dashboard data and freshness registries; focused tests; specification and this record | Focused Node/Python tests; typecheck; production build; repository validation; production-mode visual review at 1920px, 1440px, and 1280px | Accepted; DR-104 complete. Both scope populations, warning states, detail/Back-link preservation, all-imported validity rows, recorded-cost coverage, redirect, and responsive tables passed. |
 
 Commit Group C used source inspection only. No provider, LiteLLM, Claude Code, Harbor, router, runner, or infrastructure probes were run, and no external operational service was queried.
 
@@ -313,7 +316,7 @@ No benchmark rerun, paid provider probe, migration 009 execution, Supabase write
 
 ## Open questions
 
-1. Commit Group F2 decision: Overview, Cross-phase, and Cost Coverage default to the reviewed Phase 3 extended comparison; Cross-phase and Cost Coverage expose Phase 3 core as a historical alternate. Overview inventory and Evals use valid-imported, and Arms uses all-imported.
+1. Commit Group F2 decision: Overview, Cross-phase, and Cost Coverage default to the reviewed Phase 3 extended comparison; Cross-phase and Cost Coverage expose Phase 3 core as a historical alternate. Overview inventory uses valid-imported, Arms uses all-imported, and DR-104 makes Evals the single task inventory with valid-imported default and an explicit all-imported alternate.
 2. Commit Group C decision: `/runners` remains a deprecation page because Live Runs exposes execution observations rather than a complete fleet model.
 3. Commit Group C decision: `/readiness` remains a historical planning snapshot until a separately reviewed data-backed readiness model exists.
 4. Kimi K3 token arithmetic is reconciled under the retained rates and integrated as qualified evidence in the reviewed extended comparison. Official pricing-source provenance, invoice-level reconciliation, arm-run exclusivity, and exact trial-level allocation remain incomplete and visibly qualified.
@@ -362,3 +365,11 @@ Production-mode local acceptance observations were approximately 1.50 seconds fo
 Next 16 Turbopack development mode separately exhibited React Client Manifest errors and approximately 50-second application-code renders, while production `next start` behaved normally for acceptance. This did not represent a J2 taxonomy failure or block production J2D acceptance. Subsequent diagnosis found that the repository-wide Turbopack compilation root admitted the canonical registry but conflicted with the dashboard-local npm dependency tree. The bounded correction compiles from a byte-identical app-local generated registry mirror, restores the ordinary dashboard Turbopack root, and retains separate narrowly enumerated repository-rooted production tracing. Webpack development mode was the successful control; one post-fix Turbopack run returned HTTP 200 for `/` and filtered `/trial-quality` without module-resolution or Client Manifest errors. This workflow correction did not reopen DR-101, DR-102, or DR-103.
 
 J2 remains a frozen, manifest-bound derived-evidence layer rather than raw benchmark truth. It joins only by exact `trial_id`; keeps raw outcome, policy, termination, and activity independent; makes no unsupported provider/router causal attribution; remains unavailable outside its frozen scope; and has no live, database, or browser classification fallback. **J2D passed. DR-101, DR-102, and DR-103 are complete.**
+
+## DR-104 production manual/visual acceptance — 2026-08-17
+
+DR-104 passed production-mode manual and visual review at 1920px, 1440px, and 1280px. The valid-imported default and all-imported alternate selector states rendered correctly; invalid and repeated `scope` values visibly fell back to valid-imported; `/tasks` redirected to `/evals?scope=all-imported`; and index-to-detail plus Back links preserved the selected scope. Responsive tables and surrounding layout remained usable at all three reviewed widths.
+
+`terminal-bench-2.0:multi-source-data-merger` was the known differing-population control. Valid-imported showed 48 trials, 46 successes, and 95.8%; all-imported showed 57 trials, 47 successes, and 82.5%. The corresponding recorded-cost coverage differences were visible and remained population-aligned. All-imported validity presentation passed with “Linked / unflagged,” avoiding an unsupported claim that linkage plus no matching invalidation record is necessarily identical to valid-view membership.
+
+No J2 taxonomy, comprehensive-review, frozen-result, or other accepted provenance/cost semantics changed as part of DR-104. **DR-104 is complete and accepted.**

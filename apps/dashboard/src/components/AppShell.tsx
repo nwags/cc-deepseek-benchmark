@@ -12,7 +12,6 @@ const navItems = [
   { href: "/runs", label: "Runs" },
   { href: "/runs/live", label: "Live Runs" },
   { href: "/arms", label: "Arms" },
-  { href: "/tasks", label: "Tasks" },
   { href: "/artifacts", label: "Artifacts" },
   { href: "/comprehensive-review", label: "Evidence Review" },
   { href: "/planner", label: "Planner" },
