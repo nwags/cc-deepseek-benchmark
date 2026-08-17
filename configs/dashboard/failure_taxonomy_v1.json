@@ -1,0 +1,496 @@
+{
+  "schema_version": "dashboard-failure-taxonomy-registry-v1",
+  "taxonomy_version": "1.0.0",
+  "contract_status": "foundation_only",
+  "description": "Canonical registry for the future offline second-stage response-path, verifier-failure, assertion-failure, and trajectory-disposition snapshot.",
+  "selection_policy": {
+    "axis_independence": "Response path, verifier failure, assertion failure, policy, termination, and trajectory are independent axes; a value on one axis does not automatically determine a value on another.",
+    "entry_order_semantics": "Every integer order field is presentation/display order only and is not classifier precedence.",
+    "diagnosis_selection": "J2 must select the most specific diagnosis justified by retained evidence, subject to the explicit eligibility rules.",
+    "classifier_precedence": "If classifier precedence is needed, J2 must define and test it explicitly; it must never be inferred from registry order.",
+    "ordinary_success_fallback": "For trajectory disposition, successful_completion is the ordinary-success fallback only after checking whether positive retained evidence supports a more specific anomalous trajectory disposition."
+  },
+  "source_contract": {
+    "input_kind": "checked_in_comprehensive_review_snapshot",
+    "canonical_input_directory": "results/manual_verification/comprehensive_review_20260731",
+    "manifest_path": "results/manual_verification/comprehensive_review_20260731/review_manifest.json",
+    "manifest_schema_version": "comprehensive-evidence-review-manifest-v2",
+    "manifest_sha256": "b31677e716ced76f454ffad4cab1cc9f27239a7b04f3a6cb38985c90c6e3c304",
+    "scope_fingerprint": "5b9a83b2b53b8a1bdf22af495e8e0e1ad465613733fe35ba024c5338b4741abf",
+    "trial_count": 960,
+    "required_inputs": [
+      {
+        "path": "trial_review.csv",
+        "rows": 960,
+        "sha256": "c6945d114e3a2e0610dfd091bad8ea4e9bc17707db678e90f4e0f8058fc56501"
+      },
+      {
+        "path": "trial_evidence.jsonl",
+        "rows": 960,
+        "sha256": "e7d50e147a58608ad5420d104774a9a446aae94393ab644b03f12de01d1cf5df"
+      }
+    ],
+    "forbidden_canonical_inputs": [
+      ".review-cache",
+      "Supabase reread",
+      "Cloudflare R2 reread"
+    ],
+    "raw_truth_fields_preserved": [
+      "raw_reward",
+      "raw_outcome",
+      "exception fields",
+      "stored historical quality flags",
+      "accepted comprehensive-review classifications"
+    ]
+  },
+  "future_output_contract": {
+    "suggested_directory": "results/manual_verification/failure_taxonomy_20260813",
+    "generation_mode": "offline_second_stage",
+    "one_row_per_input_trial": true,
+    "required_manifest_bindings": [
+      "taxonomy registry path and SHA-256",
+      "input comprehensive-review manifest path and SHA-256",
+      "input scope fingerprint",
+      "input trial_review.csv and trial_evidence.jsonl SHA-256 values",
+      "classifier implementation path, version, and SHA-256",
+      "output row count and output file SHA-256 values"
+    ],
+    "required_trial_fields": [
+      "trial_id",
+      "response_path_class",
+      "verifier_failure_category",
+      "assertion_failure_category",
+      "trajectory_disposition"
+    ],
+    "diagnosis_object_fields": [
+      {
+        "name": "value",
+        "type": "axis_enum",
+        "description": "Internal enum value from the applicable registry axis."
+      },
+      {
+        "name": "label",
+        "type": "string",
+        "description": "Friendly display label copied from the matching registry entry."
+      },
+      {
+        "name": "definition",
+        "type": "string",
+        "description": "Concise definition copied from the matching registry entry."
+      },
+      {
+        "name": "confidence",
+        "type": "confidence_enum",
+        "description": "Categorical confidence; never a fabricated numeric score."
+      },
+      {
+        "name": "evidence_basis",
+        "type": "non_empty_string_array",
+        "description": "Specific retained facts that justify the diagnosis or its conservative fallback."
+      },
+      {
+        "name": "supporting_artifact_ids",
+        "type": "string_array",
+        "description": "Retained artifact identifiers supporting the diagnosis; an empty array must remain explicit when no artifact ID supports the fallback."
+      },
+      {
+        "name": "manual_review_required",
+        "type": "boolean",
+        "description": "Whether the diagnosis requires human review under this contract."
+      }
+    ]
+  },
+  "confidence_values": [
+    {
+      "id": "high",
+      "order": 1,
+      "label": "High",
+      "definition": "Multiple specific retained facts directly support the diagnosis with no material conflicting evidence."
+    },
+    {
+      "id": "medium",
+      "order": 2,
+      "label": "Medium",
+      "definition": "Retained evidence supports the diagnosis but is incomplete, indirect, or leaves a material alternative."
+    },
+    {
+      "id": "low",
+      "order": 3,
+      "label": "Low",
+      "definition": "Only a conservative fallback is supportable or the retained evidence is materially incomplete."
+    }
+  ],
+  "axes": [
+    {
+      "id": "response_path_class",
+      "dr": "DR-101",
+      "order": 1,
+      "label": "Response path class",
+      "definition": "Public derived interpretation of an invalid or empty response path, kept separate from existing activity subtype and execution-validity fields.",
+      "manual_review_guidance": "Specific empty-response subclasses require complete absence-sensitive evidence; use unknown when evidence cannot support or exclude a response-path diagnosis.",
+      "entries": [
+        {
+          "id": "synthetic_retry_empty_completion",
+          "order": 1,
+          "label": "Synthetic retry empty completion",
+          "definition": "The retained record supports an explicitly empty completion produced on the synthetic-retry response path, without attributing its cause beyond the observed path."
+        },
+        {
+          "id": "empty_completion_after_long_api_path_wait",
+          "order": 2,
+          "label": "Empty completion after long API-path wait",
+          "definition": "The retained record supports an explicitly empty completion after a prolonged observable API-path wait, without assigning provider, router, or harness fault."
+        },
+        {
+          "id": "thinking_only_empty_completion",
+          "order": 3,
+          "label": "Thinking-only empty completion",
+          "definition": "The retained record contains observable thinking activity but no substantive completion content and an explicitly empty final result."
+        },
+        {
+          "id": "empty_completion",
+          "order": 4,
+          "label": "Empty completion",
+          "definition": "The retained evidence supports an explicitly empty final completion but does not justify a more specific public response-path subclass."
+        },
+        {
+          "id": "invalid_response_path",
+          "order": 5,
+          "label": "Invalid response path",
+          "definition": "The retained evidence supports an invalid response-path outcome but not one of the defined empty-completion subclasses."
+        },
+        {
+          "id": "unknown",
+          "order": 6,
+          "label": "Unknown response path",
+          "definition": "The retained evidence is insufficient to determine whether a response-path diagnosis applies or which supported class is correct."
+        },
+        {
+          "id": "not_applicable",
+          "order": 7,
+          "label": "Not applicable",
+          "definition": "The retained outcome does not require a response-path diagnosis."
+        }
+      ]
+    },
+    {
+      "id": "verifier_failure_category",
+      "dr": "DR-102",
+      "order": 2,
+      "label": "Verifier failure category",
+      "definition": "Independent public category for a verifier, task, or submitted-solution failure established by retained verifier or workspace evidence; it is not a catch-all for response-path, policy, or termination events.",
+      "manual_review_guidance": "Raw outcome=failure does not establish a verifier failure. Use none when no verifier/task/solution category applies, including an independently explained non-success; use unclassified_failure only after a verifier/task/solution failure is established but remains nonspecific.",
+      "entries": [
+        {
+          "id": "none",
+          "order": 1,
+          "label": "No verifier failure",
+          "definition": "No verifier, task, or submitted-solution failure category applies. This includes ordinary successes and non-successful trials whose retained evidence places the event entirely on another independent axis without establishing such a failure."
+        },
+        {
+          "id": "verifier_environment_issue",
+          "order": 2,
+          "label": "Verifier environment issue",
+          "definition": "Retained evidence identifies a verifier or test-environment problem rather than a defect in the submitted solution."
+        },
+        {
+          "id": "syntax_or_compile_error",
+          "order": 3,
+          "label": "Syntax or compile error",
+          "definition": "Verifier evidence identifies syntax, parsing, type-checking, compilation, or build failure in the submitted solution."
+        },
+        {
+          "id": "dependency_or_import_error",
+          "order": 4,
+          "label": "Dependency or import error",
+          "definition": "Verifier evidence identifies a missing, incompatible, or unresolved dependency, module, package, or import."
+        },
+        {
+          "id": "wrong_file_or_path",
+          "order": 5,
+          "label": "Wrong file or path",
+          "definition": "Verifier evidence shows required work was placed at, read from, or written to the wrong file or path."
+        },
+        {
+          "id": "timeout_inside_verifier",
+          "order": 6,
+          "label": "Timeout inside verifier",
+          "definition": "Verifier-specific retained evidence shows the verifier or a verifier-invoked command exceeded its allowed time; generic termination or timeout evidence is insufficient."
+        },
+        {
+          "id": "runtime_exception_in_solution",
+          "order": 7,
+          "label": "Runtime exception in solution",
+          "definition": "Verifier evidence identifies an exception or crash produced while executing the submitted solution."
+        },
+        {
+          "id": "test_assertion_failure",
+          "order": 8,
+          "label": "Test assertion failure",
+          "definition": "Specific retained tests or assertions ran and reported an incorrect result or behavior."
+        },
+        {
+          "id": "missing_or_wrong_output",
+          "order": 9,
+          "label": "Missing or wrong output",
+          "definition": "Verifier evidence identifies absent, malformed, misplaced, or otherwise incorrect required output."
+        },
+        {
+          "id": "no_meaningful_code_change",
+          "order": 10,
+          "label": "No meaningful code change",
+          "definition": "Positive retained workspace or verifier evidence shows that no task-relevant code change was produced."
+        },
+        {
+          "id": "partial_solution",
+          "order": 11,
+          "label": "Partial solution",
+          "definition": "Retained verifier and workspace evidence shows that only part of the required solution was implemented."
+        },
+        {
+          "id": "unclassified_failure",
+          "order": 12,
+          "label": "Unclassified failure",
+          "definition": "A verifier, task, or submitted-solution failure is established, but retained evidence does not justify a more specific primary verifier category. Raw benchmark failure alone does not establish this value."
+        }
+      ]
+    },
+    {
+      "id": "assertion_failure_category",
+      "dr": "DR-102",
+      "order": 3,
+      "label": "Assertion failure category",
+      "definition": "Secondary category that refines a primary test-assertion failure when retained verifier or CTRF evidence is sufficiently specific.",
+      "manual_review_guidance": "Use none when the primary category is not test_assertion_failure; use unclassified_assertion when an assertion failed but its retained details do not justify a specific subtype.",
+      "entries": [
+        {
+          "id": "none",
+          "order": 1,
+          "label": "No assertion failure",
+          "definition": "No secondary assertion category applies."
+        },
+        {
+          "id": "performance_threshold_failure",
+          "order": 2,
+          "label": "Performance threshold failure",
+          "definition": "A retained assertion shows that an explicit speed, latency, memory, throughput, or resource threshold was not met."
+        },
+        {
+          "id": "numerical_or_data_mismatch",
+          "order": 3,
+          "label": "Numerical or data mismatch",
+          "definition": "A retained assertion shows incorrect numeric values, records, shapes, ordering, or other data content."
+        },
+        {
+          "id": "missing_expected_file_or_content",
+          "order": 4,
+          "label": "Missing expected file or content",
+          "definition": "A retained assertion identifies a required file, entry, section, or content fragment that is absent."
+        },
+        {
+          "id": "behavior_mismatch",
+          "order": 5,
+          "label": "Behavior mismatch",
+          "definition": "A retained assertion shows that observed program behavior differs from the required behavior."
+        },
+        {
+          "id": "output_mismatch",
+          "order": 6,
+          "label": "Output mismatch",
+          "definition": "A retained assertion shows that produced output differs from the expected format or content."
+        },
+        {
+          "id": "unclassified_assertion",
+          "order": 7,
+          "label": "Unclassified assertion failure",
+          "definition": "An assertion failure is established, but retained verifier or CTRF evidence does not justify a more specific subtype."
+        }
+      ]
+    },
+    {
+      "id": "trajectory_disposition",
+      "dr": "DR-103",
+      "order": 4,
+      "label": "Trajectory disposition",
+      "definition": "Independent public interpretation of observable agent and workspace progress, separate from raw reward and verifier-failure category.",
+      "manual_review_guidance": "Use only observable retained activity and artifacts. Incomplete or nonspecific evidence falls back to indeterminate rather than a stronger narrative.",
+      "entries": [
+        {
+          "id": "successful_completion",
+          "order": 1,
+          "label": "Successful completion",
+          "definition": "The raw benchmark outcome is successful and retained evidence does not support a more specific anomalous trajectory disposition. This ordinary-success fallback never overrides stronger positive trajectory evidence."
+        },
+        {
+          "id": "no_substantive_attempt",
+          "order": 2,
+          "label": "No substantive attempt",
+          "definition": "Complete absence-sensitive evidence shows no task-relevant implementation, tool activity, or workspace progress."
+        },
+        {
+          "id": "early_abandonment",
+          "order": 3,
+          "label": "Early abandonment",
+          "definition": "Observable work began but stopped before a substantive implementation attempt was developed."
+        },
+        {
+          "id": "partial_implementation",
+          "order": 4,
+          "label": "Partial implementation",
+          "definition": "Retained trajectory and workspace evidence shows meaningful implementation of only part of the requested behavior."
+        },
+        {
+          "id": "plausible_but_incorrect_completion",
+          "order": 5,
+          "label": "Plausible but incorrect completion",
+          "definition": "The agent produced a coherent completed-looking solution, but specific retained verifier evidence shows it is materially incorrect."
+        },
+        {
+          "id": "near_miss_cleanup_or_packaging_only",
+          "order": 6,
+          "label": "Near miss: cleanup or packaging only",
+          "definition": "Specific retained evidence shows the substantive solution was essentially complete and only cleanup, packaging, placement, or delivery work remained."
+        },
+        {
+          "id": "near_miss_one_behavioral_defect",
+          "order": 7,
+          "label": "Near miss: one behavioral defect",
+          "definition": "Specific verifier or CTRF evidence isolates one remaining behavioral defect in an otherwise substantively complete solution."
+        },
+        {
+          "id": "repeated_unproductive_iteration",
+          "order": 8,
+          "label": "Repeated unproductive iteration",
+          "definition": "Observable retained trajectory evidence shows repeated attempts that did not produce meaningful forward progress."
+        },
+        {
+          "id": "timeout_after_meaningful_progress",
+          "order": 9,
+          "label": "Timeout after meaningful progress",
+          "definition": "Timeout evidence and retained substantive activity jointly show that execution ended after meaningful implementation progress."
+        },
+        {
+          "id": "completed_work_with_verifier_or_infrastructure_issue",
+          "order": 10,
+          "label": "Completed work with verifier or infrastructure issue",
+          "definition": "Retained evidence supports substantively completed agent work and separately identifies a verifier or execution-environment issue."
+        },
+        {
+          "id": "indeterminate",
+          "order": 11,
+          "label": "Indeterminate trajectory",
+          "definition": "Retained evidence is incomplete, conflicting, or too nonspecific to support a stronger trajectory disposition."
+        }
+      ]
+    }
+  ],
+  "normalizations": [
+    {
+      "source_axis": "existing_activity_subtype",
+      "source_value": "empty_completion_zero_usage",
+      "target_axis": "response_path_class",
+      "target_value": "empty_completion",
+      "reason": "The public response-path taxonomy does not encode token usage in the category name."
+    }
+  ],
+  "legacy_compatibility": {
+    "retained_fields": [
+      "suspect_noop_zero_token",
+      "suspect_noop_count"
+    ],
+    "public_status": "compatibility_only",
+    "rule": "Legacy suspect-no-op fields may remain available as stored historical heuristics, but they are not primary enum values, classifier evidence by themselves, or attribution of cause."
+  },
+  "evidence_policy": {
+    "allowed_basis_types": [
+      "raw_benchmark_field",
+      "reviewed_classification",
+      "read_completeness",
+      "manual_evidence",
+      "transcript_activity",
+      "verifier_stdout",
+      "verifier_ctrf",
+      "artifact_inventory",
+      "exception_evidence",
+      "harbor_result",
+      "trajectory"
+    ],
+    "absence_sensitive_evidence": "An absence claim requires complete or otherwise explicitly adequate retained coverage for every evidence channel relevant to that claim; a missing excerpt or unavailable artifact cannot establish absence.",
+    "attribution": "Do not attribute a response or failure to a provider, LiteLLM, router, harness, or infrastructure component unless retained evidence specifically supports that attribution.",
+    "hidden_reasoning": "Hidden or private model reasoning must never be required, retained, inferred, or displayed."
+  },
+  "eligibility_rules": [
+    {
+      "id": "response_path_specific_empty_class",
+      "target": "response_path_class specific empty-completion subclasses",
+      "requires": "An explicitly empty final result, complete absence-sensitive evidence, and positive retained evidence for the named observable response path.",
+      "fallback": "Use empty_completion when emptiness is supported but the specific path is not; otherwise use unknown."
+    },
+    {
+      "id": "no_substantive_attempt",
+      "target": "trajectory_disposition.no_substantive_attempt",
+      "requires": "Complete or explicitly adequate absence-sensitive transcript, trajectory, artifact, result, and verifier evidence showing no task-relevant implementation or activity.",
+      "fallback": "Use indeterminate when a relevant excerpt or artifact is missing or incomplete."
+    },
+    {
+      "id": "timeout_after_meaningful_progress",
+      "target": "trajectory_disposition.timeout_after_meaningful_progress",
+      "requires": "Positive timeout evidence and separate retained evidence of meaningful or substantive progress.",
+      "fallback": "Do not infer meaningful progress from runtime alone; use the best supported non-timeout disposition or indeterminate."
+    },
+    {
+      "id": "completed_work_with_verifier_or_infrastructure_issue",
+      "target": "trajectory_disposition.completed_work_with_verifier_or_infrastructure_issue",
+      "requires": "Positive evidence of substantively completed agent work plus specific verifier or environment-issue evidence.",
+      "fallback": "Use indeterminate or another supported trajectory disposition when either side of the conjunction is missing."
+    },
+    {
+      "id": "near_miss_one_behavioral_defect",
+      "target": "trajectory_disposition.near_miss_one_behavioral_defect",
+      "requires": "Specific verifier or CTRF evidence isolating one behavioral defect and evidence that the remainder of the solution is substantively complete.",
+      "fallback": "Generic failure evidence is insufficient; use plausible_but_incorrect_completion, partial_implementation, or indeterminate only when separately justified."
+    },
+    {
+      "id": "near_miss_cleanup_or_packaging_only",
+      "target": "trajectory_disposition.near_miss_cleanup_or_packaging_only",
+      "requires": "Specific workspace and verifier evidence that substantive work is essentially complete and the remaining problem is cleanup, packaging, placement, or delivery oriented.",
+      "fallback": "Use partial_implementation or indeterminate when substantive completeness is not established."
+    },
+    {
+      "id": "repeated_unproductive_iteration",
+      "target": "trajectory_disposition.repeated_unproductive_iteration",
+      "requires": "Positive observable trajectory evidence of repeated attempts without meaningful forward progress.",
+      "fallback": "A long runtime or high step count alone is insufficient; use indeterminate when iteration quality cannot be observed."
+    },
+    {
+      "id": "partial_or_plausible_completion",
+      "target": "trajectory_disposition.partial_implementation or plausible_but_incorrect_completion",
+      "requires": "Positive retained trajectory, workspace, result, or verifier evidence describing the extent and character of the implementation.",
+      "fallback": "Raw reward=0 or raw outcome=failure alone requires indeterminate rather than either narrative."
+    },
+    {
+      "id": "verifier_specific_category",
+      "target": "verifier_failure_category specific categories",
+      "requires": "Specific retained verifier, exception, workspace, or result evidence matching the selected definition.",
+      "fallback": "Use unclassified_failure only when a verifier/task/solution failure is established but specificity is inadequate. Raw outcome=failure alone does not imply unclassified_failure."
+    },
+    {
+      "id": "verifier_axis_none",
+      "target": "verifier_failure_category.none",
+      "requires": "No verifier/task/solution failure category applies, either for an ordinary success or because retained evidence establishes that a non-successful event belongs entirely to another independent axis without establishing such a failure.",
+      "fallback": "Provider-policy refusal, invalid response path, or non-verifier timeout evidence may support none on this axis. Generic timeout evidence must not become timeout_inside_verifier without verifier-specific placement."
+    },
+    {
+      "id": "assertion_specific_category",
+      "target": "assertion_failure_category specific categories",
+      "requires": "Primary test_assertion_failure classification plus sufficiently specific retained verifier or CTRF evidence.",
+      "fallback": "Use unclassified_assertion for a nonspecific assertion failure, or none when the primary category is not test_assertion_failure."
+    },
+    {
+      "id": "successful_completion",
+      "target": "trajectory_disposition.successful_completion",
+      "requires": "A retained successful raw benchmark outcome and no positive retained evidence supporting a more specific anomalous trajectory disposition; the second-stage taxonomy does not redefine benchmark success.",
+      "fallback": "When a successful trial has evidence supporting a more specific trajectory disposition, use that supported disposition instead. successful_completion is the ordinary-success fallback and must not override stronger positive trajectory evidence."
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AppShell } from "../../components/AppShell";
 import { DataFreshnessNotice } from "../../components/DataFreshnessNotice";
+import { FailureTaxonomyCompactDiagnosis } from "../../components/FailureTaxonomyDetails";
 import { TermInfo } from "../../components/TermInfo";
 import { QualityBadge, buildSuspectNoopHref } from "../../components/QualityContext";
 import { InvalidReason, ValidityBadge, invalidCategory } from "../../components/ValidityContext";
@@ -15,6 +16,18 @@ import {
   SuspectNoopTrialFilters
 } from "../../lib/dashboard-data";
 import { INDEX_ROUTE_FRESHNESS_SOURCES } from "../../lib/data-freshness-sources";
+import {
+  FAILURE_TAXONOMY_REGISTRY,
+  getFailureTaxonomyAxis,
+  type FailureTaxonomyAxisId,
+} from "../../lib/failure-taxonomy";
+import {
+  FAILURE_TAXONOMY_AXIS_IDS,
+  filterFailureTaxonomyRows,
+  getFailureTaxonomySnapshot,
+  normalizeFailureTaxonomyFilters,
+  type FailureTaxonomyFilters,
+} from "../../lib/failure-taxonomy-snapshot";
 import {
   armRunFreshnessCoverageWarning,
   buildRegisteredOperationalFreshness,
@@ -55,12 +68,40 @@ function formatFilterValue(key: string, value: string) {
   return `${key}=${value}`;
 }
 
+const TAXONOMY_PAGE_SIZES = [25, 50, 100] as const;
+
+function positiveInteger(value: string | undefined, fallback: number) {
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function taxonomyPageHref(filters: FailureTaxonomyFilters, page: number, pageSize: number) {
+  const query = new URLSearchParams();
+  for (const axisId of FAILURE_TAXONOMY_AXIS_IDS) {
+    if (filters[axisId]) query.set(axisId, filters[axisId]!);
+  }
+  query.set("taxonomy_page", String(page));
+  query.set("taxonomy_page_size", String(pageSize));
+  return `/trial-quality?${query.toString()}#failure-taxonomy`;
+}
+
 export default async function TrialQualityPage({
   searchParams
 }: {
   searchParams?: PageSearchParams;
 }) {
   const params = searchParams ? await searchParams : {};
+  const rawTaxonomyFilters = Object.fromEntries(FAILURE_TAXONOMY_AXIS_IDS.map((axisId) => [
+    axisId,
+    cleanParam(params[axisId]),
+  ])) as Partial<Record<FailureTaxonomyAxisId, string | undefined>>;
+  const taxonomyFilters = normalizeFailureTaxonomyFilters(rawTaxonomyFilters);
+  const invalidTaxonomyFilters = FAILURE_TAXONOMY_AXIS_IDS.filter((axisId) =>
+    rawTaxonomyFilters[axisId] && !taxonomyFilters[axisId]);
+  const requestedTaxonomyPageSize = positiveInteger(cleanParam(params.taxonomy_page_size), 25);
+  const taxonomyPageSize = TAXONOMY_PAGE_SIZES.includes(requestedTaxonomyPageSize as 25 | 50 | 100)
+    ? requestedTaxonomyPageSize : 25;
+  const requestedTaxonomyPage = positiveInteger(cleanParam(params.taxonomy_page), 1);
   const quality = cleanParam(params.quality);
   const suspectFilters: SuspectNoopTrialFilters = {
     suite_id: cleanParam(params.suite_id),
@@ -75,11 +116,20 @@ export default async function TrialQualityPage({
   if (suspectFilters.run_label) activeFilterEntries.push(["run_label", suspectFilters.run_label]);
   if (suspectFilters.task_id) activeFilterEntries.push(["task_id", suspectFilters.task_id]);
 
-  const [summaries, suspectTrials, invalidRows] = await Promise.all([
+  const [summaries, suspectTrials, invalidRows, taxonomySnapshot] = await Promise.all([
     getArmRunQualitySummaryRows(120),
     getSuspectNoopTrialRowsFiltered(suspectFilters, 120),
-    getInvalidArmRunRows()
+    getInvalidArmRunRows(),
+    getFailureTaxonomySnapshot(),
   ]);
+  const matchingTaxonomyRows = taxonomySnapshot.available
+    ? filterFailureTaxonomyRows(taxonomySnapshot.rows, taxonomyFilters) : [];
+  const taxonomyPageCount = Math.max(1, Math.ceil(matchingTaxonomyRows.length / taxonomyPageSize));
+  const taxonomyPage = Math.min(requestedTaxonomyPage, taxonomyPageCount);
+  const taxonomyPageRows = matchingTaxonomyRows.slice(
+    (taxonomyPage - 1) * taxonomyPageSize,
+    taxonomyPage * taxonomyPageSize,
+  );
   const displayedArmRunIdentities = deduplicateDisplayedArmRunFreshnessIdentities([
     ...summaries.map((row) => ({
       suite_id: row.suite_id,
@@ -137,6 +187,112 @@ export default async function TrialQualityPage({
         </div>
       </section>
       <DataFreshnessNotice freshness={freshness} />
+
+      <section className="panel taxonomy-list-panel" id="failure-taxonomy" aria-labelledby="failure-taxonomy-heading">
+        <div className="panel-heading">
+          <div>
+            <h2 id="failure-taxonomy-heading">Frozen failure and trajectory taxonomy <span className="derived-label">derived</span></h2>
+            <p>
+              Four independent J2 axes derived offline from the manifest-bound 960-trial reviewed Phase 3 extended corpus.
+              Raw outcome and historical quality fields remain unchanged.
+            </p>
+          </div>
+          {taxonomySnapshot.available ? <span className="quality-badge">manifest verified</span> : <span className="quality-badge quality-badge-warn">unavailable</span>}
+        </div>
+        {taxonomySnapshot.available && taxonomySnapshot.provenance ? (
+          <>
+            <div className="taxonomy-provenance" aria-label="Failure taxonomy snapshot provenance">
+              <strong>{taxonomySnapshot.provenance.snapshotId}</strong>
+              <span>{taxonomySnapshot.provenance.scope}</span>
+              <span>{taxonomySnapshot.provenance.trialCount} exact trial IDs</span>
+              <span>{taxonomySnapshot.provenance.reviewQueueCount} review-queue trials</span>
+              <span>taxonomy {taxonomySnapshot.provenance.taxonomyVersion}</span>
+              <span>classifier {taxonomySnapshot.provenance.classifierVersion}</span>
+              <span>source review {taxonomySnapshot.provenance.sourceGeneratedAt}</span>
+              <span>scope fingerprint <code>{taxonomySnapshot.provenance.scopeFingerprint}</code></span>
+            </div>
+            <form className="filter-grid taxonomy-filter-grid" method="get" action="/trial-quality#failure-taxonomy">
+              {FAILURE_TAXONOMY_AXIS_IDS.map((axisId) => {
+                const axis = getFailureTaxonomyAxis(axisId);
+                return (
+                  <label key={axisId}>
+                    {axis.label}
+                    <select name={axisId} defaultValue={taxonomyFilters[axisId] ?? ""}>
+                      <option value="">All values</option>
+                      {axis.entries.map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}
+                    </select>
+                  </label>
+                );
+              })}
+              <label>
+                Rows per page
+                <select name="taxonomy_page_size" defaultValue={String(taxonomyPageSize)}>
+                  {TAXONOMY_PAGE_SIZES.map((value) => <option key={value} value={value}>{value}</option>)}
+                </select>
+              </label>
+              <div className="filter-actions">
+                <button type="submit">Apply exact filters</button>
+                <Link href="/trial-quality#failure-taxonomy">Clear</Link>
+              </div>
+            </form>
+            {invalidTaxonomyFilters.length ? (
+              <div className="evidence-warning">
+                Ignored unsupported taxonomy filter value(s) for: {invalidTaxonomyFilters.map((axisId) => getFailureTaxonomyAxis(axisId).label).join(", ")}.
+                Filters accept only canonical registry IDs.
+              </div>
+            ) : null}
+            <details className="taxonomy-help">
+              <summary>Axis definitions and filter help</summary>
+              <div className="taxonomy-help-grid">
+                {FAILURE_TAXONOMY_REGISTRY.axes.map((axis) => (
+                  <article key={axis.id}>
+                    <h3>{axis.label}</h3>
+                    <p>{axis.definition}</p>
+                    <dl>{axis.entries.map((entry) => <div key={entry.id}><dt>{entry.label}</dt><dd>{entry.definition}</dd></div>)}</dl>
+                  </article>
+                ))}
+              </div>
+            </details>
+            <p className="taxonomy-result-summary">
+              Showing {taxonomyPageRows.length} of {matchingTaxonomyRows.length} matching frozen trials. Taxonomy values are exact registry values; “Not applicable” is a diagnosis, while trials outside this snapshot have a separate unavailable state.
+            </p>
+            <div className="table-wrap">
+              <table className="taxonomy-table">
+                <thead><tr><th>Trial</th><th>Raw outcome</th><th>Response path</th><th>Verifier failure</th><th>Assertion failure</th><th>Trajectory</th><th>Review</th></tr></thead>
+                <tbody>
+                  {taxonomyPageRows.length ? taxonomyPageRows.map((row) => {
+                    const reviewRequired = FAILURE_TAXONOMY_AXIS_IDS.some((axisId) => row[axisId].manual_review_required);
+                    return (
+                      <tr key={row.trial_id}>
+                        <td>
+                          <Link className="mono" href={`/trials/${encodeURIComponent(row.trial_id)}#failure-taxonomy`}>{row.trial_id}</Link>
+                          <div className="muted mono">{row.arm_id}</div>
+                          <div className="muted mono">{row.task_id}</div>
+                        </td>
+                        <td>{row.raw_outcome}</td>
+                        {FAILURE_TAXONOMY_AXIS_IDS.map((axisId) => <td key={axisId}><FailureTaxonomyCompactDiagnosis axisId={axisId} diagnosis={row[axisId]} /></td>)}
+                        <td>{reviewRequired ? <span className="quality-badge quality-badge-warn">required</span> : <span className="muted">not required</span>}</td>
+                      </tr>
+                    );
+                  }) : <tr><td colSpan={7}>No frozen taxonomy trials match these exact filters.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+            <nav className="pagination" aria-label="Failure taxonomy pagination">
+              {taxonomyPage > 1 ? <Link href={taxonomyPageHref(taxonomyFilters, taxonomyPage - 1, taxonomyPageSize)}>Previous</Link> : <span>Previous</span>}
+              <span>Page {taxonomyPage} of {taxonomyPageCount}</span>
+              {taxonomyPage < taxonomyPageCount ? <Link href={taxonomyPageHref(taxonomyFilters, taxonomyPage + 1, taxonomyPageSize)}>Next</Link> : <span>Next</span>}
+            </nav>
+            <p className="taxonomy-boundary-note">
+              The dashboard does not reclassify these trials and does not use database, R2, or live-analysis fallback taxonomy. Open a trial for structured evidence facts and exact supporting artifact links.
+            </p>
+          </>
+        ) : (
+          <div className="evidence-warning">
+            <strong>Frozen taxonomy unavailable.</strong> {taxonomySnapshot.message} No rows are displayed and no operational source is substituted.
+          </div>
+        )}
+      </section>
 
       <section className="panel">
         <div className="panel-heading">
@@ -334,8 +490,8 @@ export default async function TrialQualityPage({
       <section className="panel" id="suspect-noop-trials">
         <div className="panel-heading">
           <div>
-            <h2>Suspect no-op zero-token trials</h2>
-            <p>These should be interpreted as route, provider, or harness anomalies until reviewed.</p>
+            <h2>Legacy suspect no-op zero-token compatibility rows</h2>
+            <p>This historical stored heuristic remains available for compatibility; it is not a primary J2 failure or trajectory diagnosis.</p>
           </div>
         </div>
         {activeFilterEntries.length > 0 ? (
