@@ -24,10 +24,6 @@ const nextConfig = {
     "/trial-quality": failureTaxonomyRuntimeFiles,
     "/trials/**": failureTaxonomyRuntimeFiles,
   },
-  turbopack: {
-    // Separately, compilation needs access to the canonical repository-level J1 registry import.
-    root: repositoryRoot,
-  },
 };
 
 export default nextConfig;

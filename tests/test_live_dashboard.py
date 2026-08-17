@@ -1401,7 +1401,8 @@ def test_j2c_failure_taxonomy_loader_is_manifest_bound_and_fail_closed() -> None
     assert "outputFileTracingRoot: repositoryRoot" in next_config
     assert '"/trial-quality": failureTaxonomyRuntimeFiles' in next_config
     assert '"/trials/**": failureTaxonomyRuntimeFiles' in next_config
-    assert "root: repositoryRoot" in next_config
+    assert "turbopack:" not in next_config
+    assert "root: repositoryRoot" not in next_config
     for required_runtime_file in (
         "../../configs/dashboard/failure_taxonomy_v1.json",
         "../../results/manual_verification/failure_taxonomy_20260813/failure_taxonomy_manifest.json",

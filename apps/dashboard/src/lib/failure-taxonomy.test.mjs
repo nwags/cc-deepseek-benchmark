@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import test from "node:test";
 import ts from "typescript";
 import { Buffer } from "node:buffer";
@@ -7,12 +8,16 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const registryPath = resolve(here, "../../../../configs/dashboard/failure_taxonomy_v1.json");
-const registry = JSON.parse(await readFile(registryPath, "utf8"));
+const canonicalRegistryPath = resolve(here, "../../../../configs/dashboard/failure_taxonomy_v1.json");
+const generatedRegistryPath = resolve(here, "../generated/failure_taxonomy_v1.json");
+const canonicalRegistryBytes = await readFile(canonicalRegistryPath);
+const generatedRegistryBytes = await readFile(generatedRegistryPath);
+const registry = JSON.parse(canonicalRegistryBytes.toString("utf8"));
+const generatedRegistry = JSON.parse(generatedRegistryBytes.toString("utf8"));
 const source = await readFile(join(here, "failure-taxonomy.ts"), "utf8");
 const imports = [...source.matchAll(/from\s+["']([^"']+)["']/g)].map((match) => match[1]);
 const sourceWithEmbeddedRegistry = source.replace(
-  'import rawRegistry from "../../../../configs/dashboard/failure_taxonomy_v1.json";',
+  'import rawRegistry from "../generated/failure_taxonomy_v1.json";',
   `const rawRegistry = ${JSON.stringify(registry)};`,
 );
 const compiled = ts.transpileModule(sourceWithEmbeddedRegistry, {
@@ -69,9 +74,20 @@ const expectedValues = {
   ],
 };
 
-test("TypeScript consumes the canonical registry and exposes the exact ordered enum sets", () => {
-  assert.deepEqual(imports, ["../../../../configs/dashboard/failure_taxonomy_v1.json"]);
+test("the app-local generated registry is an exact mirror of the canonical registry", () => {
+  const canonicalSha256 = createHash("sha256").update(canonicalRegistryBytes).digest("hex");
+  const generatedSha256 = createHash("sha256").update(generatedRegistryBytes).digest("hex");
+
+  assert.deepEqual(generatedRegistryBytes, canonicalRegistryBytes);
+  assert.equal(canonicalSha256, "64cde46b977da7adbfb12983a31eec1c42a6fe6603a2682a236716f2fe390922");
+  assert.equal(generatedSha256, canonicalSha256);
+  assert.deepEqual(generatedRegistry, registry);
+});
+
+test("TypeScript consumes only the exact generated mirror and exposes the canonical ordered enum sets", () => {
+  assert.deepEqual(imports, ["../generated/failure_taxonomy_v1.json"]);
   assert.equal(taxonomy.FAILURE_TAXONOMY_REGISTRY.schema_version, "dashboard-failure-taxonomy-registry-v1");
+  assert.equal(taxonomy.FAILURE_TAXONOMY_REGISTRY.taxonomy_version, "1.0.0");
   assert.equal(taxonomy.FAILURE_TAXONOMY_REGISTRY.contract_status, "foundation_only");
   assert.equal(Object.isFrozen(taxonomy.FAILURE_TAXONOMY_REGISTRY), true);
 
@@ -119,7 +135,7 @@ test("runtime validation rejects duplicate ids, invalid ordering, and incomplete
 });
 
 test("the client-safe loader introduces no database, reviewed-loader, or artifact-reader import", () => {
-  assert.deepEqual(imports, ["../../../../configs/dashboard/failure_taxonomy_v1.json"]);
+  assert.deepEqual(imports, ["../generated/failure_taxonomy_v1.json"]);
   for (const forbidden of ["./db", "review-data", "phase3-reviewed", "artifact-content", "@aws-sdk", "pg"]) {
     assert.equal(imports.some((specifier) => specifier.includes(forbidden)), false, forbidden);
   }

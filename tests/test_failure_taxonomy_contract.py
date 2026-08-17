@@ -5,7 +5,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_PATH = ROOT / "configs/dashboard/failure_taxonomy_v1.json"
+GENERATED_REGISTRY_PATH = (
+    ROOT / "apps/dashboard/src/generated/failure_taxonomy_v1.json"
+)
 REVIEW_DIR = ROOT / "results/manual_verification/comprehensive_review_20260731"
+EXPECTED_REGISTRY_SHA256 = (
+    "64cde46b977da7adbfb12983a31eec1c42a6fe6603a2682a236716f2fe390922"
+)
 
 EXPECTED_VALUES = {
     "response_path_class": [
@@ -62,6 +68,16 @@ def load_registry() -> dict:
 
 def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def test_dashboard_generated_registry_is_exactly_canonical() -> None:
+    canonical_bytes = REGISTRY_PATH.read_bytes()
+    generated_bytes = GENERATED_REGISTRY_PATH.read_bytes()
+
+    assert generated_bytes == canonical_bytes
+    assert sha256(REGISTRY_PATH) == EXPECTED_REGISTRY_SHA256
+    assert sha256(GENERATED_REGISTRY_PATH) == EXPECTED_REGISTRY_SHA256
+    assert json.loads(generated_bytes) == json.loads(canonical_bytes)
 
 
 def test_registry_has_exact_versioned_axes_labels_definitions_and_ordering() -> None:
@@ -219,7 +235,7 @@ def test_typescript_consumer_is_static_and_has_no_database_or_artifact_reader_de
     source = (ROOT / "apps/dashboard/src/lib/failure-taxonomy.ts").read_text()
     imports = [line.strip() for line in source.splitlines() if line.startswith("import ")]
     assert imports == [
-        'import rawRegistry from "../../../../configs/dashboard/failure_taxonomy_v1.json";'
+        'import rawRegistry from "../generated/failure_taxonomy_v1.json";'
     ]
     for forbidden in ["./db", "review-data", "phase3-reviewed", "artifact-content", "@aws-sdk", '"pg"']:
         assert forbidden not in imports[0]

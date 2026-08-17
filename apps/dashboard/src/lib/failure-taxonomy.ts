@@ -1,4 +1,4 @@
-import rawRegistry from "../../../../configs/dashboard/failure_taxonomy_v1.json";
+import rawRegistry from "../generated/failure_taxonomy_v1.json";
 
 export type FailureTaxonomyAxisId =
   | "response_path_class"
