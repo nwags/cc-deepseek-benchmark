@@ -2,20 +2,36 @@ import Link from "next/link";
 import { AppShell } from "../../components/AppShell";
 import { CorpusScopeNotice } from "../../components/CorpusScopeNotice";
 import { DataFreshnessNotice } from "../../components/DataFreshnessNotice";
-import { getEvalRows, getValidImportedEvalLatestIncludedExecutionAt } from "../../lib/dashboard-data";
+import { EvalScopeSelector } from "../../components/EvalScopeSelector";
+import {
+  getAllImportedEvalRows,
+  getAllImportedTaskLatestIncludedExecutionAt,
+  getEvalRows,
+  getValidImportedEvalLatestIncludedExecutionAt,
+} from "../../lib/dashboard-data";
 import { INDEX_ROUTE_FRESHNESS_SOURCES } from "../../lib/data-freshness-sources";
 import { buildRegisteredOperationalFreshness, readFreshnessMetadata } from "../../lib/data-freshness-server";
-import { formatCurrency, formatNumber, formatPercent, formatSeconds } from "../../lib/format";
+import { selectEvalInventoryScope } from "../../lib/eval-scopes";
+import { formatNumber, formatPercent, formatRecordedCost, formatSeconds } from "../../lib/format";
 
 export const dynamic = "force-dynamic";
 
-export default async function EvalsPage() {
+type EvalsPageProps = {
+  searchParams?: Promise<{ scope?: string | string[] }>;
+};
+
+export default async function EvalsPage({ searchParams }: EvalsPageProps) {
+  const params = searchParams ? await searchParams : {};
+  const selection = selectEvalInventoryScope(params.scope);
+  const allImported = selection.scopeId === "all-imported";
   const [rows, freshnessRead] = await Promise.all([
-    getEvalRows(),
-    readFreshnessMetadata(() => getValidImportedEvalLatestIncludedExecutionAt()),
+    allImported ? getAllImportedEvalRows() : getEvalRows(),
+    readFreshnessMetadata(() => allImported
+      ? getAllImportedTaskLatestIncludedExecutionAt()
+      : getValidImportedEvalLatestIncludedExecutionAt()),
   ]);
   const freshness = buildRegisteredOperationalFreshness(
-    INDEX_ROUTE_FRESHNESS_SOURCES.evals,
+    INDEX_ROUTE_FRESHNESS_SOURCES.evals[selection.scopeId],
     freshnessRead,
     new Date().toISOString(),
   );
@@ -26,22 +42,39 @@ export default async function EvalsPage() {
     }),
     { trialCount: 0, successCount: 0 },
   );
+  const scopeLabel = allImported ? "All imported" : "Valid imported";
 
   return (
     <AppShell
-      title="Evals — Valid imported inventory"
-      description="Task-level inventory across valid imported run classes; it is not a fixed full-suite leaderboard denominator."
+      title={`Evals — ${scopeLabel} inventory`}
+      description={allImported
+        ? "Task-level inventory across all imported trial-bearing runs, including evidence outside the valid-only comparison population."
+        : "Task-level inventory across valid imported run classes; it is not a fixed full-suite leaderboard denominator."}
     >
-      <CorpusScopeNotice scopeId="valid-imported" observedCounts={observedCounts} />
+      <EvalScopeSelector selectedScopeId={selection.scopeId} />
+      {selection.warningMessage ? (
+        <p className="warning-text" role="alert">
+          <strong>Scope selection warning:</strong> {selection.warningMessage}
+        </p>
+      ) : null}
+      <CorpusScopeNotice scopeId={selection.scopeId} observedCounts={observedCounts} />
       <DataFreshnessNotice freshness={freshness} />
       <section className="panel">
         <div className="panel-heading">
           <h2>Eval comparison index</h2>
-          <p>
-            Task rows come from valid imported run classes, which may include full-suite, smoke, canary, diagnostic, legacy, or other valid imports.
-            Invalid and quarantined arm runs are excluded. This is not a fixed full-suite leaderboard denominator;
-            counts may differ from the Phase 3 extended Overview comparison and the historical Phase 3 core Cross-phase comparison.
-          </p>
+          {allImported ? (
+            <p>
+              Rows retain the broader all-imported task evidence formerly shown on Tasks. Full-suite, smoke, canary, diagnostic,
+              legacy, invalid/quarantined, and other imported evidence may contribute. This inventory is not a fixed full-suite
+              leaderboard denominator; counts can exceed Valid imported because no validity exclusion is applied.
+            </p>
+          ) : (
+            <p>
+              Task rows come from valid imported run classes, which may include full-suite, smoke, canary, diagnostic, legacy, or other valid imports.
+              Invalid and quarantined arm runs are excluded. This is not a fixed full-suite leaderboard denominator;
+              counts may differ from All imported and from the reviewed fixed Phase 3 comparisons.
+            </p>
+          )}
         </div>
         <div className="table-wrap">
           <table>
@@ -60,7 +93,7 @@ export default async function EvalsPage() {
               {rows.map((row) => (
                 <tr key={row.task_id}>
                   <td>
-                    <Link href={`/evals/${encodeURIComponent(row.task_id)}`}>
+                    <Link href={`/evals/${encodeURIComponent(row.task_id)}?scope=${selection.scopeId}`}>
                       {row.task_name ?? row.task_id}
                     </Link>
                     <div className="mono">{row.task_id}</div>
@@ -70,7 +103,7 @@ export default async function EvalsPage() {
                   <td>{formatNumber(row.success_count)}</td>
                   <td>{formatPercent(row.pass_rate)}</td>
                   <td>{formatSeconds(row.median_runtime_seconds)}</td>
-                  <td>{formatCurrency(row.trial_cost_usd)}</td>
+                  <td>{formatRecordedCost(row.trial_cost_usd, row.cost_row_count, row.missing_cost_count)}</td>
                 </tr>
               ))}
             </tbody>

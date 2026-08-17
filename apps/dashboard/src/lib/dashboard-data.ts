@@ -1168,14 +1168,17 @@ export type EvalSummaryRow = {
   pass_rate: number | null;
   median_runtime_seconds: number | null;
   trial_cost_usd: number | null;
+  cost_row_count: number;
+  missing_cost_count: number;
 };
 
 export type EvalArmComparisonRow = {
   task_id: string;
   task_name: string | null;
-  arm_id: string;
+  arm_id: string | null;
   suite_id: string | null;
   logical_mode: string | null;
+  validity_status: "valid" | "invalid_or_quarantined" | "unlinked";
   trial_count: number;
   success_count: number;
   pass_rate: number | null;
@@ -1602,10 +1605,40 @@ export async function getEvalRows(): Promise<EvalSummaryRow[]> {
         else sum(success_count)::numeric / sum(trial_count)::numeric
       end::float8 as pass_rate,
       percentile_cont(0.5) within group (order by median_runtime_seconds)::float8 as median_runtime_seconds,
-      sum(trial_cost_usd)::float8 as trial_cost_usd
+      sum(trial_cost_usd)::float8 as trial_cost_usd,
+      coalesce(sum(cost_row_count), 0)::int as cost_row_count,
+      coalesce(sum(missing_cost_count), 0)::int as missing_cost_count
     from benchmark.v_valid_eval_arm_comparison
     group by task_id
     order by task_name
+  `);
+}
+
+export async function getAllImportedEvalRows(): Promise<EvalSummaryRow[]> {
+  return queryRows<EvalSummaryRow>(`
+    with arm_summary as (
+      select
+        task_id,
+        count(distinct arm_id)::int as arm_count
+      from benchmark.benchmark_trials
+      group by task_id
+    )
+    select
+      task.task_id,
+      task.task_name,
+      coalesce(arm_summary.arm_count, 0)::int as arm_count,
+      task.trial_count::int,
+      task.success_count::int,
+      task.pass_rate::float8,
+      task.median_runtime_seconds::float8,
+      task.trial_cost_usd::float8,
+      task.cost_row_count::int,
+      task.missing_cost_count::int
+    from benchmark.v_dashboard_tasks task
+    left join arm_summary
+      on arm_summary.task_id = task.task_id
+    where task.trial_count > 0
+    order by task.task_name
   `);
 }
 
@@ -1627,6 +1660,7 @@ export async function getEvalArmComparison(taskId: string): Promise<EvalArmCompa
         arm_id,
         suite_id,
         logical_mode,
+        'valid'::text as validity_status,
         trial_count::int,
         success_count::int,
         pass_rate::float8,
@@ -1643,6 +1677,67 @@ export async function getEvalArmComparison(taskId: string): Promise<EvalArmCompa
   );
 }
 
+export async function getAllImportedEvalArmComparison(
+  taskId: string,
+): Promise<EvalArmComparisonRow[]> {
+  return queryRows<EvalArmComparisonRow>(
+    `
+      select
+        trial.task_id,
+        task.task_name,
+        trial.arm_id,
+        arm_run.suite_id,
+        coalesce(arm_run.logical_mode, run.mode) as logical_mode,
+        case
+          when trial.arm_run_id is null then 'unlinked'
+          when invalid_lookup.is_invalid is true then 'invalid_or_quarantined'
+          else 'valid'
+        end::text as validity_status,
+        count(trial.id)::int as trial_count,
+        count(trial.id) filter (where coalesce(trial.reward, 0) >= 1)::int as success_count,
+        case
+          when count(trial.id) = 0 then null
+          else count(trial.id) filter (where coalesce(trial.reward, 0) >= 1)::numeric
+            / count(trial.id)::numeric
+        end::float8 as pass_rate,
+        avg(trial.reward)::float8 as mean_reward,
+        percentile_cont(0.5) within group (order by trial.runtime_seconds)::float8 as median_runtime_seconds,
+        sum(trial.cost_usd)::float8 as trial_cost_usd,
+        count(trial.cost_usd)::int as cost_row_count,
+        count(trial.id) filter (where trial.cost_usd is null)::int as missing_cost_count
+      from benchmark.benchmark_trials trial
+      left join benchmark.benchmark_runs run
+        on run.id = trial.run_id
+      left join benchmark.benchmark_tasks task
+        on task.task_id = trial.task_id
+      left join benchmark.benchmark_arm_runs arm_run
+        on arm_run.id = trial.arm_run_id
+      left join lateral (
+        select true as is_invalid
+        from benchmark.benchmark_invalid_arm_runs invalid_record
+        where invalid_record.suite_id = arm_run.suite_id
+          and invalid_record.arm_id = arm_run.arm_id
+          and invalid_record.run_label = run.run_label
+        limit 1
+      ) invalid_lookup on true
+      where trial.task_id = $1
+      group by
+        trial.task_id,
+        task.task_name,
+        trial.arm_id,
+        arm_run.suite_id,
+        coalesce(arm_run.logical_mode, run.mode),
+        case
+          when trial.arm_run_id is null then 'unlinked'
+          when invalid_lookup.is_invalid is true then 'invalid_or_quarantined'
+          else 'valid'
+        end
+      order by pass_rate desc nulls last, trial.arm_id, arm_run.suite_id, validity_status
+    `,
+    [taskId],
+  );
+}
+
 export async function getValidEvalTaskLatestIncludedExecutionAt(
   taskId: string,
 ): Promise<string | null> {
@@ -1652,6 +1747,22 @@ export async function getValidEvalTaskLatestIncludedExecutionAt(
       from benchmark.v_valid_arm_run_summary arm_run
       join benchmark.benchmark_trials trial
         on trial.arm_run_id = arm_run.arm_run_id
+      where trial.task_id = $1
+    `,
+    [taskId],
+  );
+  return rows[0]?.latest_included_execution_at ?? null;
+}
+
+export async function getAllImportedEvalTaskLatestIncludedExecutionAt(
+  taskId: string,
+): Promise<string | null> {
+  const rows = await queryRows<LatestIncludedExecutionRow>(
+    `
+      select max(run.finished_at)::text as latest_included_execution_at
+      from benchmark.benchmark_trials trial
+      join benchmark.benchmark_runs run
+        on run.id = trial.run_id
       where trial.task_id = $1
     `,
     [taskId],
