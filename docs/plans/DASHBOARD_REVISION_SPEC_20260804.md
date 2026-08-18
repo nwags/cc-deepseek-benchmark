@@ -695,6 +695,8 @@ Required:
 
 ## 8. P2 requirements
 
+**2026-08-18 gap audit:** residual DR-201/DR-202/DR-203 work is scoped in [`DASHBOARD_P2_COMPLETION_20260818.md`](DASHBOARD_P2_COMPLETION_20260818.md). The audit treats already accepted terminology, responsive containment, sticky identity columns, and canonical evidence identity as foundations to preserve rather than reimplement.
+
 ### DR-201 — Shared tooltip registry
 
 Create one reusable column/term definition registry for:
