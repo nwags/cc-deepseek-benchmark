@@ -15,8 +15,7 @@ const navItems = [
   { href: "/artifacts", label: "Artifacts" },
   { href: "/comprehensive-review", label: "Evidence Review" },
   { href: "/planner", label: "Planner" },
-  { href: "/cost-coverage", label: "Cost Coverage" },
-  { href: "/scaffold", label: "Arm Scaffold" }
+  { href: "/cost-coverage", label: "Cost Coverage" }
 ];
 
 export function AppShell({

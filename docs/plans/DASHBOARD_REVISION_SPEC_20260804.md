@@ -656,12 +656,20 @@ The production-mode DR-104 review passed on 2026-08-17 at 1920px, 1440px, and 12
 
 ### DR-105 — Consolidate Planner and Arm Scaffold
 
-Planner receives two modes or tabs:
+**Implementation status:** Complete and manually/visually accepted 2026-08-17.
 
-- Plan benchmark run
-- Draft new arm configuration
+`/planner` is the single primary planning surface with two explicit URL-backed modes:
 
-The arm helper remains read-only and emits reviewable YAML/config snippets. Writes continue through Git review.
+- `/planner` and `/planner?mode=run` — Plan benchmark run
+- `/planner?mode=arm` — Draft new arm configuration
+
+Missing mode defaults to run. Empty, unknown, or repeated mode values visibly warn and fall back to run. `/scaffold` is retained only as a compatibility redirect to `/planner?mode=arm`, and Arm Scaffold is removed from primary navigation.
+
+Run mode retains the existing repository-backed arm/task-set inventory, run-plan validation, and reviewable GitHub Actions command text without a dispatch action. Its unchanged numeric and provider gates are now explicitly presented as checked-in planning assumptions rather than live runner-capacity, provider-availability, quota, or readiness observations.
+
+Arm mode remains read-only and emits a deterministic, safely quoted YAML draft plus a suggested future `configs/arms/<arm-id>.yaml` destination. It creates no file, requests or generates no credential values, launches no workflow, and warns on an exact existing-arm collision. Provider/router-specific environment, secret mapping, safety, and validation fields remain for normal review against an audited existing arm. All resulting configuration changes must go through normal Git review. DR-106 evidence-aware links remain separate and open.
+
+The production-mode DR-105 manual review passed on 2026-08-17 at 1920px, 1440px, and 1280px. Run and arm-draft modes remained contained; malformed-mode fallback was visible; direct, LiteLLM-routed, existing-arm collision, and unsafe-ID/YAML-escaping controls behaved as designed. The `/scaffold` compatibility redirect and read-only/no-dispatch boundary were also confirmed.
 
 ### DR-106 — Add evidence-aware deep links
 
