@@ -6,6 +6,7 @@ import { TermInfo } from "../../components/TermInfo";
 import { QualityBadge, buildSuspectNoopHref } from "../../components/QualityContext";
 import { InvalidReason, ValidityBadge, invalidCategory } from "../../components/ValidityContext";
 import { buildArtifactHref } from "../../lib/links";
+import { buildExactRunHref, buildExactTrialHref } from "../../lib/evidence-links";
 import { redactSecretsInText } from "../../lib/safe-display";
 import {
   deduplicateDisplayedArmRunFreshnessIdentities,
@@ -265,7 +266,7 @@ export default async function TrialQualityPage({
                     return (
                       <tr key={row.trial_id}>
                         <td>
-                          <Link className="mono" href={`/trials/${encodeURIComponent(row.trial_id)}#failure-taxonomy`}>{row.trial_id}</Link>
+                          <Link className="mono" href={`${buildExactTrialHref(row.trial_id, "phase3-extended")}#failure-taxonomy`}>{row.trial_id}</Link>
                           <div className="muted mono">{row.arm_id}</div>
                           <div className="muted mono">{row.task_id}</div>
                         </td>
@@ -323,7 +324,7 @@ export default async function TrialQualityPage({
                 invalidRows.map((row) => (
                   <tr key={`${row.suite_id}-${row.arm_id}-${row.run_label}`}>
                     <td>
-                      <Link href={`/runs/${encodeURIComponent(row.run_label)}`}>{row.run_label}</Link>
+                      <Link href={buildExactRunHref(row.run_label, "all-imported")}>{row.run_label}</Link>
                     </td>
                     <td className="mono">{row.arm_id}</td>
                     <td className="mono">{row.suite_id}</td>
@@ -437,10 +438,10 @@ export default async function TrialQualityPage({
                 return (
                   <tr key={row.run_label}>
                     <td className="sticky-id-column">
-                      <Link href={`/runs/${encodeURIComponent(row.run_label)}`}>{row.run_label}</Link>
+                      <Link href={buildExactRunHref(row.run_label, "all-imported")}>{row.run_label}</Link>
                       {row.suite_id ? <div className="muted">{row.suite_id}</div> : null}
                       <div className="row-action-links">
-                        <Link href={`/runs/${encodeURIComponent(row.run_label)}`}>Run detail</Link>
+                        <Link href={buildExactRunHref(row.run_label, "all-imported")}>Run detail</Link>
                         <Link href={buildArtifactHref({ run_label: row.run_label })}>Artifacts</Link>
                       </div>
                     </td>
@@ -533,7 +534,7 @@ export default async function TrialQualityPage({
                       <td>{modeLabel(row.logical_mode, row.storage_mode)}</td>
                       <td><ValidityBadge row={invalidRow} /></td>
                       <td>
-                        <Link href={`/runs/${encodeURIComponent(row.run_label)}`}>{row.run_label}</Link>
+                        <Link href={buildExactRunHref(row.run_label, "all-imported")}>{row.run_label}</Link>
                       </td>
                       <td className="mono">{row.arm_id}</td>
                       <td className="mono">{row.suite_id ?? "—"}</td>

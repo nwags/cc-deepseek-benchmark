@@ -2,10 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "../../../components/AppShell";
 import { DataFreshnessNotice } from "../../../components/DataFreshnessNotice";
+import { EvidenceSourceContextNotice } from "../../../components/EvidenceSourceContextNotice";
 import { MetricCard } from "../../../components/MetricCard";
 import { QualityBadge, QualityPassRate, buildSuspectNoopHref } from "../../../components/QualityContext";
 import { InvalidReason, ValidityBadge, invalidCategory, validityLabel } from "../../../components/ValidityContext";
 import { buildArtifactHref } from "../../../lib/links";
+import { buildExactTrialHref, selectEvidenceSourceScope } from "../../../lib/evidence-links";
 import {
   getArmRunQualityByRunLabels,
   getInvalidArmRunRowsByRunLabels,
@@ -39,11 +41,15 @@ function compactArtifactPath(value: string): string {
 }
 
 export default async function RunDetailPage({
-  params
+  params,
+  searchParams,
 }: {
   params: Promise<{ runLabel: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { runLabel } = await params;
+  const query = searchParams ? await searchParams : {};
+  const sourceScopeSelection = selectEvidenceSourceScope(query.source_scope);
   const decodedRunLabel = decodeURIComponent(runLabel);
   const resolution = await getRunDetailResolution(decodedRunLabel);
 
@@ -61,6 +67,7 @@ export default async function RunDetailPage({
     );
     return (
       <AppShell title="Run identity ambiguous" description="The requested run label does not identify exactly one Phase 3 database row.">
+        <EvidenceSourceContextNotice value={query.source_scope} />
         <DataFreshnessNotice freshness={freshness} />
         <section className="panel warning-panel">
           <div className="panel-heading">
@@ -107,6 +114,7 @@ export default async function RunDetailPage({
 
   return (
     <AppShell title="Run detail">
+      <EvidenceSourceContextNotice value={query.source_scope} />
       <DataFreshnessNotice freshness={freshness} />
       <section className="panel">
         <div className="panel-heading">
@@ -226,6 +234,7 @@ export default async function RunDetailPage({
           <table>
             <thead>
               <tr>
+                <th className="sticky-id-column">Trial</th>
                 <th>Task</th>
                 <th>Attempt</th>
                 <th>Arm</th>
@@ -238,6 +247,7 @@ export default async function RunDetailPage({
             <tbody>
               {trials.map((trial) => (
                 <tr key={trial.trial_id}>
+                  <td className="sticky-id-column mono"><Link href={buildExactTrialHref(trial.trial_id, sourceScopeSelection.sourceScope)}>{trial.trial_id}</Link></td>
                   <td className="mono">{safeText(trial.task_id)}</td>
                   <td>Attempt {trial.task_attempt} <span className="muted">(run #{trial.run_trial_ordinal ?? "not recorded"})</span></td>
                   <td className="mono">{safeText(trial.arm_id)}</td>

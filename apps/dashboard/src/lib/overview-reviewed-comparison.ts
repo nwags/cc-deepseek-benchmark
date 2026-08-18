@@ -10,6 +10,11 @@ import type {
   ReviewedRunSelectionScope,
   ReviewedSelectedRun,
 } from "./phase3-reviewed-run-selection";
+import {
+  buildCostCoverageHref,
+  buildExactRunHref,
+  buildReviewedAggregateArmEvidenceHref,
+} from "./evidence-links";
 
 export const OVERVIEW_COST_RECONCILIATION_TOLERANCE_USD = "0.000000001";
 
@@ -55,6 +60,8 @@ export type OverviewReviewedComparisonRow = Readonly<{
   reviewedPassRate: number;
   selectedRunLabel: string;
   selectedRunHref: string;
+  armEvidenceHref: string;
+  costProvenanceHref: string;
   selectionKind: "reviewed_full_suite_run";
   runIdentityEvidenceStatus: "reviewed";
   databaseRunEvidenceStatus: DatabaseRunEvidenceStatus;
@@ -133,7 +140,7 @@ export function decimalEvidenceWithinTolerance(
 }
 
 export function buildReviewedRunHref(runLabel: string): string {
-  return `/runs/${encodeURIComponent(runLabel)}`;
+  return buildExactRunHref(runLabel, "phase3-extended");
 }
 
 function rowsByRunLabel<T extends { run_label: string }>(rows: readonly T[]): Map<string, T[]> {
@@ -393,6 +400,12 @@ export function buildOverviewReviewedComparison(
       reviewedPassRate: arm.passRate,
       selectedRunLabel: selection.selectedRunLabel,
       selectedRunHref: buildReviewedRunHref(selection.selectedRunLabel),
+      armEvidenceHref: buildReviewedAggregateArmEvidenceHref(arm.armId, "phase3-extended"),
+      costProvenanceHref: buildCostCoverageHref(
+        "phase3-extended",
+        { armId: arm.armId, runLabel: selection.selectedRunLabel },
+        "phase3-extended",
+      ),
       selectionKind: selection.selectionKind,
       runIdentityEvidenceStatus: selection.runIdentityEvidenceStatus,
       databaseRunEvidenceStatus: databaseRun.status,

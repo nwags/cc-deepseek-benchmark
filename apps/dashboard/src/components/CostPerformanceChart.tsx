@@ -462,17 +462,21 @@ export function CostPerformanceChart({
                   {arm.reviewedProvider !== arm.providerFamily ? (
                     <div><dt>Reviewed provider value</dt><dd className="mono">{arm.reviewedProvider}</dd></div>
                   ) : null}
-                  <div><dt>{selectedMetricLabel}</dt><dd>{metricValueText(metricValue)}</dd></div>
+                  <div><dt>{selectedMetricLabel}</dt><dd>{metricValue.status === "available"
+                    ? <Link href={arm.costProvenanceHref}>{metricValueText(metricValue)}</Link>
+                    : metricValueText(metricValue)}</dd></div>
                   <div><dt>Reviewed pass rate</dt><dd>{formatPercent(arm.passRate)} · {arm.successCount} / {arm.trialCount} successes</dd></div>
                   <div><dt>Cost basis</dt><dd>{arm.costBasisLabel} <span className="mono">{arm.costBasis}</span></dd></div>
                   <div><dt>Cost sources / confidence</dt><dd>{arm.costSources.join(", ")} · {arm.costConfidence}</dd></div>
-                  <div><dt>Accounting gap</dt><dd>${arm.accountingGapUsd}</dd></div>
+                  <div><dt>Accounting gap</dt><dd><Link href={arm.costProvenanceHref}>${arm.accountingGapUsd}</Link></dd></div>
                   <div><dt>Pricing provenance</dt><dd>{statusLabel(arm.pricingProvenanceStatus)}</dd></div>
                   <div><dt>Arm/run allocation</dt><dd>{statusLabel(arm.armRunAllocationConfidence)}</dd></div>
                   <div><dt>Trial allocation</dt><dd>{statusLabel(arm.trialAllocationStatus)}</dd></div>
                   <div><dt>Billing reconciliation</dt><dd>{statusLabel(arm.billingReconciliationStatus)}</dd></div>
                   <div><dt>Provider-log exclusivity</dt><dd>{statusLabel(arm.providerLogExclusivityStatus)}</dd></div>
-                  <div><dt>Failure / incomplete spend</dt><dd>{failureSpendText(arm)}</dd></div>
+                  <div><dt>Failure / incomplete spend</dt><dd>{arm.failureIncompleteSpend.status === "available"
+                    ? <Link href={arm.costProvenanceHref}>{failureSpendText(arm)}</Link>
+                    : failureSpendText(arm)}</dd></div>
                   <div><dt>Frozen selected run</dt><dd className="mono">{arm.selectedRunLabel}</dd></div>
                 </dl>
                 {arm.costBasis === "qualified_retained_rate_estimate" ? (

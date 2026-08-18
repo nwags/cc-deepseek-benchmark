@@ -5,6 +5,7 @@ import { DataFreshnessNotice } from "../../../components/DataFreshnessNotice";
 import { ArtifactEvidenceGuide } from "../../../components/ArtifactEvidenceGuide";
 import { ArtifactTypeLabel } from "../../../components/ArtifactTypeInfo";
 import { FailureTaxonomyDetails } from "../../../components/FailureTaxonomyDetails";
+import { EvidenceSourceContextNotice } from "../../../components/EvidenceSourceContextNotice";
 import { InvalidReason, ValidityBadge } from "../../../components/ValidityContext";
 import { buildSuspectNoopHref } from "../../../components/QualityContext";
 import {
@@ -22,6 +23,7 @@ import { formatBytes, formatCurrency, formatNumber, formatSeconds } from "../../
 import { sanitizeDisplayedUri, sanitizeEvidenceText } from "../../../lib/safe-display";
 import { getComprehensiveTrialReview } from "../../../lib/review-data";
 import { getFailureTaxonomyForTrial } from "../../../lib/failure-taxonomy-snapshot";
+import { buildExactRunHref, selectEvidenceSourceScope } from "../../../lib/evidence-links";
 import { buildRegisteredOperationalFreshness } from "../../../lib/data-freshness-server";
 import { DETAIL_ROUTE_FRESHNESS_SOURCES } from "../../../lib/data-freshness-sources";
 
@@ -122,6 +124,7 @@ export default async function TrialEvidencePage({
     getFailureTaxonomyForTrial(decodedTrialId),
   ]);
   const query = searchParams ? await searchParams : {};
+  const sourceScope = selectEvidenceSourceScope(query.source_scope).sourceScope;
   const liveRequested = firstParam(query.live_analysis) === "1";
   const liveAnalysis = !comprehensiveReview || liveRequested
     ? await analyzeTrialArtifactsCached(trial, artifacts) : null;
@@ -187,6 +190,7 @@ export default async function TrialEvidencePage({
 
   return (
     <AppShell title="Trial evidence" description="Derived diagnosis with transparent links to one task attempt's immutable evidence.">
+      <EvidenceSourceContextNotice value={query.source_scope} />
       <DataFreshnessNotice freshness={metadataFreshness} />
       <section className="quality-context-panel" aria-label="Trial artifact-byte boundary">
         <p><strong>Artifact references:</strong> Supabase metadata lists {artifacts.length} related artifact row(s).</p>
@@ -210,7 +214,7 @@ export default async function TrialEvidencePage({
           <ValidityBadge row={invalidRow} />
         </div>
         <div className="detail-grid">
-          <div><span>Run</span><strong><Link href={`/runs/${encodeURIComponent(trial.run_label)}`}>{safeDisplay(trial.run_label)}</Link></strong></div>
+          <div><span>Run</span><strong><Link href={buildExactRunHref(trial.run_label, sourceScope)}>{safeDisplay(trial.run_label)}</Link></strong></div>
           <div><span>Suite</span><strong className="mono">{safeDisplay(trial.suite_id)}</strong></div>
           <div><span>Arm</span><strong className="mono">{safeDisplay(trial.arm_id)}</strong></div>
           <div><span>Task</span><strong className="mono">{safeDisplay(trial.task_id)}</strong></div>
@@ -311,7 +315,7 @@ export default async function TrialEvidencePage({
       <section className="panel">
         <div className="panel-heading"><div><h2>Evidence links</h2><p>Move between the run, task, quality audit, and grouped evidence.</p></div></div>
         <div className="artifact-link-bar">
-          <Link href={`/runs/${encodeURIComponent(trial.run_label)}`}>Run detail</Link><Link href={trialQualityHref(trial)}>Trial Quality</Link>
+          <Link href={buildExactRunHref(trial.run_label, sourceScope)}>Run detail</Link><Link href={trialQualityHref(trial)}>Trial Quality</Link>
           {trial.task_id ? <Link href={`/evals/${encodeURIComponent(trial.task_id)}`}>Eval task</Link> : null}
           <Link href={buildArtifactHref({ run_label: trial.run_label, task_id: trial.task_id, quality_flag: trial.quality_flag })}>Artifact browser</Link>
         </div>

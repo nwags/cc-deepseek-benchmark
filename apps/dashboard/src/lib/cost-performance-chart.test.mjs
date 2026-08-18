@@ -37,7 +37,12 @@ const moduleUrl = `data:text/javascript;base64,${Buffer.from(`
     warningMessage: null,
     usedDefault: value !== "phase3-core" && value !== "phase3-extended",
   });
-  const buildReviewedRunHref = (runLabel) => \`/runs/\${encodeURIComponent(runLabel)}\`;
+  const buildExactRunHref = (runLabel, sourceScope) =>
+    \`/runs/\${encodeURIComponent(runLabel)}?source_scope=\${sourceScope}\`;
+  const buildCostCoverageHref = (scope, focus, sourceScope) => {
+    const params = new URLSearchParams({ scope, arm_id: focus.armId, run_label: focus.runLabel, source_scope: sourceScope });
+    return \`/cost-coverage?\${params.toString()}#cost-provenance-focus\`;
+  };
   ${viewCompiled}
   ${compiled}
 `).toString("base64")}`;
@@ -107,11 +112,17 @@ test("every datum resolves exactly one frozen G1 run without a latest-run fallba
   assert.equal(selectedByArm.size, extendedArms.length);
   for (const arm of extendedArms) {
     assert.equal(arm.selectedRunLabel, selectedByArm.get(arm.armId)?.selectedRunLabel);
-    assert.equal(arm.selectedRunHref, `/runs/${encodeURIComponent(arm.selectedRunLabel)}`);
+    assert.equal(arm.selectedRunHref, `/runs/${encodeURIComponent(arm.selectedRunLabel)}?source_scope=phase3-extended`);
+    const costUrl = new URL(arm.costProvenanceHref, "https://dashboard.invalid");
+    assert.equal(costUrl.searchParams.get("scope"), "phase3-extended");
+    assert.equal(costUrl.searchParams.get("arm_id"), arm.armId);
+    assert.equal(costUrl.searchParams.get("run_label"), arm.selectedRunLabel);
+    assert.equal(costUrl.searchParams.get("source_scope"), "phase3-extended");
+    assert.equal(costUrl.hash, "#cost-provenance-focus");
   }
   const kimi = armFor(extendedArms, "router-kimi-k3");
   assert.equal(kimi.selectedRunLabel, "router-kimi-k3/2026-07-22__17-51-05");
-  assert.equal(kimi.selectedRunHref, "/runs/router-kimi-k3%2F2026-07-22__17-51-05");
+  assert.equal(kimi.selectedRunHref, "/runs/router-kimi-k3%2F2026-07-22__17-51-05?source_scope=phase3-extended");
   assert.doesNotMatch(source, /latest[-_ ]run|getRecentRuns|latestRun/i);
 });
 
@@ -348,7 +359,11 @@ test("accessible rows retain confidence, gap, qualifications, and both evidence 
   assert.equal(kimi.failureIncompleteSpend.status, "unavailable");
   assert.match(kimi.qualificationText, /not invoice-level or provider-billed spend/);
   assert.equal(kimi.armHref, "/trial-quality?arm_id=router-kimi-k3");
-  assert.equal(kimi.selectedRunHref, "/runs/router-kimi-k3%2F2026-07-22__17-51-05");
+  assert.equal(kimi.selectedRunHref, "/runs/router-kimi-k3%2F2026-07-22__17-51-05?source_scope=phase3-extended");
+  assert.match(kimi.costProvenanceHref, /scope=phase3-extended/);
+  assert.match(kimi.costProvenanceHref, /arm_id=router-kimi-k3/);
+  assert.match(kimi.costProvenanceHref, /run_label=router-kimi-k3%2F2026-07-22__17-51-05/);
+  assert.match(kimi.costProvenanceHref, /#cost-provenance-focus$/);
 });
 
 test("x-axis validation defaults deterministically and accepts only the reviewed metric set", () => {

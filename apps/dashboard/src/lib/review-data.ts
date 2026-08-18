@@ -67,6 +67,10 @@ export type SnapshotEvidence = {
 export type ComprehensiveTrialReview = {
   [key: string]: unknown;
   trial_id: string;
+  run_label: string;
+  suite_id: string;
+  arm_id: string;
+  task_id: string;
   raw_outcome: string;
   activity_subtype: string;
   execution_validity: string;
@@ -126,6 +130,7 @@ export type ComprehensiveReviewData = {
   disagreements: TaskDisagreementReview[];
   queue: ReviewQueueRow[];
   controls: ControlSampleRow[];
+  reviewedTrials: ComprehensiveTrialReview[];
 };
 
 type ReviewIndex = ComprehensiveReviewData & { trials: Map<string, ComprehensiveTrialReview> };
@@ -244,7 +249,7 @@ export function enrichDisagreementOutcomes(
 }
 
 function emptyIndex(directory: string, state: ReviewState, message: string): ReviewIndex {
-  return { available: false, state, directory, message, manifest: null, coverage: null, arms: [], disagreements: [], queue: [], controls: [], trials: new Map() };
+  return { available: false, state, directory, message, manifest: null, coverage: null, arms: [], disagreements: [], queue: [], controls: [], reviewedTrials: [], trials: new Map() };
 }
 
 async function loadReviewIndex(): Promise<ReviewIndex> {
@@ -319,7 +324,7 @@ async function loadReviewIndex(): Promise<ReviewIndex> {
     return {
       available: true, state: "available", directory,
       message: "Loaded and validated the manifest-bound comprehensive-review snapshot.",
-      manifest, coverage, arms, disagreements, queue, controls, trials
+      manifest, coverage, arms, disagreements, queue, controls, reviewedTrials: trialRows, trials
     };
   } catch {
     return { ...emptyIndex(directory, "mixed_output", "Manifest-bound review outputs could not be parsed consistently."), manifest };

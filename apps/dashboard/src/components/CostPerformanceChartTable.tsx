@@ -33,6 +33,16 @@ function evidenceAmountText(value: ChartEvidenceAmount): string {
   return `$${value.decimalUsd}`;
 }
 
+function linkedMetric(value: ChartMetricValue, href: string) {
+  const text = metricText(value);
+  return value.status === "available" ? <Link href={href}>{text}</Link> : text;
+}
+
+function linkedEvidenceAmount(value: ChartEvidenceAmount, href: string) {
+  const text = evidenceAmountText(value);
+  return value.status === "available" ? <Link href={href}>{text}</Link> : text;
+}
+
 function evidenceStatusLabel(value: string): string {
   return value.replaceAll("_", " ");
 }
@@ -90,7 +100,7 @@ export function CostPerformanceChartTable({
                 </td>
                 <td>{row.successCount} / {row.trialCount}</td>
                 <td>{(row.passRate * 100).toFixed(1)}%</td>
-                <td>{metricText(row.xMetricValue)}</td>
+                <td>{linkedMetric(row.xMetricValue, row.costProvenanceHref)}</td>
                 <td>
                   <div>{row.costBasisLabel}</div>
                   <div className="mono">{row.costBasis}</div>
@@ -106,8 +116,8 @@ export function CostPerformanceChartTable({
                     ? evidenceStatusLabel(row.providerLogExclusivityStatus)
                     : "not separately qualified in G1"}</div>
                 </td>
-                <td>${row.accountingGapUsd}</td>
-                <td>{evidenceAmountText(row.failureIncompleteSpend)}</td>
+                <td><Link href={row.costProvenanceHref}>${row.accountingGapUsd}</Link></td>
+                <td>{linkedEvidenceAmount(row.failureIncompleteSpend, row.costProvenanceHref)}</td>
                 <td>{row.qualificationText ?? "No additional qualification beyond the listed reviewed evidence statuses."}</td>
               </tr>
             )) : (

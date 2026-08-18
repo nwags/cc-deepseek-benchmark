@@ -43,7 +43,7 @@ async function writeSnapshot() {
     "task_disagreement_review.csv": "task_id,arm_a,arm_b,disagreement_category,headline_relevant,supporting_trial_links\n",
     "review_queue.csv": "trial_id,arm_id,task_id,manual_review_priority,review_reasons,review_strata,trial_link\n00000000-0000-0000-0000-000000000001,arm,task,high,timeout,correctness_anomaly,/trials/00000000-0000-0000-0000-000000000001\n",
     "manual_control_sample.csv": "sample_stratum,arm_id,trial_id,task_id,trial_link\nordinary_success,arm,00000000-0000-0000-0000-000000000001,task,/trials/00000000-0000-0000-0000-000000000001\n",
-    "trial_review.csv": "trial_id,raw_outcome,activity_subtype,execution_validity,failure_subtype,termination_subtype,policy_disposition,telemetry_status,database_result_consistency,classification_confidence,evidence_complete,manual_review_required,manual_review_priority,analyzer_version,router_observability,result_reward_present,result_reward_value,result_exception_present,result_exception_type,result_termination_reason,result_status,analyzed_artifact_integrity_status\n00000000-0000-0000-0000-000000000001,success,substantive_agent_activity,substantive,none,none,none_detected,consistent,consistent,high,True,False,low,${analyzerVersion},unknown,True,1,False,,,completed,verified\n",
+    "trial_review.csv": "trial_id,run_label,suite_id,arm_id,task_id,raw_outcome,activity_subtype,execution_validity,failure_subtype,termination_subtype,policy_disposition,telemetry_status,database_result_consistency,classification_confidence,evidence_complete,manual_review_required,manual_review_priority,analyzer_version,router_observability,result_reward_present,result_reward_value,result_exception_present,result_exception_type,result_termination_reason,result_status,analyzed_artifact_integrity_status\n00000000-0000-0000-0000-000000000001,arm/run,phase3-full-20,arm,task,success,substantive_agent_activity,substantive,none,none,none_detected,consistent,consistent,high,True,False,low,${analyzerVersion},unknown,True,1,False,,,completed,verified\n",
     "trial_evidence.jsonl": JSON.stringify({ trial_id: "00000000-0000-0000-0000-000000000001", summary: "safe", evidence: [], configuration: {} }) + "\n",
     "targeted_evidence_packet.csv": "packet_strata,trial_id\ncontrols,00000000-0000-0000-0000-000000000001\n",
     "targeted_evidence_bundle.jsonl": JSON.stringify({ identity: { trial_id: "00000000-0000-0000-0000-000000000001" }, hidden_reasoning_retained: false }) + "\n",
@@ -69,6 +69,9 @@ test("manifest-bound snapshot is indexed once and tampering becomes an explicit 
   const valid = await reviewModule.getComprehensiveReviewData();
   assert.equal(valid.state, "available");
   assert.equal(valid.queue.length, 1);
+  assert.equal(valid.reviewedTrials.length, 1);
+  assert.equal(valid.reviewedTrials[0].trial_id, "00000000-0000-0000-0000-000000000001");
+  assert.equal(valid.reviewedTrials[0].run_label, "arm/run");
   const trial = await reviewModule.getComprehensiveTrialReview("00000000-0000-0000-0000-000000000001");
   assert.equal(trial.raw_outcome, "success");
   assert.equal(trial.snapshot_summary, "safe");

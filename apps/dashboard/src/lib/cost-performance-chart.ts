@@ -11,7 +11,7 @@ import {
   type ReviewedSelectedRun,
   type ReviewedRunSelectionScope,
 } from "./phase3-reviewed-run-selection";
-import { buildReviewedRunHref } from "./overview-reviewed-comparison";
+import { buildCostCoverageHref, buildExactRunHref } from "./evidence-links";
 import {
   DEFAULT_CHART_SCOPE,
   stableTextCompare,
@@ -344,7 +344,12 @@ export function buildCostPerformanceChartArms(
       costPerCleanSuccess,
       recordedCostPerAttempt,
       failureIncompleteSpend: failureIncompleteSpendForArm(arm),
-      selectedRunHref: buildReviewedRunHref(selection.selectedRunLabel),
+      selectedRunHref: buildExactRunHref(selection.selectedRunLabel, scope.scopeId),
+      costProvenanceHref: buildCostCoverageHref(
+        scope.scopeId,
+        { armId: arm.armId, runLabel: selection.selectedRunLabel },
+        scope.scopeId,
+      ),
       armHref: armDetailHref(arm.armId),
       qualificationText: qualificationForArm(arm, selection),
       metricAvailabilityReasons: Object.freeze(metricAvailabilityReasons),
