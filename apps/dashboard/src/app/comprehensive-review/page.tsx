@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AppShell } from "../../components/AppShell";
 import { EvidenceSourceContextNotice } from "../../components/EvidenceSourceContextNotice";
+import { TermInfo } from "../../components/TermInfo";
 import { getComprehensiveReviewData, ReviewQueueRow } from "../../lib/review-data";
 import {
   buildExactTrialHref,
@@ -190,7 +191,7 @@ export default async function ComprehensiveReviewPage({ searchParams }: { search
           <p className="muted">Displaying {matchingReviewedTrials.length ? trialStart + 1 : 0}–{trialStart + reviewedTrials.length} of {matchingReviewedTrials.length} exact matching frozen rows.</p>
           <div className="table-wrap">
             <table>
-              <thead><tr><th className="sticky-id-column">Trial</th><th>Arm</th><th>Run</th><th>Task</th><th>Raw outcome</th><th>Failure subtype</th><th>Execution / activity</th><th>Termination / policy</th><th>Confidence / review</th></tr></thead>
+              <thead><tr><th className="sticky-id-column">Trial</th><th>Arm</th><th>Run</th><th>Task</th><th>Raw outcome</th><th><span className="term-label">Failure subtype <TermInfo term="Failure subtype" /></span></th><th><span className="term-label">Execution validity / activity class <TermInfo term="Execution validity" /> <TermInfo term="Activity class" /></span></th><th><span className="term-label">Termination / policy disposition <TermInfo term="Policy disposition" /></span></th><th><span className="term-label">Confidence / review <TermInfo term="Confidence" /></span></th></tr></thead>
               <tbody>{reviewedTrials.map((row) => <tr key={row.trial_id}>
                 <td className="sticky-id-column mono"><Link href={buildExactTrialHref(row.trial_id, reviewedSourceScope)}>{safe(row.trial_id)}</Link></td>
                 <td className="mono">{safe(row.arm_id)}</td>

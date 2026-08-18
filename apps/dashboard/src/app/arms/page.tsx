@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AppShell } from "../../components/AppShell";
 import { CorpusScopeNotice } from "../../components/CorpusScopeNotice";
 import { DataFreshnessNotice } from "../../components/DataFreshnessNotice";
+import { TermInfo } from "../../components/TermInfo";
 import { getAllImportedArmLatestIncludedExecutionAt, getArmRows } from "../../lib/dashboard-data";
 import { INDEX_ROUTE_FRESHNESS_SOURCES } from "../../lib/data-freshness-sources";
 import { buildRegisteredOperationalFreshness, readFreshnessMetadata } from "../../lib/data-freshness-server";
@@ -81,7 +82,7 @@ export default async function ArmsPage() {
                 <th>Successes</th>
                 <th title="All-imported pass rate across every imported run for this arm. Use Runs or Overview for valid full-suite pass rates.">Pass rate</th>
                 <th>Median runtime</th>
-                <th title="Recorded cost lower bound for all imported rows. Missing raw cost rows may have adjusted estimates on Cost Coverage.">Recorded cost</th>
+                <th><span className="term-label">Recorded cost <TermInfo term="Recorded cost" /></span></th>
               </tr>
             </thead>
             <tbody>

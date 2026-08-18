@@ -5,6 +5,7 @@ import { CorpusScopeNotice } from "../../components/CorpusScopeNotice";
 import { CorpusScopeSelector } from "../../components/CorpusScopeSelector";
 import { EvidenceSourceContextNotice } from "../../components/EvidenceSourceContextNotice";
 import { MetricCard } from "../../components/MetricCard";
+import { TermInfo } from "../../components/TermInfo";
 import { getCostProvenanceFocusRows, type CostProvenanceFocusRow } from "../../lib/dashboard-data";
 import {
   buildCostCoverageHref,
@@ -15,6 +16,7 @@ import {
   selectEvidenceSourceScope,
 } from "../../lib/evidence-links";
 import { getCostPerformanceChartArms } from "../../lib/cost-performance-chart";
+import { getGlossaryEntry } from "../../lib/glossary";
 import {
   selectReviewedPhase3Scope,
   type ReviewedPhase3Arm,
@@ -26,12 +28,12 @@ export const dynamic = "force-dynamic";
 const costCategories = [
   {
     category: "Recorded cost",
-    meaning: "Cost explicitly captured in retained benchmark trial metadata.",
+    meaning: getGlossaryEntry("Recorded cost").definition,
     action: "Keep separate from reviewed reconstruction when recorded-cost rows are missing."
   },
   {
     category: "Adjusted known cost",
-    meaning: "Reviewed core cost after supported reconstruction of missing-cost rows.",
+    meaning: getGlossaryEntry("Adjusted known cost").definition,
     action: "Use for the historical core only; it is not the label for Kimi K3."
   },
   {
@@ -41,12 +43,12 @@ const costCategories = [
   },
   {
     category: "Accounting gap",
-    meaning: "The selected reviewed cost measure minus recorded trial cost.",
+    meaning: getGlossaryEntry("Accounting gap").definition,
     action: "Keep the gap, source, basis, and confidence visible rather than treating missing evidence as zero."
   },
   {
     category: "Exception with success signal",
-    meaning: "A trial had reward=1 and an exception marker in the reviewed core outcome layer.",
+    meaning: getGlossaryEntry("Exception with success signal").definition,
     action: "Keep separate from clean success; operationally unclean does not automatically mean an incorrect result."
   }
 ];
@@ -256,11 +258,11 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
                   <tr>
                     <th className="sticky-id-column">Trial</th>
                     <th>Arm / run</th>
-                    <th>Task / attempt</th>
-                    <th>Recorded cost</th>
-                    <th>Adjusted cost</th>
-                    <th>Accounting gap</th>
-                    <th>Source / confidence</th>
+                    <th><span className="term-label">Task / attempt <TermInfo term="Attempt" /></span></th>
+                    <th><span className="term-label">Recorded cost <TermInfo term="Recorded cost" /></span></th>
+                    <th><span className="term-label">Adjusted known cost <TermInfo term="Adjusted known cost" /></span></th>
+                    <th><span className="term-label">Accounting gap <TermInfo term="Known accounting gap" /></span></th>
+                    <th><span className="term-label">Source / confidence <TermInfo term="Confidence" /></span></th>
                     <th>Outcome</th>
                   </tr>
                 </thead>
@@ -302,14 +304,14 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
               <tr>
                 <th className="sticky-id-column">Arm</th>
                 <th>Successes</th>
-                <th>Recorded cost</th>
+                <th><span className="term-label">Recorded cost <TermInfo term="Recorded cost" /></span></th>
                 <th>Reviewed cost</th>
                 <th>Cost basis</th>
-                <th>Gap</th>
+                <th><span className="term-label">Gap <TermInfo term="Accounting gap" /></span></th>
                 <th>Failure spend</th>
                 <th>Failure share</th>
                 <th>Cost / clean success</th>
-                <th>Missing / unresolved</th>
+                <th><span className="term-label">Missing / unresolved <TermInfo term="Unresolved" /></span></th>
                 <th>Evidence status</th>
               </tr>
             </thead>
@@ -383,11 +385,11 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
               <tr>
                 <th>Outcome bucket</th>
                 <th>Trials</th>
-                <th>Recorded cost</th>
-                <th>Source adjusted known cost</th>
-                <th>Source accounting gap</th>
+                <th><span className="term-label">Recorded cost <TermInfo term="Recorded cost" /></span></th>
+                <th><span className="term-label">Source adjusted known cost <TermInfo term="Adjusted known cost" /></span></th>
+                <th><span className="term-label">Source accounting gap <TermInfo term="Known accounting gap" /></span></th>
                 <th>Missing recorded</th>
-                <th>Unresolved adjusted</th>
+                <th><span className="term-label">Unresolved adjusted <TermInfo term="Unresolved" /></span></th>
               </tr>
             </thead>
             <tbody>
