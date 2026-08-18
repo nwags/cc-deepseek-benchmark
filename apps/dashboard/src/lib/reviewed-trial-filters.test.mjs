@@ -20,6 +20,9 @@ const row = {
   task_id: "suite:task-a",
   raw_outcome: "failure",
   failure_subtype: "test_assertion_failure",
+  execution_validity: "substantive",
+  termination_subtype: "timeout",
+  policy_disposition: "provider_policy_refusal",
 };
 
 test("reviewed-trial filters use exact equality across every retained field", () => {
@@ -30,6 +33,9 @@ test("reviewed-trial filters use exact equality across every retained field", ()
     trial_task: row.task_id,
     trial_outcome: row.raw_outcome,
     trial_failure: row.failure_subtype,
+    trial_execution: row.execution_validity,
+    trial_termination: row.termination_subtype,
+    trial_policy: row.policy_disposition,
   });
   assert.equal(filtersModule.matchesReviewedTrial(row, selection.filters), true);
 
@@ -40,6 +46,9 @@ test("reviewed-trial filters use exact equality across every retained field", ()
     ["taskId", "task-a"],
     ["rawOutcome", "fail"],
     ["failureSubtype", "assertion"],
+    ["executionValidity", "invalid"],
+    ["terminationSubtype", "none"],
+    ["policyDisposition", "none_detected"],
   ]) {
     assert.equal(
       filtersModule.matchesReviewedTrial(row, { ...selection.filters, [field]: value }),

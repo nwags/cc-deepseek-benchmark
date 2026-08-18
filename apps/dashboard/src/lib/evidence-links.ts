@@ -29,6 +29,9 @@ export type ReviewedTrialEvidenceFilters = Readonly<{
   taskId?: string | null;
   rawOutcome?: string | null;
   failureSubtype?: string | null;
+  executionValidity?: string | null;
+  terminationSubtype?: string | null;
+  policyDisposition?: string | null;
 }>;
 
 export type FailureEvidenceLinkRequest =
@@ -107,6 +110,9 @@ export function buildReviewedTrialEvidenceHref(
     ["trial_task", filters.taskId],
     ["trial_outcome", filters.rawOutcome],
     ["trial_failure", filters.failureSubtype],
+    ["trial_execution", filters.executionValidity],
+    ["trial_termination", filters.terminationSubtype],
+    ["trial_policy", filters.policyDisposition],
   ] as const;
   for (const [key, value] of entries) {
     if (value) params.set(key, value);
@@ -146,7 +152,8 @@ export function buildCostCoverageHref(
   if (focus.runLabel) params.set("run_label", focus.runLabel);
   if (focus.trialId) params.set("trial_id", focus.trialId);
   appendSourceScopeParam(params, sourceScope);
-  return `/cost-coverage?${params.toString()}`;
+  const hasFocus = Boolean(focus.armId || focus.runLabel || focus.trialId);
+  return `/cost-coverage?${params.toString()}${hasFocus ? "#cost-provenance-focus" : ""}`;
 }
 
 export function selectEvidenceSourceScope(

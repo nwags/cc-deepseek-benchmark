@@ -68,6 +68,11 @@ function formatReviewedUsd(value: string | null): string {
   })}`;
 }
 
+function linkedReviewedUsd(value: string | null, href: string) {
+  const formatted = formatReviewedUsd(value);
+  return value === null ? formatted : <Link href={href}>{formatted}</Link>;
+}
+
 function evidenceLabel(value: string): string {
   return value.replaceAll("_", " ");
 }
@@ -304,7 +309,7 @@ export default async function DashboardPage({
                   <tr key={row.selectedRunLabel}>
                     <td>{row.rank}</td>
                     <td>
-                      <div className="mono">{row.armId}</div>
+                      <div className="mono"><Link href={row.armEvidenceHref}>{row.armId}</Link></div>
                       <Link className="mono" href={row.selectedRunHref}>{row.selectedRunLabel}</Link>
                       <div>Selected reviewed run · reviewed full-suite run</div>
                     </td>
@@ -320,22 +325,22 @@ export default async function DashboardPage({
                         <QualityBadge count={suspectNoopCount} />
                       ) : <div>Suspect no-op: Unavailable</div>}
                     </td>
-                    <td>{formatReviewedUsd(row.reviewedRecordedCostUsd)}</td>
+                    <td>{linkedReviewedUsd(row.reviewedRecordedCostUsd, row.costProvenanceHref)}</td>
                     <td>
                       {isKimi ? (
                         <>
                           <strong>Qualified retained-rate estimate:</strong>{" "}
-                          {formatReviewedUsd(row.reviewedQualifiedRetainedRateCostUsd)}
+                          {linkedReviewedUsd(row.reviewedQualifiedRetainedRateCostUsd, row.costProvenanceHref)}
                           <div>Adjusted known cost: Unavailable</div>
                         </>
                       ) : (
                         <>
                           <strong>Adjusted known cost:</strong>{" "}
-                          {formatReviewedUsd(row.reviewedAdjustedKnownCostUsd)}
+                          {linkedReviewedUsd(row.reviewedAdjustedKnownCostUsd, row.costProvenanceHref)}
                         </>
                       )}
                     </td>
-                    <td>{formatReviewedUsd(row.reviewedAccountingGapUsd)}</td>
+                    <td>{linkedReviewedUsd(row.reviewedAccountingGapUsd, row.costProvenanceHref)}</td>
                     <td>
                       <div>Missing recorded: {formatNumber(row.missingRecordedCostCount)}</div>
                       <div>Unresolved adjusted: {formatNumber(row.unresolvedAdjustedCostCount)}</div>
@@ -366,8 +371,8 @@ export default async function DashboardPage({
                       )}
                       {!isKimi && row.databaseAdjustedCostEvidence && (
                         <>
-                          <div>Stored recorded evidence: {formatReviewedUsd(row.databaseAdjustedCostEvidence.recorded_cost_usd)}</div>
-                          <div>Stored adjusted evidence: {formatReviewedUsd(row.databaseAdjustedCostEvidence.adjusted_known_cost_usd)}</div>
+                          <div>Stored recorded evidence: {linkedReviewedUsd(row.databaseAdjustedCostEvidence.recorded_cost_usd, row.costProvenanceHref)}</div>
+                          <div>Stored adjusted evidence: {linkedReviewedUsd(row.databaseAdjustedCostEvidence.adjusted_known_cost_usd, row.costProvenanceHref)}</div>
                           <div>
                             Stored sources/confidence:{" "}
                             {row.databaseAdjustedCostEvidence.adjusted_cost_sources.join(", ") || "Unavailable"} /{" "}

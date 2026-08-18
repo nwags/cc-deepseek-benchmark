@@ -5,6 +5,7 @@ import { DataFreshnessNotice } from "../../components/DataFreshnessNotice";
 import { QualityBadge, QualityPassRate, buildSuspectNoopHref } from "../../components/QualityContext";
 import { InvalidReason, ValidityBadge } from "../../components/ValidityContext";
 import { buildArtifactHref } from "../../lib/links";
+import { buildExactRunHref } from "../../lib/evidence-links";
 import {
   ArmRunQualitySummaryRow,
   ArmRunSummaryRow,
@@ -84,10 +85,10 @@ function RunsTable({
             return (
               <tr key={row.arm_run_id}>
                 <td className="sticky-id-column">
-                  <Link href={`/runs/${encodeURIComponent(row.run_label)}`}>{row.arm_id}</Link>
+                  <Link href={buildExactRunHref(row.run_label, "all-imported")}>{row.arm_id}</Link>
                   <div className="mono">{row.run_label}</div>
                   <div className="row-action-links">
-                    <Link href={`/runs/${encodeURIComponent(row.run_label)}`}>Run detail</Link>
+                    <Link href={buildExactRunHref(row.run_label, "all-imported")}>Run detail</Link>
                     <Link href={`/trial-quality?run_label=${encodeURIComponent(row.run_label)}`}>Trial quality</Link>
                     <Link href={buildArtifactHref({ run_label: row.run_label })}>Artifacts</Link>
                   </div>

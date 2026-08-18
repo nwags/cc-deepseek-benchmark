@@ -53,6 +53,7 @@ test("Cost Coverage links accept reviewed scopes only and encode exact focus val
     assert.equal(url.searchParams.get("run_label"), "arm/run?label");
     assert.equal(url.searchParams.get("trial_id"), "00000000-0000-0000-0000-000000000001");
     assert.equal(url.searchParams.get("source_scope"), sourceScope);
+    assert.equal(url.hash, "#cost-provenance-focus");
   }
   assert.throws(() => links.buildCostCoverageHref("valid-imported"), /reviewed Phase 3 scope/);
   assert.throws(() => links.buildCostCoverageHref("all-imported"), /reviewed Phase 3 scope/);
@@ -68,6 +69,30 @@ test("reviewed trial evidence preserves validated navigation context independent
   assert.equal(url.searchParams.get("trial_outcome"), "failure");
   assert.equal(url.searchParams.get("source_scope"), "all-imported");
   assert.equal(url.hash, "#reviewed-trials");
+});
+
+test("reviewed evidence builders encode exact retained classification filters", () => {
+  const href = links.buildReviewedTrialEvidenceHref({
+    armId: "arm-a",
+    rawOutcome: "failure",
+    executionValidity: "substantive",
+    terminationSubtype: "timeout",
+    policyDisposition: "provider_policy_refusal",
+  }, "phase3-extended");
+  const url = new URL(href, "https://dashboard.invalid");
+  assert.equal(url.searchParams.get("trial_arm"), "arm-a");
+  assert.equal(url.searchParams.get("trial_outcome"), "failure");
+  assert.equal(url.searchParams.get("trial_execution"), "substantive");
+  assert.equal(url.searchParams.get("trial_termination"), "timeout");
+  assert.equal(url.searchParams.get("trial_policy"), "provider_policy_refusal");
+  assert.equal(url.searchParams.get("source_scope"), "phase3-extended");
+});
+
+test("unfocused Cost Coverage navigation has no provenance-focus anchor", () => {
+  assert.equal(
+    links.buildCostCoverageHref("phase3-core", {}, "valid-imported"),
+    "/cost-coverage?scope=phase3-core&source_scope=valid-imported",
+  );
 });
 
 test("failure evidence links use the exact frozen predicate and reject unsupported count semantics", () => {

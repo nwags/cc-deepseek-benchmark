@@ -148,6 +148,7 @@ test("points and controls expose keyboard interaction and persistent evidence de
       "onMouseEnter={() => activatePoint(point.armId)}",
       "Arm evidence →",
       "Frozen selected-run evidence →",
+      "costProvenanceHref",
       "successes",
       "Accounting gap",
       "Pricing provenance",

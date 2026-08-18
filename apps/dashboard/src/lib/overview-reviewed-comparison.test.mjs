@@ -16,10 +16,14 @@ const runSelection = JSON.parse(await readFile(
   "utf8",
 ));
 const source = await readFile(join(here, "overview-reviewed-comparison.ts"), "utf8");
-const compiled = ts.transpileModule(source, {
+const linksSource = await readFile(join(here, "evidence-links.ts"), "utf8");
+const linksCompiled = ts.transpileModule(linksSource, {
   compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
 }).outputText;
-const moduleUrl = `data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`;
+const compiled = ts.transpileModule(source, {
+  compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
+}).outputText.replace(/^import .*;$/gm, "");
+const moduleUrl = `data:text/javascript;base64,${Buffer.from(`${linksCompiled}\n${compiled}`).toString("base64")}`;
 const {
   buildOverviewReviewedComparison,
   buildReviewedRunHref,
@@ -109,8 +113,15 @@ test("joins all 16 F1 arms to exactly one frozen G1 selected run", () => {
   assert.equal(new Set(result.rows.map((row) => row.selectedRunLabel)).size, 16);
   const kimi = rowFor(result, "router-kimi-k3");
   assert.equal(kimi.selectedRunLabel, "router-kimi-k3/2026-07-22__17-51-05");
-  assert.equal(kimi.selectedRunHref, "/runs/router-kimi-k3%2F2026-07-22__17-51-05");
+  assert.equal(kimi.selectedRunHref, "/runs/router-kimi-k3%2F2026-07-22__17-51-05?source_scope=phase3-extended");
   assert.equal(buildReviewedRunHref(kimi.selectedRunLabel), kimi.selectedRunHref);
+  const costUrl = new URL(kimi.costProvenanceHref, "https://dashboard.invalid");
+  assert.equal(costUrl.searchParams.get("scope"), "phase3-extended");
+  assert.equal(costUrl.searchParams.get("arm_id"), kimi.armId);
+  assert.equal(costUrl.searchParams.get("run_label"), kimi.selectedRunLabel);
+  assert.equal(costUrl.searchParams.get("source_scope"), "phase3-extended");
+  assert.equal(costUrl.hash, "#cost-provenance-focus");
+  assert.equal(new URL(kimi.armEvidenceHref, "https://dashboard.invalid").searchParams.get("trial_arm"), kimi.armId);
 });
 
 test("a missing exact database run never selects another row for the same arm", () => {

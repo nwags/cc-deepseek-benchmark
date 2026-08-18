@@ -77,6 +77,7 @@ export type ChartArmDatum = Readonly<{
   recordedCostPerAttempt: ChartMetricValue;
   failureIncompleteSpend: ChartEvidenceAmount;
   selectedRunHref: string;
+  costProvenanceHref: string;
   armHref: string;
   qualificationText: string | null;
   metricAvailabilityReasons: Readonly<Partial<Record<ChartXAxisMetric, string>>>;
@@ -146,6 +147,7 @@ export type AccessibleChartRow = Readonly<{
   qualificationText: string | null;
   armHref: string;
   selectedRunHref: string;
+  costProvenanceHref: string;
 }>;
 
 export const DEFAULT_CHART_SCOPE: ChartScope = "phase3-extended";
@@ -408,5 +410,6 @@ export function buildAccessibleChartRows(
     qualificationText: arm.qualificationText,
     armHref: arm.armHref,
     selectedRunHref: arm.selectedRunHref,
+    costProvenanceHref: arm.costProvenanceHref,
   })));
 }

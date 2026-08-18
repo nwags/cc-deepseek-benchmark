@@ -4,6 +4,7 @@ import { EvidenceSourceContextNotice } from "../../components/EvidenceSourceCont
 import { getComprehensiveReviewData, ReviewQueueRow } from "../../lib/review-data";
 import {
   buildExactTrialHref,
+  buildReviewedAggregateArmEvidenceHref,
   buildReviewedTrialEvidenceHref,
   selectEvidenceSourceScope,
 } from "../../lib/evidence-links";
@@ -39,6 +40,17 @@ function matchesQueue(row: ReviewQueueRow, filters: Record<string, string>) {
 
 function options(values: string[]) {
   return [...new Set(values.filter(Boolean))].sort();
+}
+
+function exactSummaryCountLink(
+  storedValue: string,
+  derivedCount: number,
+  href: string,
+  label: string,
+) {
+  return Number(storedValue) === derivedCount
+    ? <Link href={href} aria-label={`${label}: ${storedValue}`}>{storedValue}</Link>
+    : storedValue;
 }
 
 function pageSize(value: string, fallback = 25) {
@@ -169,13 +181,16 @@ export default async function ComprehensiveReviewPage({ searchParams }: { search
             <label>Task<select name="trial_task" defaultValue={trialFilters.taskId}><option value="">All tasks</option>{options(review.reviewedTrials.map((row) => row.task_id)).map((value) => <option key={value} value={value}>{safe(value)}</option>)}</select></label>
             <label>Raw outcome<select name="trial_outcome" defaultValue={trialFilters.rawOutcome}><option value="">All outcomes</option>{options(review.reviewedTrials.map((row) => row.raw_outcome)).map((value) => <option key={value} value={value}>{safe(value)}</option>)}</select></label>
             <label>Failure subtype<select name="trial_failure" defaultValue={trialFilters.failureSubtype}><option value="">All failure subtypes</option>{options(review.reviewedTrials.map((row) => row.failure_subtype)).map((value) => <option key={value} value={value}>{safe(value)}</option>)}</select></label>
+            <label>Execution validity<select name="trial_execution" defaultValue={trialFilters.executionValidity}><option value="">All execution states</option>{options(review.reviewedTrials.map((row) => row.execution_validity)).map((value) => <option key={value} value={value}>{safe(value)}</option>)}</select></label>
+            <label>Termination subtype<select name="trial_termination" defaultValue={trialFilters.terminationSubtype}><option value="">All termination states</option>{options(review.reviewedTrials.map((row) => row.termination_subtype)).map((value) => <option key={value} value={value}>{safe(value)}</option>)}</select></label>
+            <label>Policy disposition<select name="trial_policy" defaultValue={trialFilters.policyDisposition}><option value="">All policy states</option>{options(review.reviewedTrials.map((row) => row.policy_disposition)).map((value) => <option key={value} value={value}>{safe(value)}</option>)}</select></label>
             <label>Rows per page<select name="trial_page_size" defaultValue={String(trialPageSize)}>{[25, 50, 100].map((value) => <option key={value}>{value}</option>)}</select></label>
             <button type="submit">Apply reviewed-trial filters</button><Link href={buildReviewedTrialEvidenceHref({}, sourceScopeSelection.sourceScope)}>Clear reviewed-trial filters</Link>
           </form>
           <p className="muted">Displaying {matchingReviewedTrials.length ? trialStart + 1 : 0}–{trialStart + reviewedTrials.length} of {matchingReviewedTrials.length} exact matching frozen rows.</p>
           <div className="table-wrap">
             <table>
-              <thead><tr><th className="sticky-id-column">Trial</th><th>Arm</th><th>Run</th><th>Task</th><th>Raw outcome</th><th>Failure subtype</th><th>Execution / activity</th><th>Confidence / review</th></tr></thead>
+              <thead><tr><th className="sticky-id-column">Trial</th><th>Arm</th><th>Run</th><th>Task</th><th>Raw outcome</th><th>Failure subtype</th><th>Execution / activity</th><th>Termination / policy</th><th>Confidence / review</th></tr></thead>
               <tbody>{reviewedTrials.map((row) => <tr key={row.trial_id}>
                 <td className="sticky-id-column mono"><Link href={buildExactTrialHref(row.trial_id, reviewedSourceScope)}>{safe(row.trial_id)}</Link></td>
                 <td className="mono">{safe(row.arm_id)}</td>
@@ -184,6 +199,7 @@ export default async function ComprehensiveReviewPage({ searchParams }: { search
                 <td>{safe(row.raw_outcome)}</td>
                 <td>{safe(row.failure_subtype)}</td>
                 <td>{safe(row.execution_validity)} / {safe(row.activity_subtype)}</td>
+                <td>{safe(row.termination_subtype)} / {safe(row.policy_disposition)}</td>
                 <td>{safe(row.classification_confidence)} / manual review {safe(row.manual_review_required)}</td>
               </tr>)}</tbody>
             </table>
@@ -229,7 +245,34 @@ export default async function ComprehensiveReviewPage({ searchParams }: { search
 
         <section className="panel">
           <div className="panel-heading"><div><h2>Arm summaries</h2><p>Fixed-corpus classifications, not replacement pass rates.</p></div></div>
-          <div className="table-wrap"><table><thead><tr><th>Arm</th><th>Reviewed</th><th>Substantive success</th><th>Substantive failure</th><th>Policy</th><th>Empty</th><th>Timeout</th><th>Setup/transport</th><th>Telemetry</th><th>Unknown</th><th>Queue</th></tr></thead><tbody>{review.arms.map((arm) => <tr key={arm.arm_id}><th className="mono">{safe(arm.arm_id)}</th><td>{arm.trials_reviewed}</td><td>{arm.substantive_successes}</td><td>{arm.substantive_failures}</td><td>{arm.policy_refusals}</td><td>{arm.empty_completions}</td><td>{arm.timeouts}</td><td>{arm.setup_transport_failures}</td><td>{arm.telemetry_mismatches}</td><td>{arm.unknown_classifications}</td><td>{arm.manual_review_queue}</td></tr>)}</tbody></table></div>
+          <div className="table-wrap"><table><thead><tr><th>Arm</th><th>Reviewed</th><th>Substantive success</th><th>Substantive failure</th><th>Policy</th><th>Empty</th><th>Timeout</th><th>Setup/transport</th><th>Telemetry</th><th>Unknown</th><th>Queue</th></tr></thead><tbody>{review.arms.map((arm) => {
+            const armRows = review.reviewedTrials.filter((row) => row.arm_id === arm.arm_id);
+            const aggregateHref = buildReviewedAggregateArmEvidenceHref(arm.arm_id, reviewedSourceScope);
+            const exactCount = (
+              storedValue: string,
+              predicate: (row: (typeof review.reviewedTrials)[number]) => boolean,
+              filters: Parameters<typeof buildReviewedTrialEvidenceHref>[0],
+              label: string,
+            ) => exactSummaryCountLink(
+              storedValue,
+              armRows.filter(predicate).length,
+              buildReviewedTrialEvidenceHref({ armId: arm.arm_id, ...filters }, reviewedSourceScope),
+              `${arm.arm_id} ${label}`,
+            );
+            return <tr key={arm.arm_id}>
+              <th className="mono"><Link href={aggregateHref}>{safe(arm.arm_id)}</Link></th>
+              <td>{exactSummaryCountLink(arm.trials_reviewed, armRows.length, aggregateHref, `${arm.arm_id} reviewed trials`)}</td>
+              <td>{exactCount(arm.substantive_successes, (row) => row.raw_outcome === "success" && row.execution_validity === "substantive", { rawOutcome: "success", executionValidity: "substantive" }, "substantive successes")}</td>
+              <td>{exactCount(arm.substantive_failures, (row) => row.raw_outcome === "failure" && row.execution_validity === "substantive", { rawOutcome: "failure", executionValidity: "substantive" }, "substantive failures")}</td>
+              <td>{exactCount(arm.policy_refusals, (row) => row.policy_disposition === "provider_policy_refusal", { policyDisposition: "provider_policy_refusal" }, "policy refusals")}</td>
+              <td>{arm.empty_completions}</td>
+              <td>{exactCount(arm.timeouts, (row) => row.termination_subtype === "timeout", { terminationSubtype: "timeout" }, "timeouts")}</td>
+              <td>{exactCount(arm.setup_transport_failures, (row) => row.termination_subtype === "setup_or_transport_exception", { terminationSubtype: "setup_or_transport_exception" }, "setup or transport terminations")}</td>
+              <td>{arm.telemetry_mismatches}</td>
+              <td>{arm.unknown_classifications}</td>
+              <td>{arm.manual_review_queue}</td>
+            </tr>;
+          })}</tbody></table></div>
         </section>
 
         <section className="panel">

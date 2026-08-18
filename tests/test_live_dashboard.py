@@ -1,3 +1,4 @@
+import csv
 import hashlib
 import json
 from pathlib import Path
@@ -391,7 +392,8 @@ def test_dr106a_evidence_destinations_are_exact_scoped_and_read_only() -> None:
     assert 'priority: first(params.priority) || "high"' in comprehensive
     for name in (
         "trial_id", "trial_arm", "trial_run", "trial_task",
-        "trial_outcome", "trial_failure", "trial_page", "trial_page_size",
+        "trial_outcome", "trial_failure", "trial_execution", "trial_termination",
+        "trial_policy", "trial_page", "trial_page_size",
     ):
         assert name in comprehensive
     assert 'className="sticky-id-column">Trial</th>' in comprehensive
@@ -403,6 +405,9 @@ def test_dr106a_evidence_destinations_are_exact_scoped_and_read_only() -> None:
     assert "row.trial_id === filters.trialId" in filters
     assert "row.run_label === filters.runLabel" in filters
     assert "row.failure_subtype === filters.failureSubtype" in filters
+    assert "row.execution_validity === filters.executionValidity" in filters
+    assert "row.termination_subtype === filters.terminationSubtype" in filters
+    assert "row.policy_disposition === filters.policyDisposition" in filters
     assert "includes(" not in filters
     assert "test:evidence-links" in package
 
@@ -412,6 +417,68 @@ def test_dr106a_evidence_destinations_are_exact_scoped_and_read_only() -> None:
         assert forbidden not in combined.lower()
     assert "failure_taxonomy_classifier" not in comprehensive
     assert "@aws-sdk" not in comprehensive
+
+
+def test_dr106b_frozen_arm_summary_links_use_exact_equal_count_predicates() -> None:
+    review_dir = Path("results/manual_verification/comprehensive_review_20260731")
+    with (review_dir / "trial_review.csv").open(newline="") as handle:
+        trials = list(csv.DictReader(handle))
+    with (review_dir / "arm_review_summary.csv").open(newline="") as handle:
+        summaries = list(csv.DictReader(handle))
+
+    by_arm: dict[str, list[dict[str, str]]] = {}
+    for row in trials:
+        by_arm.setdefault(row["arm_id"], []).append(row)
+
+    assert len(trials) == 960
+    assert {row["arm_id"] for row in summaries} == set(by_arm)
+    for summary in summaries:
+        rows = by_arm[summary["arm_id"]]
+        expected = {
+            "trials_reviewed": len(rows),
+            "substantive_successes": sum(
+                row["raw_outcome"] == "success" and row["execution_validity"] == "substantive"
+                for row in rows
+            ),
+            "substantive_failures": sum(
+                row["raw_outcome"] == "failure" and row["execution_validity"] == "substantive"
+                for row in rows
+            ),
+            "policy_refusals": sum(row["policy_disposition"] == "provider_policy_refusal" for row in rows),
+            "timeouts": sum(row["termination_subtype"] == "timeout" for row in rows),
+            "setup_transport_failures": sum(
+                row["termination_subtype"] == "setup_or_transport_exception" for row in rows
+            ),
+        }
+        assert {name: int(summary[name]) for name in expected} == expected
+
+    page = Path("apps/dashboard/src/app/comprehensive-review/page.tsx").read_text()
+    assert 'rawOutcome: "failure", executionValidity: "substantive"' in page
+    assert 'policyDisposition: "provider_policy_refusal"' in page
+    assert 'terminationSubtype: "timeout"' in page
+    assert 'terminationSubtype: "setup_or_transport_exception"' in page
+    for deliberately_unlinked in (
+        "<td>{arm.empty_completions}</td>",
+        "<td>{arm.telemetry_mismatches}</td>",
+        "<td>{arm.unknown_classifications}</td>",
+        "<td>{arm.manual_review_queue}</td>",
+    ):
+        assert deliberately_unlinked in page
+
+
+def test_dr106b_trial_actions_and_population_boundaries_are_explicit() -> None:
+    run_detail = Path("apps/dashboard/src/app/runs/[runLabel]/page.tsx").read_text()
+    arms = Path("apps/dashboard/src/app/arms/page.tsx").read_text()
+    cross_phase = Path("apps/dashboard/src/app/cross-phase/page.tsx").read_text()
+    cost = Path("apps/dashboard/src/app/cost-coverage/page.tsx").read_text()
+
+    assert run_detail.index('className="sticky-id-column">Trial</th>') < run_detail.index("<th>Task</th>")
+    assert "buildExactTrialHref(trial.trial_id, sourceScopeSelection.sourceScope)" in run_detail
+    assert "buildReviewedAggregateArmEvidenceHref" not in arms
+    assert 'row.phase === "phase3" ? chartArmById.get(row.arm_id) : null' in cross_phase
+    assert "Frozen aggregate row" in cross_phase
+    assert "getCostPerformanceChartArms(selection.scopeId)" in cost
+    assert "No exact frozen selected run exists" in cost
 
 
 def test_database_exception_summary_is_sourced_sanitized_and_cache_bound() -> None:
@@ -681,7 +748,8 @@ def test_overview_uses_frozen_reviewed_runs_and_exact_database_reconciliation() 
     assert "the database does not select a newer run" in overview
     assert "no mutable suite/arm aggregate is used as a fallback" in overview
     assert "href={row.selectedRunHref}" in overview
-    assert "encodeURIComponent(runLabel)" in reconciliation
+    assert 'buildExactRunHref(runLabel, "phase3-extended")' in reconciliation
+    assert "buildCostCoverageHref" in reconciliation
     assert "/runs/router-kimi-k3%2F2026-07-22__17-51-05" in Path(
         "apps/dashboard/src/lib/overview-reviewed-comparison.test.mjs"
     ).read_text()
@@ -716,7 +784,8 @@ def test_cost_performance_chart_foundation_uses_only_reviewed_f1_g1_contracts() 
     assert "PHASE3_REVIEWED_COMPARISON" in model
     assert "getReviewedPhase3Scope" in model
     assert "getReviewedRunSelectionScope" in model
-    assert "buildReviewedRunHref" in model
+    assert "buildExactRunHref" in model
+    assert "buildCostCoverageHref" in model
     assert "getArmRows" not in model
     assert "dashboard-data" not in model
     assert "./db" not in model

@@ -5,6 +5,9 @@ export type ReviewedTrialFilterRow = Readonly<{
   task_id: string;
   raw_outcome: string;
   failure_subtype: string;
+  execution_validity: string;
+  termination_subtype: string;
+  policy_disposition: string;
 }>;
 
 export type ReviewedTrialFilters = Readonly<{
@@ -14,6 +17,9 @@ export type ReviewedTrialFilters = Readonly<{
   taskId: string;
   rawOutcome: string;
   failureSubtype: string;
+  executionValidity: string;
+  terminationSubtype: string;
+  policyDisposition: string;
 }>;
 
 export type ReviewedTrialFilterSelection = Readonly<{
@@ -29,6 +35,9 @@ const FILTER_KEYS = Object.freeze([
   ["trial_task", "taskId"],
   ["trial_outcome", "rawOutcome"],
   ["trial_failure", "failureSubtype"],
+  ["trial_execution", "executionValidity"],
+  ["trial_termination", "terminationSubtype"],
+  ["trial_policy", "policyDisposition"],
 ] as const);
 const FILTER_QUERY_KEYS = new Set<string>(FILTER_KEYS.map(([queryKey]) => queryKey));
 
@@ -64,7 +73,10 @@ export function matchesReviewedTrial(
     && (!filters.runLabel || row.run_label === filters.runLabel)
     && (!filters.taskId || row.task_id === filters.taskId)
     && (!filters.rawOutcome || row.raw_outcome === filters.rawOutcome)
-    && (!filters.failureSubtype || row.failure_subtype === filters.failureSubtype);
+    && (!filters.failureSubtype || row.failure_subtype === filters.failureSubtype)
+    && (!filters.executionValidity || row.execution_validity === filters.executionValidity)
+    && (!filters.terminationSubtype || row.termination_subtype === filters.terminationSubtype)
+    && (!filters.policyDisposition || row.policy_disposition === filters.policyDisposition);
 }
 
 export function sortReviewedTrialsById<T extends { trial_id: string }>(rows: readonly T[]): T[] {

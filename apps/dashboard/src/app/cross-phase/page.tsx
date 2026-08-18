@@ -11,6 +11,7 @@ import {
   getRouterComparisonRows,
 } from "../../lib/cross-phase-reporting";
 import { selectReviewedPhase3Scope } from "../../lib/phase3-reviewed-comparison";
+import { getCostPerformanceChartArms } from "../../lib/cost-performance-chart";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,11 @@ function formatMoney(value: number | null, maximumFractionDigits = 2): string {
     currency: "USD",
     maximumFractionDigits,
   }).format(value);
+}
+
+function linkedMoney(value: number | null, href: string, maximumFractionDigits = 2) {
+  const formatted = formatMoney(value, maximumFractionDigits);
+  return value === null ? formatted : <Link href={href}>{formatted}</Link>;
 }
 
 function formatRatio(value: number | null): string {
@@ -69,6 +75,11 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
 
   const behaviorByArm = new Map(behaviorRows.map((row) => [row.arm_id, row]));
   const phase3Summary = summaries.find((summary) => summary.phase === "phase3");
+  const chartArms = getCostPerformanceChartArms(selection.scopeId);
+  const chartArmById = new Map(chartArms.map((arm) => [arm.armId, arm]));
+  if (phase3Rows.some((row) => !chartArmById.has(row.arm_id))) {
+    throw new Error("Cross-phase Phase 3 rows and frozen selected-run membership disagree");
+  }
 
   return (
     <AppShell
@@ -197,14 +208,15 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
-                <tr key={`${row.phase}:${row.arm_id}`}>
+              {rows.map((row) => {
+                const chartArm = row.phase === "phase3" ? chartArmById.get(row.arm_id) : null;
+                return <tr key={`${row.phase}:${row.arm_id}`}>
                   <td className="sticky-id-column">
-                    <div className="mono">{row.arm_id}</div>
-                    {row.phase === "phase3" ? (
+                    <div className="mono">{chartArm ? <Link href={chartArm.armHref}>{row.arm_id}</Link> : row.arm_id}</div>
+                    {chartArm ? (
                       <div className="row-action-links">
-                        <a href={`/trial-quality?arm_id=${encodeURIComponent(row.arm_id)}`}>Trial quality</a>
-                        <a href={`/artifacts?arm_id=${encodeURIComponent(row.arm_id)}`}>Artifacts</a>
+                        <Link href={chartArm.selectedRunHref}>Selected run</Link>
+                        <Link href={`/artifacts?arm_id=${encodeURIComponent(row.arm_id)}`}>Artifacts</Link>
                       </div>
                     ) : (
                       <div className="muted">Frozen aggregate row</div>
@@ -216,10 +228,10 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
                   <td>{row.routing_path}</td>
                   <td>{row.success_count}/{row.trial_count}</td>
                   <td>{formatPercent(row.pass_rate)}</td>
-                  <td>{formatMoney(row.recorded_cost_usd, 6)}</td>
-                  <td>{formatMoney(row.adjusted_cost_usd, 7)}</td>
+                  <td>{chartArm ? linkedMoney(row.recorded_cost_usd, chartArm.costProvenanceHref, 6) : formatMoney(row.recorded_cost_usd, 6)}</td>
+                  <td>{chartArm ? linkedMoney(row.adjusted_cost_usd, chartArm.costProvenanceHref, 7) : formatMoney(row.adjusted_cost_usd, 7)}</td>
                   <td>{row.reviewed_cost_label ?? "Adjusted known cost"}</td>
-                  <td>{formatMoney(row.cost_per_clean_success_usd)}</td>
+                  <td>{chartArm ? linkedMoney(row.cost_per_clean_success_usd, chartArm.costProvenanceHref) : formatMoney(row.cost_per_clean_success_usd)}</td>
                   <td>{formatPercent(row.unclean_spend_share)}</td>
                   <td className="table-cell-wrap">
                     <div>{row.cost_confidence} confidence</div>
@@ -229,8 +241,8 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
                       </div>
                     ) : null}
                   </td>
-                </tr>
-              ))}
+                </tr>;
+              })}
             </tbody>
           </table>
         </div>
@@ -259,19 +271,21 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
             <tbody>
               {efficientPhase3Rows.map((row) => {
                 const behavior = behaviorByArm.get(row.arm_id);
+                const chartArm = chartArmById.get(row.arm_id);
+                if (!chartArm) throw new Error(`No exact frozen selected run exists for ${row.arm_id}`);
                 return (
                   <tr key={row.arm_id}>
                     <td className="sticky-id-column">
-                      <div className="mono">{row.arm_id}</div>
+                      <div className="mono"><Link href={chartArm.armHref}>{row.arm_id}</Link></div>
                       <div className="row-action-links">
-                        <a href={`/trial-quality?arm_id=${encodeURIComponent(row.arm_id)}`}>Trial quality</a>
-                        <a href={`/artifacts?arm_id=${encodeURIComponent(row.arm_id)}`}>Artifacts</a>
+                        <Link href={chartArm.selectedRunHref}>Selected run</Link>
+                        <Link href={`/artifacts?arm_id=${encodeURIComponent(row.arm_id)}`}>Artifacts</Link>
                       </div>
                     </td>
                     <td>{row.backend_model}</td>
                     <td>{formatPercent(row.pass_rate)}</td>
-                    <td>{formatMoney(row.adjusted_cost_usd, 7)}</td>
-                    <td>{formatMoney(row.cost_per_clean_success_usd)}</td>
+                    <td>{linkedMoney(row.adjusted_cost_usd, chartArm.costProvenanceHref, 7)}</td>
+                    <td>{linkedMoney(row.cost_per_clean_success_usd, chartArm.costProvenanceHref)}</td>
                     <td>{formatPercent(row.unclean_spend_share)}</td>
                     <td>{behavior?.behavior_tags ?? ""}</td>
                   </tr>

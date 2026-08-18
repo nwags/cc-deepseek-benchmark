@@ -10,9 +10,11 @@ import {
   buildCostCoverageHref,
   buildExactRunHref,
   buildExactTrialHref,
+  buildReviewedAggregateArmEvidenceHref,
   selectCostProvenanceFocus,
   selectEvidenceSourceScope,
 } from "../../lib/evidence-links";
+import { getCostPerformanceChartArms } from "../../lib/cost-performance-chart";
 import {
   selectReviewedPhase3Scope,
   type ReviewedPhase3Arm,
@@ -66,6 +68,11 @@ function formatCost(value: string | null, maximumFractionDigits = 6): string {
     currency: "USD",
     maximumFractionDigits,
   }).format(Number(value));
+}
+
+function linkedCost(value: string | null, href: string, maximumFractionDigits = 6) {
+  const formatted = formatCost(value, maximumFractionDigits);
+  return value === null ? formatted : <Link href={href}>{formatted}</Link>;
 }
 
 function evidenceLabel(value: string): string {
@@ -123,6 +130,12 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
   const selectedReviewedCost = cost.adjustedKnownCostUsd ?? cost.qualifiedAdjustedCostEstimateUsd;
   const arms = [...scope.arms].sort((left, right) => right.passRate - left.passRate);
   const kimi = scope.arms.find((arm) => arm.armId === "router-kimi-k3") ?? null;
+  const chartArms = getCostPerformanceChartArms(selection.scopeId);
+  const chartArmById = new Map(chartArms.map((arm) => [arm.armId, arm]));
+  if (chartArms.length !== scope.armCount || arms.some((arm) => !chartArmById.has(arm.armId))) {
+    throw new Error("Reviewed Cost Coverage and frozen selected-run membership disagree");
+  }
+  const kimiChartArm = kimi ? chartArmById.get(kimi.armId) ?? null : null;
 
   return (
     <AppShell
@@ -163,7 +176,7 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
         <section className="quality-context-panel" aria-label="Kimi K3 qualified cost evidence">
           <p><strong>Kimi K3 qualified cost evidence</strong></p>
           <p>
-            Recorded trial cost: {formatCost(kimi.recordedCostUsd, 6)} · qualified retained-rate reconstruction: {formatCost(kimi.qualifiedRetainedRateCostUsd, 7)} · accounting gap: {formatCost(kimi.accountingGapUsd, 7)}.
+            Recorded trial cost: {kimiChartArm ? linkedCost(kimi.recordedCostUsd, buildCostCoverageHref(selection.scopeId, { armId: kimi.armId, runLabel: kimiChartArm.selectedRunLabel }, onwardSourceScope), 6) : formatCost(kimi.recordedCostUsd, 6)} · qualified retained-rate reconstruction: {kimiChartArm ? linkedCost(kimi.qualifiedRetainedRateCostUsd, buildCostCoverageHref(selection.scopeId, { armId: kimi.armId, runLabel: kimiChartArm.selectedRunLabel }, onwardSourceScope), 7) : formatCost(kimi.qualifiedRetainedRateCostUsd, 7)} · accounting gap: {kimiChartArm ? linkedCost(kimi.accountingGapUsd, buildCostCoverageHref(selection.scopeId, { armId: kimi.armId, runLabel: kimiChartArm.selectedRunLabel }, onwardSourceScope), 7) : formatCost(kimi.accountingGapUsd, 7)}.
           </p>
           <p>
             Pricing-source provenance incomplete · arm-run/provider-log allocation confidence low · trial-level allocation unresolved · not invoice-level or provider-billed spend.
@@ -303,24 +316,34 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
             <tbody>
               {arms.map((arm) => {
                 const secondaryLabel = secondaryArmLabel(arm.armId, arm.backendModel);
+                const chartArm = chartArmById.get(arm.armId);
+                if (!chartArm) throw new Error(`No exact frozen selected run exists for ${arm.armId}`);
+                const costHref = buildCostCoverageHref(
+                  selection.scopeId,
+                  { armId: arm.armId, runLabel: chartArm.selectedRunLabel },
+                  onwardSourceScope,
+                );
                 return (
                   <tr key={arm.armId}>
                     <td className="sticky-id-column">
-                      <strong>{arm.armId}</strong>
+                      <strong><Link href={buildReviewedAggregateArmEvidenceHref(arm.armId, onwardSourceScope)}>{arm.armId}</Link></strong>
                       {secondaryLabel ? <div className="muted">{secondaryLabel}</div> : null}
-                      <div><Link href={buildCostCoverageHref(selection.scopeId, { armId: arm.armId }, onwardSourceScope)}>Focus stored cost rows</Link></div>
+                      <div className="row-action-links">
+                        <Link href={buildExactRunHref(chartArm.selectedRunLabel, onwardSourceScope)}>Selected run</Link>
+                        <Link href={costHref}>Focus stored cost rows</Link>
+                      </div>
                     </td>
                     <td>
                       {formatNumber(arm.successCount)}/{formatNumber(arm.trialCount)}
                       <div className="muted">{formatPercent(arm.passRate)}</div>
                     </td>
-                    <td>{formatCost(arm.recordedCostUsd, 7)}</td>
-                    <td>{formatCost(reviewedArmCost(arm), 7)}</td>
+                    <td>{linkedCost(arm.recordedCostUsd, costHref, 7)}</td>
+                    <td>{linkedCost(reviewedArmCost(arm), costHref, 7)}</td>
                     <td>{reviewedArmCostLabel(arm)}</td>
-                    <td>{formatCost(arm.accountingGapUsd, 7)}</td>
-                    <td>{formatCost(arm.adjustedFailureOrIncompleteCostUsd, 7)}</td>
+                    <td>{linkedCost(arm.accountingGapUsd, costHref, 7)}</td>
+                    <td>{linkedCost(arm.adjustedFailureOrIncompleteCostUsd, costHref, 7)}</td>
                     <td>{availablePercent(arm.failureOrIncompleteSpendShare)}</td>
-                    <td>{formatCost(arm.adjustedCostPerCleanSuccessUsd, 7)}</td>
+                    <td>{linkedCost(arm.adjustedCostPerCleanSuccessUsd, costHref, 7)}</td>
                     <td>{formatNumber(arm.missingRecordedCostCount)} / {formatNumber(arm.unresolvedCostCount)}</td>
                     <td className="table-cell-wrap">
                       <div>{arm.costConfidence} confidence</div>

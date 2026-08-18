@@ -7,6 +7,7 @@ import { MetricCard } from "../../../components/MetricCard";
 import { QualityBadge, QualityPassRate, buildSuspectNoopHref } from "../../../components/QualityContext";
 import { InvalidReason, ValidityBadge, invalidCategory, validityLabel } from "../../../components/ValidityContext";
 import { buildArtifactHref } from "../../../lib/links";
+import { buildExactTrialHref, selectEvidenceSourceScope } from "../../../lib/evidence-links";
 import {
   getArmRunQualityByRunLabels,
   getInvalidArmRunRowsByRunLabels,
@@ -48,6 +49,7 @@ export default async function RunDetailPage({
 }) {
   const { runLabel } = await params;
   const query = searchParams ? await searchParams : {};
+  const sourceScopeSelection = selectEvidenceSourceScope(query.source_scope);
   const decodedRunLabel = decodeURIComponent(runLabel);
   const resolution = await getRunDetailResolution(decodedRunLabel);
 
@@ -232,6 +234,7 @@ export default async function RunDetailPage({
           <table>
             <thead>
               <tr>
+                <th className="sticky-id-column">Trial</th>
                 <th>Task</th>
                 <th>Attempt</th>
                 <th>Arm</th>
@@ -244,6 +247,7 @@ export default async function RunDetailPage({
             <tbody>
               {trials.map((trial) => (
                 <tr key={trial.trial_id}>
+                  <td className="sticky-id-column mono"><Link href={buildExactTrialHref(trial.trial_id, sourceScopeSelection.sourceScope)}>{trial.trial_id}</Link></td>
                   <td className="mono">{safeText(trial.task_id)}</td>
                   <td>Attempt {trial.task_attempt} <span className="muted">(run #{trial.run_trial_ordinal ?? "not recorded"})</span></td>
                   <td className="mono">{safeText(trial.arm_id)}</td>
