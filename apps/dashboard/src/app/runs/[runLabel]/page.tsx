@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "../../../components/AppShell";
 import { DataFreshnessNotice } from "../../../components/DataFreshnessNotice";
+import { EvidenceSourceContextNotice } from "../../../components/EvidenceSourceContextNotice";
 import { MetricCard } from "../../../components/MetricCard";
 import { QualityBadge, QualityPassRate, buildSuspectNoopHref } from "../../../components/QualityContext";
 import { InvalidReason, ValidityBadge, invalidCategory, validityLabel } from "../../../components/ValidityContext";
@@ -39,11 +40,14 @@ function compactArtifactPath(value: string): string {
 }
 
 export default async function RunDetailPage({
-  params
+  params,
+  searchParams,
 }: {
   params: Promise<{ runLabel: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { runLabel } = await params;
+  const query = searchParams ? await searchParams : {};
   const decodedRunLabel = decodeURIComponent(runLabel);
   const resolution = await getRunDetailResolution(decodedRunLabel);
 
@@ -61,6 +65,7 @@ export default async function RunDetailPage({
     );
     return (
       <AppShell title="Run identity ambiguous" description="The requested run label does not identify exactly one Phase 3 database row.">
+        <EvidenceSourceContextNotice value={query.source_scope} />
         <DataFreshnessNotice freshness={freshness} />
         <section className="panel warning-panel">
           <div className="panel-heading">
@@ -107,6 +112,7 @@ export default async function RunDetailPage({
 
   return (
     <AppShell title="Run detail">
+      <EvidenceSourceContextNotice value={query.source_scope} />
       <DataFreshnessNotice freshness={freshness} />
       <section className="panel">
         <div className="panel-heading">

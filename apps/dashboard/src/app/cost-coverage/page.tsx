@@ -3,7 +3,16 @@ import Link from "next/link";
 import { AppShell } from "../../components/AppShell";
 import { CorpusScopeNotice } from "../../components/CorpusScopeNotice";
 import { CorpusScopeSelector } from "../../components/CorpusScopeSelector";
+import { EvidenceSourceContextNotice } from "../../components/EvidenceSourceContextNotice";
 import { MetricCard } from "../../components/MetricCard";
+import { getCostProvenanceFocusRows, type CostProvenanceFocusRow } from "../../lib/dashboard-data";
+import {
+  buildCostCoverageHref,
+  buildExactRunHref,
+  buildExactTrialHref,
+  selectCostProvenanceFocus,
+  selectEvidenceSourceScope,
+} from "../../lib/evidence-links";
 import {
   selectReviewedPhase3Scope,
   type ReviewedPhase3Arm,
@@ -41,7 +50,13 @@ const costCategories = [
 ];
 
 type CostCoveragePageProps = {
-  searchParams?: Promise<{ scope?: string | string[] }>;
+  searchParams?: Promise<{
+    scope?: string | string[];
+    arm_id?: string | string[];
+    run_label?: string | string[];
+    trial_id?: string | string[];
+    source_scope?: string | string[];
+  }>;
 };
 
 function formatCost(value: string | null, maximumFractionDigits = 6): string {
@@ -86,6 +101,22 @@ function secondaryArmLabel(primary: string, secondary: string | null | undefined
 export default async function CostCoveragePage({ searchParams }: CostCoveragePageProps) {
   const params = searchParams ? await searchParams : {};
   const selection = selectReviewedPhase3Scope(params.scope);
+  const sourceScopeSelection = selectEvidenceSourceScope(params.source_scope);
+  const onwardSourceScope = sourceScopeSelection.sourceScope ?? selection.scopeId;
+  const focusSelection = selectCostProvenanceFocus({
+    armId: params.arm_id,
+    runLabel: params.run_label,
+    trialId: params.trial_id,
+  });
+  let focusRows: CostProvenanceFocusRow[] = [];
+  let focusReadUnavailable = false;
+  if (focusSelection.focus) {
+    try {
+      focusRows = await getCostProvenanceFocusRows(focusSelection.focus);
+    } catch {
+      focusReadUnavailable = true;
+    }
+  }
   const scope = selection.scope;
   const cost = scope.costEvidence;
   const outcomes = scope.outcomeCostCoverage;
@@ -98,12 +129,17 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
       title={`Cost Coverage: ${scope.displayName}`}
       description={`Recorded cost, reviewed cost evidence, accounting gaps, and allocation limits for the ${scope.displayName.toLowerCase()} from the reviewed 2026-08-05 layer.`}
     >
-      <CorpusScopeSelector pathname="/cost-coverage" selectedScopeId={selection.scopeId} />
+      <CorpusScopeSelector
+        pathname="/cost-coverage"
+        selectedScopeId={selection.scopeId}
+        sourceScope={sourceScopeSelection.sourceScope}
+      />
       {selection.warningMessage ? (
         <p className="warning-text" role="alert">
           <strong>Scope selection warning:</strong> {selection.warningMessage}
         </p>
       ) : null}
+      <EvidenceSourceContextNotice value={params.source_scope} />
       <CorpusScopeNotice
         scopeId={selection.scopeId}
         observedCounts={{
@@ -172,6 +208,74 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
         />
       </section>
 
+      <section className="panel" id="cost-provenance-focus">
+        <div className="panel-heading">
+          <div>
+            <h2>Cost provenance focus</h2>
+            <p>Optional exact stored evidence is shown separately and never changes the reviewed scope totals above.</p>
+          </div>
+        </div>
+        <div className="quality-context-panel">
+          <p>
+            <strong>Reviewed aggregate:</strong> the headline and arm totals remain the checked-in {scope.displayName} evidence.
+            <br />
+            <strong>Stored focus:</strong> rows below, when requested, come from the valid-only <span className="mono">benchmark.v_trial_adjusted_cost_coverage</span> view.
+          </p>
+          {focusSelection.focus?.armId && !focusSelection.focus.runLabel && !focusSelection.focus.trialId ? (
+            <p>An arm-only focus may span multiple valid runs. It does not identify or select a latest run.</p>
+          ) : null}
+        </div>
+        {focusSelection.warningMessage ? (
+          <p className="warning-text" role="alert">{focusSelection.warningMessage}</p>
+        ) : null}
+        {!focusSelection.focus ? (
+          <div className="placeholder-body">No cost provenance focus is selected. Reviewed scope totals remain available above.</div>
+        ) : focusReadUnavailable ? (
+          <div className="placeholder-body warning-text">Stored valid-only cost evidence is unavailable. No database or reviewed-total fallback was substituted.</div>
+        ) : focusRows.length === 0 ? (
+          <div className="placeholder-body">No valid stored cost-coverage row matched every supplied exact identity. No latest, prefix, or alternate-trial fallback was used.</div>
+        ) : (
+          <>
+            <p className="muted">Showing {focusRows.length} matching row(s), bounded to 50. Focus parameters constrain only this evidence table.</p>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th className="sticky-id-column">Trial</th>
+                    <th>Arm / run</th>
+                    <th>Task / attempt</th>
+                    <th>Recorded cost</th>
+                    <th>Adjusted cost</th>
+                    <th>Accounting gap</th>
+                    <th>Source / confidence</th>
+                    <th>Outcome</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {focusRows.map((row) => (
+                    <tr key={row.trial_id}>
+                      <td className="sticky-id-column mono">
+                        <Link href={buildExactTrialHref(row.trial_id, onwardSourceScope)}>{row.trial_id}</Link>
+                      </td>
+                      <td>
+                        <div className="mono">{row.arm_id}</div>
+                        <Link className="mono" href={buildExactRunHref(row.run_label, onwardSourceScope)}>{row.run_label}</Link>
+                      </td>
+                      <td><span className="mono">{row.task_id ?? "Unavailable"}</span><br />attempt {row.attempt_index ?? "Unavailable"}</td>
+                      <td>{formatCost(row.recorded_cost_usd, 8)}</td>
+                      <td>{formatCost(row.adjusted_cost_usd, 8)}</td>
+                      <td>{formatCost(row.known_accounting_gap_usd, 8)}</td>
+                      <td>{evidenceLabel(row.cost_source)} · {evidenceLabel(row.cost_confidence)}<div className="muted">{row.cost_gap_reason ? evidenceLabel(row.cost_gap_reason) : "No recorded gap reason"}</div></td>
+                      <td>{outcomeLabel(row.outcome_bucket)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </section>
+
       <section className="panel">
         <div className="panel-heading">
           <div>
@@ -204,6 +308,7 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
                     <td className="sticky-id-column">
                       <strong>{arm.armId}</strong>
                       {secondaryLabel ? <div className="muted">{secondaryLabel}</div> : null}
+                      <div><Link href={buildCostCoverageHref(selection.scopeId, { armId: arm.armId }, onwardSourceScope)}>Focus stored cost rows</Link></div>
                     </td>
                     <td>
                       {formatNumber(arm.successCount)}/{formatNumber(arm.trialCount)}

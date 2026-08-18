@@ -673,6 +673,16 @@ The production-mode DR-105 manual review passed on 2026-08-17 at 1920px, 1440px,
 
 ### DR-106 — Add evidence-aware deep links
 
+**Implementation status:** Group DR-106A destination/filter foundation complete; manual acceptance and DR-106B source-surface wiring pending.
+
+DR-106A establishes small typed evidence-link contracts rather than a generic or inference-based URL builder. Exact run and trial links require an established `run_label` or `trial_id`; the explicitly reviewed aggregate-arm helper targets the frozen Comprehensive Review population with exact arm equality and never invents a “latest” run. Selecting an appropriate operational/all-imported arm destination remains DR-106B work. Reviewed Phase 3 Cost Coverage links accept only `phase3-core` or `phase3-extended`, while `source_scope` may carry one validated reviewed or inventory scope solely as navigation context through Cost Coverage, Comprehensive Review, and exact run/trial drilldown. That context never changes a destination population or Cost Coverage headline scope, and invalid or repeated values are visibly ignored.
+
+Cost Coverage retains its checked-in reviewed headline denominator and cost semantics. Optional exact `arm_id`, `run_label`, and `trial_id` focus parameters populate a separate, bounded, read-only provenance table from the valid-only `benchmark.v_trial_adjusted_cost_coverage` view. All supplied identities are combined with parameterized exact predicates; conflicting identities produce no match, arm-only focus selects no run, and no prefix/latest/alternate fallback changes the reviewed totals or Kimi K3 qualifications.
+
+Comprehensive Review now exposes a separate `#reviewed-trials` surface over all manifest-validated frozen `trial_review.csv` rows. Namespaced exact-equality filters cover trial, arm, run, task, raw outcome, and retained failure subtype with deterministic pagination. This complete frozen population remains distinct from the unchanged default high-priority manual-review queue, raw benchmark results, and J2. Its reviewed-trial, queue, and control rows put their exact Trial action in the first visible column.
+
+DR-106B remains responsible for wiring the supported contracts into the remaining arm names, exact reviewed selected-run identities, cost values, and failure counts across source pages. Operational or otherwise non-identical failure-count predicates deliberately remain unsupported rather than being translated into a different frozen-review classification. DR-106 is not complete or accepted until that wiring and manual review finish.
+
 Required:
 
 - arm names link to the relevant arm/run view;

@@ -1,4 +1,5 @@
 import { queryRows } from "./db";
+import type { CostProvenanceFocus } from "./evidence-links";
 
 export type OverviewRow = {
   run_count: number;
@@ -2305,6 +2306,87 @@ export type AdjustedOutcomeCostRow = {
   adjusted_known_cost_usd: number;
   known_accounting_gap_usd: number;
 };
+
+export type CostProvenanceFocusRow = {
+  trial_id: string;
+  suite_id: string;
+  arm_id: string;
+  run_label: string;
+  backend_model: string | null;
+  provider: string | null;
+  task_id: string | null;
+  attempt_index: number | null;
+  reward: string | null;
+  exception_type: string | null;
+  runtime_seconds: number | null;
+  recorded_cost_usd: string | null;
+  token_reconstructed_cost_usd: string | null;
+  empirical_reconstructed_cost_usd: string | null;
+  adjusted_cost_usd: string | null;
+  known_accounting_gap_usd: string;
+  cost_source: string;
+  cost_confidence: string;
+  cost_gap_reason: string | null;
+  outcome_bucket: string;
+  cost_coverage_run_id: string;
+  source_path: string | null;
+};
+
+export async function getCostProvenanceFocusRows(
+  focus: CostProvenanceFocus,
+): Promise<CostProvenanceFocusRow[]> {
+  const conditions: string[] = [];
+  const parameters: Array<string | number> = [];
+  if (focus.trialId) {
+    parameters.push(focus.trialId);
+    conditions.push(`trial_id = $${parameters.length}::uuid`);
+  }
+  if (focus.runLabel) {
+    parameters.push(focus.runLabel);
+    conditions.push(`run_label = $${parameters.length}`);
+  }
+  if (focus.armId) {
+    parameters.push(focus.armId);
+    conditions.push(`arm_id = $${parameters.length}`);
+  }
+  if (conditions.length === 0) {
+    throw new Error("Cost provenance focus requires at least one exact identity");
+  }
+  parameters.push(50);
+
+  return queryRows<CostProvenanceFocusRow>(
+    `
+      select
+        trial_id::text,
+        suite_id,
+        arm_id,
+        run_label,
+        backend_model,
+        provider,
+        task_id,
+        attempt_index,
+        reward::text,
+        exception_type,
+        runtime_seconds::float8,
+        recorded_cost_usd::text,
+        token_reconstructed_cost_usd::text,
+        empirical_reconstructed_cost_usd::text,
+        adjusted_cost_usd::text,
+        known_accounting_gap_usd::text,
+        cost_source,
+        cost_confidence,
+        cost_gap_reason,
+        outcome_bucket,
+        cost_coverage_run_id,
+        source_path
+      from benchmark.v_trial_adjusted_cost_coverage
+      where ${conditions.join("\n        and ")}
+      order by run_label, task_id, attempt_index, trial_id
+      limit $${parameters.length}::int
+    `,
+    parameters,
+  );
+}
 
 export async function getAdjustedCostOverview(suiteId: string): Promise<AdjustedCostOverviewRow> {
   const rows = await queryRows<AdjustedCostOverviewRow>(

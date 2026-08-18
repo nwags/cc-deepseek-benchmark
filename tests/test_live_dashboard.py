@@ -327,6 +327,93 @@ def test_comprehensive_review_queue_and_disagreements_are_filterable_and_paginat
     assert 'name.includes("..")' in review_data
 
 
+def test_dr106a_evidence_destinations_are_exact_scoped_and_read_only() -> None:
+    links = Path("apps/dashboard/src/lib/evidence-links.ts").read_text()
+    filters = Path("apps/dashboard/src/lib/reviewed-trial-filters.ts").read_text()
+    cost_page = Path("apps/dashboard/src/app/cost-coverage/page.tsx").read_text()
+    comprehensive = Path("apps/dashboard/src/app/comprehensive-review/page.tsx").read_text()
+    data = Path("apps/dashboard/src/lib/dashboard-data.ts").read_text()
+    review_data = Path("apps/dashboard/src/lib/review-data.ts").read_text()
+    context = Path("apps/dashboard/src/components/EvidenceSourceContextNotice.tsx").read_text()
+    run_detail = Path("apps/dashboard/src/app/runs/[runLabel]/page.tsx").read_text()
+    trial_detail = Path("apps/dashboard/src/app/trials/[trialId]/page.tsx").read_text()
+    package = Path("apps/dashboard/package.json").read_text()
+
+    assert "buildExactRunHref" in links
+    assert "buildExactTrialHref" in links
+    assert "buildReviewedAggregateArmEvidenceHref" in links
+    assert "buildAggregateArmEvidenceHref" not in links
+    assert "buildCostCoverageHref" in links
+    assert "buildReviewedFailureEvidenceHref" in links
+    assert 'source: "operational_or_unsupported"' in links
+    assert "return null" in links
+    assert "new URLSearchParams" in links
+    assert "latest" not in links.lower()
+    assert '"valid-imported"' in links and '"all-imported"' in links
+    assert "Cost Coverage requires a reviewed Phase 3 scope" in links
+    assert "source_scope is navigation context only" in links
+    assert "never changes a destination evidence population" in links
+    assert "selectEvidenceSourceScope" in context
+    assert "EVIDENCE_SOURCE_SCOPE_NOTE" in context
+    assert "<EvidenceSourceContextNotice value={query.source_scope}" in run_detail
+    assert "<EvidenceSourceContextNotice value={query.source_scope}" in trial_detail
+    assert "buildExactRunHref(trial.run_label, sourceScope)" in trial_detail
+    assert 'href={`/runs/${encodeURIComponent(trial.run_label)}`}' not in trial_detail
+
+    assert "getCostProvenanceFocusRows" in cost_page
+    assert "selectEvidenceSourceScope(params.source_scope)" in cost_page
+    assert "<EvidenceSourceContextNotice value={params.source_scope}" in cost_page
+    assert "buildExactTrialHref(row.trial_id, onwardSourceScope)" in cost_page
+    assert "buildExactRunHref(row.run_label, onwardSourceScope)" in cost_page
+    assert "Cost provenance focus" in cost_page
+    assert "never changes the reviewed scope totals above" in cost_page
+    assert "arm-only focus may span multiple valid runs" in cost_page.lower()
+    assert "No latest, prefix, or alternate-trial fallback" in cost_page
+    assert "benchmark.v_trial_adjusted_cost_coverage" in data
+    assert "trial_id = $${parameters.length}::uuid" in data
+    assert "run_label = $${parameters.length}" in data
+    assert "arm_id = $${parameters.length}" in data
+    cost_query = data.split("export async function getCostProvenanceFocusRows", 1)[1]
+    cost_query = cost_query.split("export ", 1)[0]
+    assert " like " not in cost_query.lower()
+    assert "latest" not in cost_query.lower()
+    assert "insert " not in cost_query.lower()
+    assert "update " not in cost_query.lower()
+    assert "delete " not in cost_query.lower()
+
+    assert 'id="reviewed-trials"' in comprehensive
+    assert "selectEvidenceSourceScope(params.source_scope)" in comprehensive
+    assert "<EvidenceSourceContextNotice value={params.source_scope}" in comprehensive
+    assert "buildReviewedTrialPageHref(params, trialFilters" in comprehensive
+    assert "reviewedTrialsPageHref" not in comprehensive
+    assert "review.reviewedTrials.filter" in comprehensive
+    assert "matchesReviewedTrial(row, trialFilters)" in comprehensive
+    assert 'priority: first(params.priority) || "high"' in comprehensive
+    for name in (
+        "trial_id", "trial_arm", "trial_run", "trial_task",
+        "trial_outcome", "trial_failure", "trial_page", "trial_page_size",
+    ):
+        assert name in comprehensive
+    assert 'className="sticky-id-column">Trial</th>' in comprehensive
+    assert "buildExactTrialHref(row.trial_id, reviewedSourceScope)" in comprehensive
+    assert "complete frozen reviewed-trial result surface" in comprehensive
+    assert "not the" in comprehensive and "manual-review queue below" in comprehensive
+    assert "reviewedTrials: ComprehensiveTrialReview[]" in review_data
+    assert "reviewedTrials: trialRows" in review_data
+    assert "row.trial_id === filters.trialId" in filters
+    assert "row.run_label === filters.runLabel" in filters
+    assert "row.failure_subtype === filters.failureSubtype" in filters
+    assert "includes(" not in filters
+    assert "test:evidence-links" in package
+
+    assert '"results", "manual_verification", "comprehensive_review_20260731"' in review_data
+    combined = links + filters + cost_page + comprehensive + context
+    for forbidden in ("fs.write", "writefile", "insert into", "update benchmark.", "put_object"):
+        assert forbidden not in combined.lower()
+    assert "failure_taxonomy_classifier" not in comprehensive
+    assert "@aws-sdk" not in comprehensive
+
+
 def test_database_exception_summary_is_sourced_sanitized_and_cache_bound() -> None:
     analysis = Path("apps/dashboard/src/lib/trial-analysis-core.ts").read_text()
     live_analysis = Path("apps/dashboard/src/lib/trial-analysis.ts").read_text()
@@ -397,7 +484,9 @@ def test_dashboard_corpus_scopes_are_centralized_and_visible() -> None:
     assert "costDisplayLabel" in notice
     assert 'role="alert"' in notice
     assert "not a full-suite leaderboard denominator" in notice
-    assert 'href={`${pathname}?scope=${option.id}`}' in selector
+    assert "new URLSearchParams({ scope: option.id })" in selector
+    assert 'query.set("source_scope", sourceScope)' in selector
+    assert 'href={`${pathname}?${query.toString()}`}' in selector
     assert 'aria-current={selected ? "page" : undefined}' in selector
     assert "current reviewed comparison" in selector.lower()
     assert "historical reviewed snapshot" in selector.lower()
