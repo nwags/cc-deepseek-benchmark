@@ -795,6 +795,14 @@ Group H2 uses fixed point sizing, the option explicitly permitted above. It adds
 
 ### DR-302 — Failure composition by arm
 
+**2026-08-19 implementation contract:** DR-302 is scoped in
+[`DASHBOARD_DR302_FAILURE_COMPOSITION_20260819.md`](DASHBOARD_DR302_FAILURE_COMPOSITION_20260819.md).
+The chart uses the frozen Phase 3 extended 16-arm / 960-trial Comprehensive
+Review plus exact-ID J2 taxonomy evidence, and defines an explicit
+display-only partition over the 370 raw failures. This partition does not
+change taxonomy/classifier precedence or raw benchmark truth. DR-303 remains
+outside the branch.
+
 Stacked counts or shares for:
 
 - verifier/task failure;
