@@ -1,6 +1,6 @@
 # Dashboard DR-302 Failure Composition Plan — 2026-08-19
 
-**Status:** Implementation contract complete; dashboard implementation pending
+**Status:** Complete and production-mode manually/visually accepted 2026-08-19
 **Repository:** `cc-deepseek-bench`
 **Branch:** `dashboard-dr302-failure-composition`
 **Base:** `b67e7d6b42eb48a6fa8356ef54b84497f4a8b723`
@@ -286,6 +286,47 @@ After implementation:
 Do not rerun benchmarks, provider probes, migration 009, Supabase writes,
 R2 writes, J2 generation, or frozen-review generation.
 
+#### Acceptance record — 2026-08-19
+
+DR302-A through DR302-C completed on
+`dashboard-dr302-failure-composition`: contract commit `7ae4de98`, pure
+failure-composition model commit `34dfa4d5`, validated reviewed-source
+exposure commit `89f65701`, and Trial Quality presentation commit
+`e0eca21f`.
+
+The completed presentation retains the frozen `phase3-extended`
+population of 16 arms and 960 reviewed trials. Its denominator is exactly
+370 raw failures. The seven display categories remain distinct and
+partition those 370 failures exactly. The 562 raw successes and 28
+`not_recorded` outcomes remain outside the denominator, including the 19
+successful trials with timeout-after-meaningful-activity evidence.
+
+Production-mode manual visual review covered 1920×1080, 1440×1080, and
+1280×1080. The horizontal stacked-count bars, seven-category legend,
+friendly arm labels with visible canonical IDs, exact accessible table,
+denominator disclosure, and conservative unknown/incomplete-evidence
+explanation remained contained and readable at all three widths. The
+frozen taxonomy material remained before DR-302, and DR-302 remained
+visibly separated from the later operational quality sections.
+
+The production captures also showed operational database-backed quality
+material in an unavailable state. That did not alter or substitute the
+frozen DR-302 evidence. No database, R2, live-analysis, all-imported,
+latest-run, browser-derived, or runtime-classifier fallback populated or
+reinterpreted the DR-302 counts.
+
+Pre-acceptance validation included focused DR-302 model and presentation
+tests, typecheck, a successful production build, and the final repository
+validation. The final `make check` passed 227 dashboard Node tests and 429
+Python tests; the strict review-output scan was clean; `make secret-scan`
+passed; `git diff --check` was clean; and the protected-boundary and
+DR-303 contamination inspections were empty.
+
+No benchmark rerun, paid provider probe, migration 009 execution,
+Supabase write, R2 write, frozen-result regeneration, Comprehensive
+Review regeneration, J2 regeneration, taxonomy/classifier change, or
+DR-303 spend-decomposition implementation was performed.
+
 ## Protected boundaries
 
 DR-302 must not modify:
@@ -311,4 +352,4 @@ DR-302 is complete only when:
 - production visual acceptance passes;
 - protected/frozen boundaries remain unchanged.
 
-DR-303 remains separate future work.
+**Disposition:** DR-302 is complete and accepted 2026-08-19. DR-303 remains separate future work.

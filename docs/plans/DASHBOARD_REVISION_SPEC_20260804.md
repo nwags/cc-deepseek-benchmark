@@ -1,7 +1,7 @@
 # Dashboard Revision Specification
 
 **Date:** 2026-08-04
-**Status:** P2 completion accepted 2026-08-19; DR-302 and DR-303 remain later P3 requirements
+**Status:** P2 completion and DR-302 accepted 2026-08-19; DR-303 remains a later P3 requirement
 **Target repository:** `cc-deepseek-bench`
 **Target branch:** `dashboard-revision-scope-and-stale-pages`
 **P2 closeout branch:** `dashboard-p2-completion`
@@ -759,7 +759,7 @@ Do not mass-rename canonical IDs.
 
 ## 9. Chart requirements
 
-Scope and Kimi cost integration must be completed first so chart inputs are stable. DR-301 is then completed as corrective P0 work before the second manual acceptance pass. DR-302 and DR-303 remain later chart requirements.
+Scope and Kimi cost integration must be completed first so chart inputs are stable. DR-301 is then completed as corrective P0 work before the second manual acceptance pass. DR-302 is complete and accepted as of 2026-08-19; DR-303 remains the later chart requirement.
 
 ### DR-301 — Interactive cost/performance frontier
 
@@ -794,6 +794,8 @@ Presentation:
 Group H2 uses fixed point sizing, the option explicitly permitted above. It adds no chart dependency and introduces no client-side metric or Pareto derivation: scale geometry is presentation-only, and H1 remains authoritative for all quantitative values, availability, filtering, and frontier output.
 
 ### DR-302 — Failure composition by arm
+
+**Implementation status:** Complete and production-mode manually/visually accepted 2026-08-19.
 
 **2026-08-19 implementation contract:** DR-302 is scoped in
 [`DASHBOARD_DR302_FAILURE_COMPOSITION_20260819.md`](DASHBOARD_DR302_FAILURE_COMPOSITION_20260819.md).
