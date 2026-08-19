@@ -107,8 +107,33 @@ export type FailureTaxonomySnapshot = Readonly<{
   provenance: FailureTaxonomyProvenance | null;
 }>;
 
+export type FailureTaxonomyReviewedSourceRow = Readonly<{
+  trial_id: string;
+  arm_id: string;
+  task_id: string;
+  raw_outcome: string;
+  execution_validity: string;
+  activity_subtype: string;
+  failure_subtype: string;
+  termination_subtype: string;
+  policy_disposition: string;
+  evidence_complete: string;
+  classification_confidence: string;
+  manual_review_required: string;
+}>;
+
+export type FailureTaxonomyReviewedSource = Readonly<{
+  available: boolean;
+  state: FailureTaxonomySnapshotState;
+  message: string;
+  reviewRows: readonly FailureTaxonomyReviewedSourceRow[];
+  taxonomyRows: readonly FailureTaxonomyTrial[];
+  provenance: FailureTaxonomyProvenance | null;
+}>;
+
 type FailureTaxonomyIndex = FailureTaxonomySnapshot & {
   byTrialId: ReadonlyMap<string, FailureTaxonomyTrial>;
+  reviewedSourceRows: readonly FailureTaxonomyReviewedSourceRow[];
 };
 
 export type FailureTaxonomyTrialJoin =
@@ -286,6 +311,66 @@ function parseCsv(value: Buffer): Array<Record<string, string>> {
   );
 }
 
+function validateReviewedSourceRow(
+  row: Record<string, string>,
+): FailureTaxonomyReviewedSourceRow {
+  const trialId = requireString(
+    row.trial_id,
+    "reviewed_source_trial_id_invalid",
+  );
+  if (!UUID_PATTERN.test(trialId)) {
+    throw new Error("reviewed_source_trial_id_invalid");
+  }
+
+  return Object.freeze({
+    trial_id: trialId,
+    arm_id: requireString(
+      row.arm_id,
+      "reviewed_source_arm_id_invalid",
+    ),
+    task_id: requireString(
+      row.task_id,
+      "reviewed_source_task_id_invalid",
+    ),
+    raw_outcome: requireString(
+      row.raw_outcome,
+      "reviewed_source_raw_outcome_invalid",
+    ),
+    execution_validity: requireString(
+      row.execution_validity,
+      "reviewed_source_execution_validity_invalid",
+    ),
+    activity_subtype: requireString(
+      row.activity_subtype,
+      "reviewed_source_activity_subtype_invalid",
+    ),
+    failure_subtype: requireString(
+      row.failure_subtype,
+      "reviewed_source_failure_subtype_invalid",
+    ),
+    termination_subtype: requireString(
+      row.termination_subtype,
+      "reviewed_source_termination_subtype_invalid",
+    ),
+    policy_disposition: requireString(
+      row.policy_disposition,
+      "reviewed_source_policy_disposition_invalid",
+    ),
+    evidence_complete: requireString(
+      row.evidence_complete,
+      "reviewed_source_evidence_complete_invalid",
+    ),
+    classification_confidence: requireString(
+      row.classification_confidence,
+      "reviewed_source_classification_confidence_invalid",
+    ),
+    manual_review_required: requireString(
+      row.manual_review_required,
+      "reviewed_source_manual_review_required_invalid",
+    ),
+  });
+}
+
 function uniqueTrialIds(rows: readonly Record<string, unknown>[], code: string): Set<string> {
   const values = rows.map((row) => requireString(row.trial_id, code));
   if (values.some((trialId) => !UUID_PATTERN.test(trialId)) || new Set(values).size !== values.length) {
@@ -456,6 +541,7 @@ function unavailableIndex(
     rows: [],
     provenance: null,
     byTrialId: new Map(),
+    reviewedSourceRows: [],
   };
 }
 
@@ -619,12 +705,17 @@ async function loadIndex(): Promise<FailureTaxonomyIndex> {
     if (!sameSet(taxonomyIds, reviewIds) || !sameSet(taxonomyIds, evidenceIds)) {
       throw new Error("frozen_trial_set_mismatch");
     }
+    const reviewedSourceRows = Object.freeze(
+      reviewRows.map(validateReviewedSourceRow),
+    );
     const sortedIds = [...taxonomyIds].sort();
     if (digest(sortedIds.join("\n")) !== scopeInputs.trial_ids_sha256) {
       throw new Error("frozen_trial_set_fingerprint_mismatch");
     }
 
-    const reviewById = new Map(reviewRows.map((row) => [row.trial_id, row]));
+    const reviewById = new Map(
+      reviewedSourceRows.map((row) => [row.trial_id, row]),
+    );
     const evidenceById = new Map(evidenceRows.map((row) => [String(row.trial_id), row]));
     const joinedRows = rows.map((row) => {
       const reviewed = reviewById.get(row.trial_id);
@@ -697,6 +788,7 @@ async function loadIndex(): Promise<FailureTaxonomyIndex> {
       rows: joinedRows,
       provenance,
       byTrialId,
+      reviewedSourceRows,
     };
   } catch (error) {
     const reason = error instanceof Error ? error.message : "unknown_validation_error";
@@ -713,8 +805,24 @@ function getIndex() {
 }
 
 export async function getFailureTaxonomySnapshot(): Promise<FailureTaxonomySnapshot> {
-  const { byTrialId: _byTrialId, ...snapshot } = await getIndex();
+  const {
+    byTrialId: _byTrialId,
+    reviewedSourceRows: _reviewedSourceRows,
+    ...snapshot
+  } = await getIndex();
   return snapshot;
+}
+
+export async function getFailureTaxonomyReviewedSource(): Promise<FailureTaxonomyReviewedSource> {
+  const index = await getIndex();
+  return Object.freeze({
+    available: index.available,
+    state: index.state,
+    message: index.message,
+    reviewRows: index.reviewedSourceRows,
+    taxonomyRows: index.rows,
+    provenance: index.provenance,
+  });
 }
 
 export async function getFailureTaxonomyForTrial(
