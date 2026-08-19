@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "../../../components/AppShell";
+import { SectionNav } from "../../../components/SectionNav";
 import { DataFreshnessNotice } from "../../../components/DataFreshnessNotice";
 import { ArtifactEvidenceGuide } from "../../../components/ArtifactEvidenceGuide";
 import { ArtifactTypeLabel } from "../../../components/ArtifactTypeInfo";
@@ -33,6 +34,16 @@ export const dynamic = "force-dynamic";
 type PageSearchParams = Promise<Record<string, string | string[] | undefined>>;
 const firstParam = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] : value;
 const snapshotBoolean = (value: string | undefined) => value === "True" || value === "true";
+
+const TRIAL_EVIDENCE_SECTIONS = [
+  { href: "#trial-summary", label: "Summary" },
+  { href: "#failure-taxonomy", label: "Failure taxonomy" },
+  { href: "#quick-diagnosis", label: "Quick diagnosis" },
+  { href: "#read-next", label: "Read next" },
+  { href: "#trial-configuration", label: "Configuration" },
+  { href: "#trial-artifacts", label: "Artifacts" },
+  { href: "#task-text", label: "Task text" },
+] as const;
 
 function compactPath(value: string | null | undefined) {
   if (!value) return "not recorded";
@@ -193,6 +204,10 @@ export default async function TrialEvidencePage({
     <AppShell title="Trial evidence" description="Derived diagnosis with transparent links to one task attempt's immutable evidence.">
       <EvidenceSourceContextNotice value={query.source_scope} />
       <DataFreshnessNotice freshness={metadataFreshness} />
+      <SectionNav
+        items={TRIAL_EVIDENCE_SECTIONS}
+        ariaLabel="Trial evidence sections"
+      />
       <section className="quality-context-panel" aria-label="Trial artifact-byte boundary">
         <p><strong>Artifact references:</strong> Supabase metadata lists {artifacts.length} related artifact row(s).</p>
         {liveAnalysis ? (
@@ -206,7 +221,7 @@ export default async function TrialEvidencePage({
         )}
         <p className="muted">An R2 URI or indexed artifact row does not prove that bytes were read or verified.</p>
       </section>
-      <section className="panel">
+      <section className="panel" id="trial-summary">
         <div className="panel-heading">
           <div>
             <h2 className="mono">{trial.trial_id}</h2>
@@ -236,7 +251,7 @@ export default async function TrialEvidencePage({
 
       <FailureTaxonomyDetails result={failureTaxonomy} />
 
-      <section className="panel diagnosis-panel">
+      <section className="panel diagnosis-panel" id="quick-diagnosis">
         <div className="panel-heading">
           <div>
             <h2>Quick diagnosis <span className="derived-label">derived</span></h2>
@@ -276,7 +291,7 @@ export default async function TrialEvidencePage({
 
       <ArtifactEvidenceGuide compact />
 
-      <section className="panel">
+      <section className="panel" id="read-next">
         <div className="panel-heading"><div><h2>Read next</h2><p>Ordered evidence path for manual confirmation.</p></div></div>
         <ol className="read-next-list">
           {readNext.filter(([, type]) => type !== "exception" || evidenceByType.has("exception")).map(([label, type]) => {
@@ -291,7 +306,7 @@ export default async function TrialEvidencePage({
         </ol>
       </section>
 
-      <section className="panel">
+      <section className="panel" id="trial-configuration">
         <div className="panel-heading"><div><h2>Configuration and comparability</h2><p>Available facts only; endpoint differences are context and not automatically fairness failures.</p></div>{artifactLink(firstArtifact(artifacts, "config"), "Config evidence")}</div>
         <div className="detail-grid">
           <div><span>Task repository</span><strong>{safeDisplay(configuration.task_repository)}</strong></div>
@@ -324,7 +339,7 @@ export default async function TrialEvidencePage({
 
       {trial.exception_type || trial.exception_summary ? <section className="panel warning-panel"><div className="panel-heading"><div><h2>Exception context</h2><p>{safeDisplay(trial.exception_type ?? "exception")}</p></div>{artifactLink(firstArtifact(artifacts, "exception"), "Exception evidence")}</div><div className="placeholder-body">{safeDisplay(trial.exception_summary)}</div></section> : null}
 
-      <section className="panel">
+      <section className="panel" id="trial-artifacts">
         <div className="panel-heading"><div><h2>Related artifacts</h2><p>{completeness.canonical_present_count}/{completeness.canonical_expected_count} canonical present · {completeness.r2_indexed_count}/{completeness.canonical_expected_count} R2 indexed · router {completeness.router_observability.replace("_", " ")}.</p></div></div>
         {completeness.exception_metadata_without_artifact ? <div className="evidence-warning">Exception metadata is recorded, but no exception artifact is attached.</div> : null}
         {artifacts.length === 0 ? <div className="placeholder-body">No artifact rows are attached to this trial.</div> : (
@@ -334,7 +349,7 @@ export default async function TrialEvidencePage({
         )}
       </section>
 
-      <section className="panel">
+      <section className="panel" id="task-text">
         <div className="panel-heading"><div><h2>Task text</h2><p>{safeDisplay(taskInstruction.message)}</p></div>{taskInstruction.path ? <span className="mono">{safeDisplay(taskInstruction.path)}</span> : null}</div>
         {taskInstruction.text ? <pre className="content-preview content-preview-compact">{safeDisplay(taskInstruction.text)}</pre> : <div className="placeholder-body">No task instruction text is available in this dashboard context.</div>}
       </section>

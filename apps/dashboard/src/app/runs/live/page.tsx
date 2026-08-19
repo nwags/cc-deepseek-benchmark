@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AppShell } from "../../../components/AppShell";
+import { SectionNav } from "../../../components/SectionNav";
 import { LiveAutoRefresh } from "../../../components/LiveAutoRefresh";
 import { LiveLivenessNotice } from "../../../components/LiveLivenessNotice";
 import {
@@ -28,6 +29,21 @@ import {
 } from "../../../lib/presentation-labels";
 
 export const dynamic = "force-dynamic";
+
+const LIVE_RUN_SECTIONS = [
+  { href: "#live-executions", label: "Executions" },
+] as const;
+
+const LIVE_RUN_SELECTED_SECTIONS = [
+  ...LIVE_RUN_SECTIONS,
+  { href: "#selected-execution", label: "Selected execution" },
+  { href: "#live-warnings", label: "Warnings" },
+  { href: "#tool-activity", label: "Tool activity" },
+  { href: "#observable-output", label: "Output history" },
+  { href: "#partial-trials", label: "Partial trials" },
+  { href: "#progressive-artifacts", label: "Artifacts" },
+  { href: "#event-tail", label: "Event tail" },
+] as const;
 
 type PageSearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -312,7 +328,12 @@ export default async function LiveRunsPage({
         </div>
       </section>
 
-      <section className="panel">
+      <SectionNav
+        items={selected ? LIVE_RUN_SELECTED_SECTIONS : LIVE_RUN_SECTIONS}
+        ariaLabel="Live Runs sections"
+      />
+
+      <section className="panel" id="live-executions">
         <div className="panel-heading">
           <div>
             <h2>Recent shared executions</h2>
@@ -365,7 +386,7 @@ export default async function LiveRunsPage({
 
       {selected ? (
         <>
-          <section className="panel">
+          <section className="panel" id="selected-execution">
             <div className="panel-heading">
               <div>
                 <h2>Selected execution</h2>
@@ -393,7 +414,7 @@ export default async function LiveRunsPage({
             </div>
           </section>
 
-          <section className="panel warning-panel">
+          <section className="panel warning-panel" id="live-warnings">
             <div className="panel-heading">
               <div>
                 <h2>Warnings and diagnostic signals</h2>
@@ -422,7 +443,7 @@ export default async function LiveRunsPage({
             )}
           </section>
 
-          <section className="panel">
+          <section className="panel" id="tool-activity">
             <div className="panel-heading">
               <div>
                 <h2>Tool activity</h2>
@@ -434,7 +455,7 @@ export default async function LiveRunsPage({
             {toolEvents.length === 0 ? (
               <div className="placeholder-body">No structured tool activity has been observed for this execution.</div>
             ) : (
-              <div className="table-wrap">
+              <div className="table-wrap table-wrap-long">
                 <table>
                   <thead><tr><th>Seq</th><th>Time</th><th>Trial</th><th>Tool</th><th>Event</th><th>Status</th><th>Summary</th></tr></thead>
                   <tbody>{toolEvents.map((event) => (
@@ -453,7 +474,7 @@ export default async function LiveRunsPage({
             )}
           </section>
 
-          <section className="panel">
+          <section className="panel" id="observable-output">
             <div className="panel-heading">
               <div>
                 <h2>Observable output history</h2>
@@ -465,7 +486,7 @@ export default async function LiveRunsPage({
             <pre className="content-preview content-preview-compact">{outputHistory}</pre>
           </section>
 
-          <section className="panel">
+          <section className="panel" id="partial-trials">
             <div className="panel-heading">
               <div>
                 <h2>Partial trials</h2>
@@ -493,7 +514,7 @@ export default async function LiveRunsPage({
             )}
           </section>
 
-          <section className="panel">
+          <section className="panel" id="progressive-artifacts">
             <div className="panel-heading">
               <div>
                 <h2>Progressive artifacts</h2>
@@ -503,16 +524,20 @@ export default async function LiveRunsPage({
             {artifacts.length === 0 ? <div className="placeholder-body">No progressive artifacts are available.</div> : (
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>Trial</th><th>Type</th><th>Path</th><th>Size</th><th>State</th><th>R2</th><th>Content</th></tr></thead>
+                  <thead><tr><th className="sticky-id-column">Trial / action</th><th>Type</th><th>Path</th><th>Size</th><th>State</th><th>R2</th></tr></thead>
                   <tbody>{artifacts.map((artifact) => (
                     <tr key={artifact.artifact_id}>
-                      <td className="mono">{artifact.trial_key ?? "run root"}</td>
+                      <td className="sticky-id-column">
+                        <div className="mono">{artifact.trial_key ?? "run root"}</div>
+                        <div className="row-action-links">
+                          <Link href={`/live-artifacts/${encodeURIComponent(artifact.artifact_id)}`}>Preview</Link>
+                        </div>
+                      </td>
                       <td>{artifact.artifact_type}</td>
                       <td className="mono">{sanitizeDisplayedUri(artifact.relative_local_path)}</td>
                       <td>{fmtNumber(artifact.size_bytes)} B</td>
                       <td>{artifact.stability_state}</td>
                       <td>{artifact.r2_uri ? "available" : "pending"}</td>
-                      <td><Link href={`/live-artifacts/${encodeURIComponent(artifact.artifact_id)}`}>Preview</Link></td>
                     </tr>
                   ))}</tbody>
                 </table>
@@ -520,14 +545,14 @@ export default async function LiveRunsPage({
             )}
           </section>
 
-          <section className="panel">
+          <section className="panel" id="event-tail">
             <div className="panel-heading">
               <div>
                 <h2>Event tail</h2>
                 <p>{events.length} latest status, lifecycle, diagnostic, and publication events.</p>
               </div>
             </div>
-            <div className="table-wrap">
+            <div className="table-wrap table-wrap-long">
               <table>
                 <thead><tr><th>Seq</th><th>Time</th><th>Event</th><th>Stream</th><th>Message</th></tr></thead>
                 <tbody>{events.map((event) => (
