@@ -12,6 +12,7 @@ import {
   type ReviewedRunSelectionScope,
 } from "./phase3-reviewed-run-selection";
 import { buildCostCoverageHref, buildExactRunHref } from "./evidence-links";
+import { friendlyModelLabel, providerPresentation } from "./presentation-labels";
 import {
   DEFAULT_CHART_SCOPE,
   stableTextCompare,
@@ -26,23 +27,6 @@ import {
 
 export * from "./cost-performance-chart-view";
 
-type ReviewedMoonshotProvider = "moonshot" | "moonshot-kimi";
-
-type ChartProviderNormalization = Readonly<{
-  providerFamily: "moonshot-kimi";
-  label: "Moonshot / Kimi";
-}>;
-
-export const CHART_REVIEWED_PROVIDER_NORMALIZATION = Object.freeze({
-  moonshot: Object.freeze({
-    providerFamily: "moonshot-kimi",
-    label: "Moonshot / Kimi",
-  }),
-  "moonshot-kimi": Object.freeze({
-    providerFamily: "moonshot-kimi",
-    label: "Moonshot / Kimi",
-  }),
-}) satisfies Readonly<Record<ReviewedMoonshotProvider, ChartProviderNormalization>>;
 const DERIVED_DECIMAL_PLACES = 15;
 
 type DecimalParts = Readonly<{ units: bigint; scale: number }>;
@@ -88,21 +72,6 @@ function divideDecimal(value: string, divisor: number, label: string): Readonly<
   const fraction = padded.slice(-targetScale).replace(/0+$/, "");
   const decimal = `${quotient < 0n ? "-" : ""}${whole}${fraction ? `.${fraction}` : ""}`;
   return { decimal, value: decimalNumber(decimal, `${label} quotient`) };
-}
-
-function providerPresentationFor(reviewedProvider: string): Readonly<{
-  providerFamily: string;
-  label: string;
-}> {
-  if (Object.prototype.hasOwnProperty.call(
-    CHART_REVIEWED_PROVIDER_NORMALIZATION,
-    reviewedProvider,
-  )) {
-    return CHART_REVIEWED_PROVIDER_NORMALIZATION[
-      reviewedProvider as ReviewedMoonshotProvider
-    ];
-  }
-  return Object.freeze({ providerFamily: reviewedProvider, label: reviewedProvider });
 }
 
 function availableDerivedMetric(
@@ -304,16 +273,16 @@ export function buildCostPerformanceChartArms(
 
     const passRate = arm.successCount / arm.trialCount;
     if (!Number.isFinite(passRate)) throw new Error(`${arm.armId} pass rate is not finite`);
-    const providerPresentation = providerPresentationFor(arm.provider);
+    const provider = providerPresentation(arm.provider);
     const membership: ChartScope[] = coreIds.has(arm.armId)
       ? ["phase3-core", "phase3-extended"]
       : ["phase3-extended"];
     return Object.freeze({
       armId: arm.armId,
-      displayName: arm.backendModel,
+      displayName: friendlyModelLabel(arm.backendModel),
       reviewedProvider: arm.provider,
-      providerFamily: providerPresentation.providerFamily,
-      providerFamilyLabel: providerPresentation.label,
+      providerFamily: provider.familyKey,
+      providerFamilyLabel: provider.label,
       activeScope: scope.scopeId,
       scopeMembership: Object.freeze(membership),
       selectedRunLabel: selection.selectedRunLabel,

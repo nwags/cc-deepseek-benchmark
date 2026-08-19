@@ -44,6 +44,11 @@ import {
   getCostPerformanceChartArms,
   selectCostPerformanceChartScope,
 } from "../lib/cost-performance-chart";
+import {
+  friendlyModelLabel,
+  friendlyProviderLabel,
+  friendlyRoutingLabel,
+} from "../lib/presentation-labels";
 
 export const dynamic = "force-dynamic";
 
@@ -96,6 +101,9 @@ export default async function DashboardPage({
   const chartArms = getCostPerformanceChartArms(chartScopeSelection.scopeId);
   const chartProviderOptions = deriveProviderFilterOptions(chartArms);
   const reviewedScope = getReviewedPhase3Scope("phase3-extended");
+  const reviewedArmById = new Map(
+    reviewedScope.arms.map((arm) => [arm.armId, arm]),
+  );
   const runSelectionScope = getReviewedRunSelectionScope("phase3-extended");
   const selectedRunLabels = getReviewedSelectedRunLabels("phase3-extended");
   const [
@@ -302,6 +310,10 @@ export default async function DashboardPage({
             </thead>
             <tbody>
               {reviewedComparison.rows.map((row) => {
+                const reviewedArm = reviewedArmById.get(row.armId);
+                if (!reviewedArm) {
+                  throw new Error(`No reviewed arm presentation exists for ${row.armId}`);
+                }
                 const quality = selectedQualityByRun.get(row.selectedRunLabel);
                 const suspectNoopCount = quality?.suspect_noop_count ?? 0;
                 const isKimi = row.armId === "router-kimi-k3";
@@ -309,7 +321,15 @@ export default async function DashboardPage({
                   <tr key={row.selectedRunLabel}>
                     <td>{row.rank}</td>
                     <td>
-                      <div className="mono"><Link href={row.armEvidenceHref}>{row.armId}</Link></div>
+                      <strong>
+                        <Link href={row.armEvidenceHref}>
+                          {friendlyModelLabel(reviewedArm.backendModel)}
+                        </Link>
+                      </strong>
+                      <div className="muted mono">{row.armId}</div>
+                      <div className="muted">
+                        {friendlyProviderLabel(reviewedArm.provider)} · {friendlyRoutingLabel(reviewedArm.routingPath)}
+                      </div>
                       <Link className="mono" href={row.selectedRunHref}>{row.selectedRunLabel}</Link>
                       <div>Selected reviewed run · reviewed full-suite run</div>
                     </td>
@@ -471,14 +491,24 @@ export default async function DashboardPage({
         </div>
         <div className="run-list">
           {reviewedComparison.rows.map((row) => {
+            const reviewedArm = reviewedArmById.get(row.armId);
+            if (!reviewedArm) {
+              throw new Error(`No reviewed arm presentation exists for ${row.armId}`);
+            }
             const databaseRun = row.databaseRunEvidence;
             const quality = selectedQualityByRun.get(row.selectedRunLabel);
             return (
               <article className="run-card" key={row.selectedRunLabel}>
                 <div>
                   <h3>
-                    <Link href={row.selectedRunHref}>{row.armId}</Link>
+                    <Link href={row.selectedRunHref}>
+                      {friendlyModelLabel(reviewedArm.backendModel)}
+                    </Link>
                   </h3>
+                  <p className="mono">{row.armId}</p>
+                  <p className="muted">
+                    {friendlyProviderLabel(reviewedArm.provider)} · {friendlyRoutingLabel(reviewedArm.routingPath)}
+                  </p>
                   <p>Reviewed full-suite run · stored evidence {evidenceLabel(row.databaseRunEvidenceStatus)}</p>
                   <p className="mono">{row.selectedRunLabel}</p>
                   {databaseRun?.arm_run_id && (

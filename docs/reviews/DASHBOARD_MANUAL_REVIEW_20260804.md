@@ -2,7 +2,8 @@
 
 **Repository:** `cc-deepseek-bench`
 **Branch:** `dashboard-revision-scope-and-stale-pages`
-**Status:** Second comprehensive manual visual acceptance passed 2026-08-12; DR-104 production visual acceptance passed 2026-08-17
+**P2 closeout branch:** `dashboard-p2-completion`
+**Status:** Acceptance current through P2 DR-201/DR-202/DR-203; latest production manual/visual acceptance passed 2026-08-19
 **Review type:** Post-merge manual dashboard acceptance and revision tracking
 
 ## Source material
@@ -16,6 +17,7 @@
 - Manual visual review performed 2026-08-05 at approximately 1920×1080
 - Second comprehensive manual visual acceptance performed 2026-08-12 at 1920px, 1440px, and 1280px widths
 - DR-104 production-mode manual/visual acceptance performed 2026-08-17 at 1920px, 1440px, and 1280px widths
+- P2 DR-201/DR-202/DR-203 production-mode manual/visual acceptance performed 2026-08-19 at 1920px, 1440px, and 1280px widths
 - `docs/reports/phase3/KIMI_K3_PROVIDER_LOG_RECONCILIATION_20260805.md`
 - `docs/reports/phase3/KIMI_K3_PROVIDER_EXPORT_DUPLICATE_CHECK_20260805.md`
 - `results/phase3/reporting/kimi_k3_provider_log_reconciliation_20260805.csv`
@@ -66,6 +68,9 @@ Migration 009 must not be rerun. No paid benchmark runs, provider probes, Supaba
 - [x] DR-104 Tasks/Evals consolidation — implemented and visually accepted 2026-08-17
 - [x] DR-105 Planner/Arm Scaffold consolidation — implemented and visually accepted 2026-08-17
 - [x] DR-106 evidence-aware deep links — implemented and production-mode manually/visually accepted 2026-08-18
+- [x] DR-201 shared terminology — P2-B complete; existing `TermInfo` interaction retained
+- [x] DR-202 global desktop layout and overflow — P2-D complete and production-mode manually/visually accepted 2026-08-19
+- [x] DR-203 friendly labels — P2-C complete with canonical identity retained
 
 ## Observations versus confirmed defects
 
@@ -113,6 +118,11 @@ The Implementation log below preserves the status recorded when each earlier gro
 
 | 2026-08-18 | DR-106 — production acceptance | Production-mode review verified exact reviewed-cost deep links for Phase 3 extended and core, exact frozen failure-count filtering, source-scope preservation, fail-closed cost focus, unsupported-count non-links, and responsive containment. | Overview; Cost Coverage; cost/performance chart; Cross-phase; Comprehensive Review; Runs/run detail; Trial Quality | All six production semantic routes returned HTTP 200; extended Kimi K3 cost navigation preserved exact arm/run context and explicitly returned no stored-row match without fallback; core cost navigation preserved `phase3-core`; substantive-failure 35/35 and provider-policy 9/9 destination counts matched; Empty/Telemetry/Unknown/Queue remained plain; responsive captures reviewed. | Accepted; DR-106 complete. |
 | 2026-08-17 | DR-106B — evidence-aware source-surface wiring | Wired reviewed Overview/chart, Cost Coverage arms, and Phase 3 Cross-phase rows to exact frozen G1 runs and focused cost provenance; preserved source context on exact Runs/Trial Quality/run-detail actions; placed run-detail trial actions first; and linked only frozen arm-summary counts whose exact predicates reproduce the stored counts. Phase 1/2 aggregates, all-imported arm-only rows, operational quality/suspect-no-op counts, and non-identical frozen summary predicates remain deliberately unlinked. | Existing DR-106A typed builders and exact filters; reviewed F1/G1 chart contract; Overview, Cross-phase, Cost Coverage, Runs, Trial Quality, run detail, and Comprehensive Review; focused Node/Python equality/source tests | Focused evidence-link and trial-analysis suites; focused dashboard contract/equality tests; typecheck, production build, `make check`, secret scan, protected-path scan, and `git diff --check` all passed before handoff | Source wiring implemented; no visual acceptance claimed. Production manual review remains required before DR-106 may be accepted. |
+
+| 2026-08-18 | P2-A — residual P2 audit contract | Recorded the bounded post-DR-106 completion plan for DR-201, DR-202, and DR-203 while preserving accepted terminology, responsive containment, sticky identity columns, canonical evidence identity, and all frozen-result boundaries. | `docs/plans/DASHBOARD_P2_COMPLETION_20260818.md`; revision-spec pointer | Static/read-only source audit; no benchmark/provider/migration/storage writes | Complete in `d74b2b41`; implementation proceeded as P2-B/P2-C/P2-D. |
+| 2026-08-19 | DR-201 — shared terminology | Extended the existing conceptual glossary and `TermInfo` presentation to Attempt, Confidence, Unresolved, Routing path, Execution validity, Activity class, Failure subtype, Policy disposition, Telemetry consistency, Artifact completeness, R2 integrity, and existing cost/accounting concepts without duplicating taxonomy enum definitions or replacing raw values. | Shared glossary/`TermInfo` adoption across cost/evidence surfaces; focused terminology tests | Focused terminology/source tests; typecheck; repository validation | Complete in `0604ca9f`. |
+| 2026-08-19 | DR-203 — friendly labels | Added a pure deterministic presentation-label module and adopted friendly model/arm/provider/routing labels across the primary reviewed and operational surfaces while retaining canonical IDs in evidence identity, secondary detail, links, URLs, and raw source values. | Presentation-label helper/tests; Overview; Cost Coverage; Cross-phase; Runs; Arms; Trial Quality; Live Runs | Focused presentation tests; 208 dashboard Node tests; 420 Python tests; typecheck; strict output scan; secret scan; diff/protected-boundary checks | Complete in `126ccebb`. |
+| 2026-08-19 | DR-202 — desktop layout and P2 production acceptance | Increased the large-desktop AppShell cap, added reusable dense-table width contracts, opt-in sticky long-table headers, local section navigation, bounded Live Runs histories, and a left sticky progressive-artifact action while preserving existing responsive containment. Production review covered Overview, Comprehensive Review, representative Trial Evidence, and Live Runs at 1920px, 1440px, and 1280px. | `/`; `/comprehensive-review`; `/trials/[trialId]`; `/runs/live`; shared `SectionNav`; global layout CSS; focused DR-202 tests | Production build; 208 Node tests; 429 Python tests; strict output scan; secret scan; diff/protected-boundary checks; four production routes HTTP 200; three-width manual visual acceptance | Accepted and complete in `062dd97f`. The selected Live Run contained no Tool Activity rows, so populated Tool Activity scrolling was not visually exercised; its bounded/sticky source contract is tested. |
 
 Commit Group C used source inspection only. No provider, LiteLLM, Claude Code, Harbor, router, runner, or infrastructure probes were run, and no external operational service was queried.
 
@@ -380,3 +390,33 @@ DR-104 passed production-mode manual and visual review at 1920px, 1440px, and 12
 `terminal-bench-2.0:multi-source-data-merger` was the known differing-population control. Valid-imported showed 48 trials, 46 successes, and 95.8%; all-imported showed 57 trials, 47 successes, and 82.5%. The corresponding recorded-cost coverage differences were visible and remained population-aligned. All-imported validity presentation passed with “Linked / unflagged,” avoiding an unsupported claim that linkage plus no matching invalidation record is necessarily identical to valid-view membership.
 
 No J2 taxonomy, comprehensive-review, frozen-result, or other accepted provenance/cost semantics changed as part of DR-104. **DR-104 is complete and accepted.**
+
+## P2 DR-201 / DR-202 / DR-203 production manual/visual acceptance — 2026-08-19
+
+The P2 completion pass was reviewed in production mode after the DR-201, DR-203, and DR-202 implementation commits. The acceptance scope was intentionally limited to the P2 changes and retained the previously accepted dashboard behavior as its baseline.
+
+Production route checks returned HTTP 200 for:
+
+- `/`;
+- `/comprehensive-review`;
+- `/trials/20c82fa9-1a3b-450f-9535-b59b32e4120c`;
+- `/runs/live`.
+
+Manual visual review covered 1920×1080, 1440×1080, and 1280×1080 desktop viewports.
+
+Observed P2 acceptance:
+
+- Overview retained its established chart/content behavior while making better use of the 1920px viewport.
+- Comprehensive Review exposed contained local navigation and bounded long evidence tables without page-wide horizontal-overflow regression.
+- Trial Evidence exposed local navigation to Summary, Failure taxonomy, Quick diagnosis, Read next, Configuration, Artifacts, and Task text. The shared `FailureTaxonomyDetails` component remained the sole owner of the established `#failure-taxonomy` target.
+- Live Runs exposed local navigation, retained Warnings as an independently prominent surface, retained bounded Observable output, bounded Event Tail, and placed progressive-artifact Preview actions in the left `Trial / action` identity column.
+- The selected Live Run contained no structured Tool Activity rows, so populated Tool Activity vertical scrolling could not be visually exercised. No activity was manufactured for acceptance; the bounded/sticky Tool Activity contract is covered by the DR-202 focused source tests.
+- Friendly model/provider/routing presentation remained distinct from canonical arm/run/evidence identity.
+- Long identifiers, table content, and cards remained contained at all three reviewed widths.
+- `apps/dashboard/next-env.d.ts` remained unchanged after the production server review.
+
+Final validation before acceptance included a successful production build, 208/208 dashboard Node tests, 429/429 Python tests, the strict review-output scan, `make secret-scan`, `git diff --check`, and protected-boundary inspection.
+
+No benchmark rerun, paid provider probe, migration 009 execution, Supabase write, R2 write, frozen-result regeneration, reviewed-artifact regeneration, taxonomy regeneration, or canonical-ID rename was performed.
+
+**Outcome:** PASS. DR-201, DR-202, and DR-203 are complete and accepted. P2 is complete. DR-302 and DR-303 remain later P3 requirements outside this acceptance and branch scope.

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { AppShell } from "../../components/AppShell";
+import { SectionNav } from "../../components/SectionNav";
 import { EvidenceSourceContextNotice } from "../../components/EvidenceSourceContextNotice";
+import { TermInfo } from "../../components/TermInfo";
 import { getComprehensiveReviewData, ReviewQueueRow } from "../../lib/review-data";
 import {
   buildExactTrialHref,
@@ -22,6 +24,15 @@ export const dynamic = "force-dynamic";
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 const first = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] ?? "" : value ?? "";
 const safe = (value: string | null | undefined) => sanitizeEvidenceText(value) ?? "not recorded";
+
+const COMPREHENSIVE_REVIEW_SECTIONS = [
+  { href: "#review-coverage", label: "Coverage" },
+  { href: "#reviewed-trials", label: "Reviewed trials" },
+  { href: "#review-queue", label: "Review queue" },
+  { href: "#control-strata", label: "Controls" },
+  { href: "#arm-summaries", label: "Arm summaries" },
+  { href: "#task-disagreements", label: "Disagreements" },
+] as const;
 
 function parsedTrialLinks(value: string) {
   try {
@@ -141,7 +152,11 @@ export default async function ComprehensiveReviewPage({ searchParams }: { search
           <div className="placeholder-body">The dashboard will not mix or display unvalidated comprehensive-review files.</div>
         </section>
       ) : <>
-        <section className="panel">
+        <SectionNav
+          items={COMPREHENSIVE_REVIEW_SECTIONS}
+          ariaLabel="Evidence Review sections"
+        />
+        <section className="panel" id="review-coverage">
           <div className="panel-heading">
             <div><h2>Review coverage <span className="derived-label">validated snapshot</span></h2><p>Analyzer {safe(coverage.analyzer_version)} · generated {safe(coverage.generated_at)}</p></div>
             <span className="quality-badge">{formatNumber(coverage.trials_reviewed)} trials reviewed</span>
@@ -188,9 +203,9 @@ export default async function ComprehensiveReviewPage({ searchParams }: { search
             <button type="submit">Apply reviewed-trial filters</button><Link href={buildReviewedTrialEvidenceHref({}, sourceScopeSelection.sourceScope)}>Clear reviewed-trial filters</Link>
           </form>
           <p className="muted">Displaying {matchingReviewedTrials.length ? trialStart + 1 : 0}–{trialStart + reviewedTrials.length} of {matchingReviewedTrials.length} exact matching frozen rows.</p>
-          <div className="table-wrap">
+          <div className="table-wrap table-wrap-long">
             <table>
-              <thead><tr><th className="sticky-id-column">Trial</th><th>Arm</th><th>Run</th><th>Task</th><th>Raw outcome</th><th>Failure subtype</th><th>Execution / activity</th><th>Termination / policy</th><th>Confidence / review</th></tr></thead>
+              <thead><tr><th className="sticky-id-column">Trial</th><th className="table-col-context">Arm</th><th className="table-col-identity">Run</th><th className="table-col-context">Task</th><th>Raw outcome</th><th><span className="term-label">Failure subtype <TermInfo term="Failure subtype" /></span></th><th><span className="term-label">Execution validity / activity class <TermInfo term="Execution validity" /> <TermInfo term="Activity class" /></span></th><th><span className="term-label">Termination / policy disposition <TermInfo term="Policy disposition" /></span></th><th><span className="term-label">Confidence / review <TermInfo term="Confidence" /></span></th></tr></thead>
               <tbody>{reviewedTrials.map((row) => <tr key={row.trial_id}>
                 <td className="sticky-id-column mono"><Link href={buildExactTrialHref(row.trial_id, reviewedSourceScope)}>{safe(row.trial_id)}</Link></td>
                 <td className="mono">{safe(row.arm_id)}</td>
@@ -211,7 +226,7 @@ export default async function ComprehensiveReviewPage({ searchParams }: { search
           </nav>
         </section>
 
-        <section className="panel">
+        <section className="panel" id="review-queue">
           <div className="panel-heading"><div><h2>High-priority review queue and case filters</h2><p>Correctness anomalies, telemetry/integrity cases, disagreements, and high-cost failures are independent, overlapping strata. The default filter is high priority.</p></div></div>
           <div className="diagnosis-grid">
             {Object.entries(coverage.review_queue_strata ?? {}).map(([key, count]) => <article key={key}><span>{safe(key.replaceAll("_", " "))}</span><strong>{count}</strong></article>)}
@@ -227,7 +242,7 @@ export default async function ComprehensiveReviewPage({ searchParams }: { search
             <button type="submit">Apply filters</button><Link href="/comprehensive-review?priority=all">Clear</Link>
           </form>
           <p className="muted">Displaying {matchingQueue.length ? queueStart + 1 : 0}–{queueStart + queue.length} of {matchingQueue.length} matching rows; default view is the high-priority queue.</p>
-          <div className="table-wrap"><table><thead><tr><th className="sticky-id-column">Trial</th><th>Priority</th><th>Arm</th><th>Task</th><th>Strata</th><th>Reasons</th></tr></thead><tbody>
+          <div className="table-wrap table-wrap-long"><table><thead><tr><th className="sticky-id-column">Trial</th><th className="table-col-compact">Priority</th><th className="table-col-context">Arm</th><th className="table-col-context">Task</th><th className="table-col-context">Strata</th><th className="table-col-identity">Reasons</th></tr></thead><tbody>
             {queue.map((row) => <tr key={row.trial_id}><td className="sticky-id-column mono"><Link href={buildExactTrialHref(row.trial_id, reviewedSourceScope)}>{safe(row.trial_id)}</Link></td><td><span className={row.manual_review_priority === "high" ? "quality-badge quality-badge-warn" : "quality-badge"}>{safe(row.manual_review_priority)}</span></td><td className="mono">{safe(row.arm_id)}</td><td className="mono">{safe(row.task_id)}</td><td>{safe(row.review_strata.replaceAll(";", ", "))}</td><td>{safe(row.review_reasons.replaceAll(";", ", "))}</td></tr>)}
           </tbody></table></div>
           <nav className="pagination" aria-label="Review queue pagination">
@@ -237,13 +252,13 @@ export default async function ComprehensiveReviewPage({ searchParams }: { search
           </nav>
         </section>
 
-        <section className="panel">
+        <section className="panel" id="control-strata">
           <div className="panel-heading"><div><h2>Control strata</h2><p>Strict ordinary controls are separate from timeout, telemetry-mismatch, exception-success, and incomplete-evidence controls.</p></div></div>
           <div className="diagnosis-grid">{Object.entries(coverage.manual_control_strata ?? {}).map(([key, count]) => <article key={key}><span>{safe(key.replaceAll("_", " "))}</span><strong>{count}</strong></article>)}</div>
-          <div className="table-wrap"><table><thead><tr><th className="sticky-id-column">Trial</th><th>Stratum</th><th>Arm</th><th>Task</th></tr></thead><tbody>{review.controls.slice(0, 250).map((row) => <tr key={`${row.sample_stratum}-${row.trial_id}`}><td className="sticky-id-column mono"><Link href={buildExactTrialHref(row.trial_id, reviewedSourceScope)}>{safe(row.trial_id)}</Link></td><td>{safe(row.sample_stratum.replaceAll("_", " "))}</td><td className="mono">{safe(row.arm_id)}</td><td className="mono">{safe(row.task_id)}</td></tr>)}</tbody></table></div>
+          <div className="table-wrap table-wrap-long"><table><thead><tr><th className="sticky-id-column">Trial</th><th className="table-col-context">Stratum</th><th className="table-col-context">Arm</th><th className="table-col-context">Task</th></tr></thead><tbody>{review.controls.slice(0, 250).map((row) => <tr key={`${row.sample_stratum}-${row.trial_id}`}><td className="sticky-id-column mono"><Link href={buildExactTrialHref(row.trial_id, reviewedSourceScope)}>{safe(row.trial_id)}</Link></td><td>{safe(row.sample_stratum.replaceAll("_", " "))}</td><td className="mono">{safe(row.arm_id)}</td><td className="mono">{safe(row.task_id)}</td></tr>)}</tbody></table></div>
         </section>
 
-        <section className="panel">
+        <section className="panel" id="arm-summaries">
           <div className="panel-heading"><div><h2>Arm summaries</h2><p>Fixed-corpus classifications, not replacement pass rates.</p></div></div>
           <div className="table-wrap"><table><thead><tr><th>Arm</th><th>Reviewed</th><th>Substantive success</th><th>Substantive failure</th><th>Policy</th><th>Empty</th><th>Timeout</th><th>Setup/transport</th><th>Telemetry</th><th>Unknown</th><th>Queue</th></tr></thead><tbody>{review.arms.map((arm) => {
             const armRows = review.reviewedTrials.filter((row) => row.arm_id === arm.arm_id);
@@ -275,7 +290,7 @@ export default async function ComprehensiveReviewPage({ searchParams }: { search
           })}</tbody></table></div>
         </section>
 
-        <section className="panel">
+        <section className="panel" id="task-disagreements">
           <div className="panel-heading"><div><h2>Task disagreements</h2><p>Categories use arm-specific activity, policy, timeout, setup/transport, and verifier summaries.</p></div></div>
           <form className="filter-grid" method="get">
             <input type="hidden" name="priority" value={filters.priority} />
@@ -289,7 +304,7 @@ export default async function ComprehensiveReviewPage({ searchParams }: { search
             <button type="submit">Apply disagreement filters</button><Link href={pageHref(params, { disagreement_arm: "", disagreement_task: "", disagreement_category: "", disagreement_outcome: "", disagreement_policy: "", disagreement_page: 1 })}>Clear disagreement filters</Link>
           </form>
           <p className="muted">Displaying {matchingDisagreements.length ? disagreementStart + 1 : 0}–{disagreementStart + disagreements.length} of {matchingDisagreements.length} matching disagreement rows.</p>
-          <div className="table-wrap"><table><thead><tr><th>Task</th><th>Pair</th><th>Category</th><th>Raw outcomes</th><th>Activity</th><th>Policy / timeout / setup / verifier</th><th>Evidence</th></tr></thead><tbody>{disagreements.map((row, index) => {
+          <div className="table-wrap table-wrap-long"><table><thead><tr><th className="table-col-context">Task</th><th className="table-col-context">Pair</th><th className="table-col-context">Category</th><th className="table-col-context">Raw outcomes</th><th className="table-col-context">Activity</th><th className="table-col-identity">Policy / timeout / setup / verifier</th><th className="table-col-compact">Evidence</th></tr></thead><tbody>{disagreements.map((row, index) => {
             const links = parsedTrialLinks(row.supporting_trial_links);
             return <tr key={`${row.task_id}-${row.arm_a}-${row.arm_b}-${index}`}><th>{safe(row.task_id)}</th><td className="mono">{safe(row.arm_a)}<br />{safe(row.arm_b)}</td><td>{safe(row.disagreement_category.replaceAll("_", " "))}</td><td>{safe(row.arm_a_raw_outcome_summary ?? row.arm_a_raw_outcome)}<br />{safe(row.arm_b_raw_outcome_summary ?? row.arm_b_raw_outcome)}</td><td className="mono">{safe(row.arm_a_activity_summary)}<br />{safe(row.arm_b_activity_summary)}</td><td className="mono">policy {safe(row.arm_a_policy_summary)} / {safe(row.arm_b_policy_summary)}<br />timeout {safe(row.arm_a_timeout_summary)} / {safe(row.arm_b_timeout_summary)}<br />setup {safe(row.arm_a_setup_transport_summary)} / {safe(row.arm_b_setup_transport_summary)}<br />verifier {safe(row.arm_a_verifier_summary)} / {safe(row.arm_b_verifier_summary)}</td><td>{links.map((link, i) => <span key={link}><Link href={link}>trial {i + 1}</Link>{i < links.length - 1 ? " · " : ""}</span>)}</td></tr>;
           })}</tbody></table></div>

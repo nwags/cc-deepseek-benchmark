@@ -2,11 +2,16 @@ import Link from "next/link";
 import { AppShell } from "../../components/AppShell";
 import { CorpusScopeNotice } from "../../components/CorpusScopeNotice";
 import { DataFreshnessNotice } from "../../components/DataFreshnessNotice";
+import { TermInfo } from "../../components/TermInfo";
 import { getAllImportedArmLatestIncludedExecutionAt, getArmRows } from "../../lib/dashboard-data";
 import { INDEX_ROUTE_FRESHNESS_SOURCES } from "../../lib/data-freshness-sources";
 import { buildRegisteredOperationalFreshness, readFreshnessMetadata } from "../../lib/data-freshness-server";
 import { buildArtifactHref } from "../../lib/links";
 import { formatCurrency, formatNumber, formatPercent, formatSeconds } from "../../lib/format";
+import {
+  friendlyArmLabel,
+  friendlyProviderLabel,
+} from "../../lib/presentation-labels";
 
 export const dynamic = "force-dynamic";
 
@@ -81,14 +86,16 @@ export default async function ArmsPage() {
                 <th>Successes</th>
                 <th title="All-imported pass rate across every imported run for this arm. Use Runs or Overview for valid full-suite pass rates.">Pass rate</th>
                 <th>Median runtime</th>
-                <th title="Recorded cost lower bound for all imported rows. Missing raw cost rows may have adjusted estimates on Cost Coverage.">Recorded cost</th>
+                <th><span className="term-label">Recorded cost <TermInfo term="Recorded cost" /></span></th>
               </tr>
             </thead>
             <tbody>
               {arms.map((row) => (
                 <tr key={row.arm_id}>
                   <td className="sticky-id-column">
-                    <div className="mono">{row.arm_id}</div>
+                    <strong>{friendlyArmLabel(row.arm_id, row.backend_model)}</strong>
+                    <div className="muted mono">{row.arm_id}</div>
+                    <div className="muted">{friendlyProviderLabel(row.provider_family)}</div>
                     <div className="row-action-links">
                       <Link href={`/trial-quality?arm_id=${encodeURIComponent(row.arm_id)}`}>Trial quality</Link>
                       <Link href={buildArtifactHref({ arm_id: row.arm_id })}>Artifacts</Link>

@@ -775,6 +775,9 @@ def test_overview_uses_frozen_reviewed_runs_and_exact_database_reconciliation() 
 
 def test_cost_performance_chart_foundation_uses_only_reviewed_f1_g1_contracts() -> None:
     model = Path("apps/dashboard/src/lib/cost-performance-chart.ts").read_text()
+    presentation = Path(
+        "apps/dashboard/src/lib/presentation-labels.ts"
+    ).read_text()
     view = Path("apps/dashboard/src/lib/cost-performance-chart-view.ts").read_text()
     table = Path(
         "apps/dashboard/src/components/CostPerformanceChartTable.tsx"
@@ -791,11 +794,14 @@ def test_cost_performance_chart_foundation_uses_only_reviewed_f1_g1_contracts() 
     assert "./db" not in model
     assert "latest" not in model.lower()
 
-    assert "displayName: arm.backendModel" in model
+    assert "displayName: friendlyModelLabel(arm.backendModel)" in model
     assert "reviewedProvider: arm.provider" in model
-    assert "providerFamily: providerPresentation.providerFamily" in model
-    assert 'providerFamily: "moonshot-kimi"' in model
-    assert 'label: "Moonshot / Kimi"' in model
+    assert "const provider = providerPresentation(arm.provider);" in model
+    assert "providerFamily: provider.familyKey" in model
+    assert "providerFamilyLabel: provider.label" in model
+    assert '"moonshot-kimi": Object.freeze({' in presentation
+    assert 'familyKey: "moonshot-kimi"' in presentation
+    assert 'label: "Moonshot / Kimi"' in presentation
     assert "const passRate = arm.successCount / arm.trialCount" in model
     assert 'arm.costBasis === "qualified_retained_rate_estimate"' in model
     assert "not adjusted-known, invoice, provider-billed, or official-price" in model
@@ -958,11 +964,12 @@ def test_dr013_omits_only_meaningless_secondary_arm_labels_and_aligns_runner_bod
     shell = Path("apps/dashboard/src/components/AppShell.tsx").read_text()
     css = Path("apps/dashboard/src/app/globals.css").read_text()
 
-    assert "function secondaryArmLabel" in cost
-    assert 'value === "—"' in cost
-    assert "value === primary ? null : value" in cost
-    assert "const secondaryLabel = secondaryArmLabel(arm.armId, arm.backendModel);" in cost
-    assert "{secondaryLabel ? <div className=\"muted\">{secondaryLabel}</div> : null}" in cost
+    assert "friendlyArmLabel" in cost
+    assert "friendlyProviderLabel" in cost
+    assert "friendlyRoutingLabel" in cost
+    assert "const modelLabel = friendlyArmLabel(arm.armId, arm.backendModel);" in cost
+    assert '<div className="muted mono">{arm.armId}</div>' in cost
+    assert '<div className="muted">{providerLabel} · {routingLabel}</div>' in cost
     assert 'if (value === null) return "Unavailable";' in cost
     assert 'value === null ? "Unavailable" : formatPercent(value)' in cost
     assert "Unavailable —" in table

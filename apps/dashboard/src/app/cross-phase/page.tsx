@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { AppShell } from "../../components/AppShell";
+import { TermInfo } from "../../components/TermInfo";
 import { CorpusScopeNotice } from "../../components/CorpusScopeNotice";
 import { CorpusScopeSelector } from "../../components/CorpusScopeSelector";
 import { getCorpusScope, getCorpusScopePresentationLabel } from "../../lib/corpus-scopes";
@@ -12,6 +13,11 @@ import {
 } from "../../lib/cross-phase-reporting";
 import { selectReviewedPhase3Scope } from "../../lib/phase3-reviewed-comparison";
 import { getCostPerformanceChartArms } from "../../lib/cost-performance-chart";
+import {
+  friendlyModelLabel,
+  friendlyProviderLabel,
+  friendlyRoutingLabel,
+} from "../../lib/presentation-labels";
 
 export const dynamic = "force-dynamic";
 
@@ -196,7 +202,7 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
                 <th>Phase</th>
                 <th>Provider</th>
                 <th>Model</th>
-                <th>Routing path</th>
+                <th><span className="term-label">Routing path <TermInfo term="Routing path" /></span></th>
                 <th>Successes</th>
                 <th>Pass rate</th>
                 <th>Recorded cost</th>
@@ -209,7 +215,11 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
             </thead>
             <tbody>
               {rows.map((row) => {
+                const isPhase3 = row.phase === "phase3";
                 const chartArm = row.phase === "phase3" ? chartArmById.get(row.arm_id) : null;
+                const providerLabel = isPhase3 ? friendlyProviderLabel(row.provider) : row.provider;
+                const modelLabel = isPhase3 ? friendlyModelLabel(row.backend_model) : row.backend_model;
+                const routingLabel = isPhase3 ? friendlyRoutingLabel(row.routing_path) : row.routing_path;
                 return <tr key={`${row.phase}:${row.arm_id}`}>
                   <td className="sticky-id-column">
                     <div className="mono">{chartArm ? <Link href={chartArm.armHref}>{row.arm_id}</Link> : row.arm_id}</div>
@@ -223,9 +233,30 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
                     )}
                   </td>
                   <td>{phaseDisplayLabel(row.phase, selection.scopeId)}</td>
-                  <td>{row.provider}</td>
-                  <td>{row.backend_model}</td>
-                  <td>{row.routing_path}</td>
+                  <td>
+                    {isPhase3 ? (
+                      <>
+                        <strong>{providerLabel}</strong>
+                        {providerLabel !== row.provider ? <div className="muted mono">{row.provider}</div> : null}
+                      </>
+                    ) : row.provider}
+                  </td>
+                  <td>
+                    {isPhase3 ? (
+                      <>
+                        <strong>{modelLabel}</strong>
+                        {modelLabel !== row.backend_model ? <div className="muted mono">{row.backend_model}</div> : null}
+                      </>
+                    ) : row.backend_model}
+                  </td>
+                  <td>
+                    {isPhase3 ? (
+                      <>
+                        <strong>{routingLabel}</strong>
+                        {routingLabel !== row.routing_path ? <div className="muted mono">{row.routing_path}</div> : null}
+                      </>
+                    ) : row.routing_path}
+                  </td>
                   <td>{row.success_count}/{row.trial_count}</td>
                   <td>{formatPercent(row.pass_rate)}</td>
                   <td>{chartArm ? linkedMoney(row.recorded_cost_usd, chartArm.costProvenanceHref, 6) : formatMoney(row.recorded_cost_usd, 6)}</td>
@@ -282,7 +313,12 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
                         <Link href={`/artifacts?arm_id=${encodeURIComponent(row.arm_id)}`}>Artifacts</Link>
                       </div>
                     </td>
-                    <td>{row.backend_model}</td>
+                    <td>
+                      <strong>{friendlyModelLabel(row.backend_model)}</strong>
+                      {friendlyModelLabel(row.backend_model) !== row.backend_model
+                        ? <div className="muted mono">{row.backend_model}</div>
+                        : null}
+                    </td>
                     <td>{formatPercent(row.pass_rate)}</td>
                     <td>{linkedMoney(row.adjusted_cost_usd, chartArm.costProvenanceHref, 7)}</td>
                     <td>{linkedMoney(row.cost_per_clean_success_usd, chartArm.costProvenanceHref)}</td>

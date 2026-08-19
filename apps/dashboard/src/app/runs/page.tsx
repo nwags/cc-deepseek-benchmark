@@ -18,6 +18,10 @@ import { findLatestIncludedExecutionAt } from "../../lib/data-freshness";
 import { INDEX_ROUTE_FRESHNESS_SOURCES } from "../../lib/data-freshness-sources";
 import { buildRegisteredOperationalFreshness } from "../../lib/data-freshness-server";
 import { formatRecordedCost, formatNumber, formatSeconds } from "../../lib/format";
+import {
+  friendlyArmLabel,
+  friendlyProviderLabel,
+} from "../../lib/presentation-labels";
 
 export const dynamic = "force-dynamic";
 
@@ -85,7 +89,13 @@ function RunsTable({
             return (
               <tr key={row.arm_run_id}>
                 <td className="sticky-id-column">
-                  <Link href={buildExactRunHref(row.run_label, "all-imported")}>{row.arm_id}</Link>
+                  <strong>
+                    <Link href={buildExactRunHref(row.run_label, "all-imported")}>
+                      {friendlyArmLabel(row.arm_id, row.backend_model)}
+                    </Link>
+                  </strong>
+                  <div className="muted mono">{row.arm_id}</div>
+                  <div className="muted">{friendlyProviderLabel(row.provider_family)}</div>
                   <div className="mono">{row.run_label}</div>
                   <div className="row-action-links">
                     <Link href={buildExactRunHref(row.run_label, "all-imported")}>Run detail</Link>

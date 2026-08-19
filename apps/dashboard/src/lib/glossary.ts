@@ -231,6 +231,97 @@ export const glossaryEntries = [
     links: [{ href: "/trial-quality", label: "Open Trial Quality" }]
   },
 
+
+  {
+    term: "Attempt",
+    slug: "attempt",
+    shortDefinition: "One repeated benchmark execution of an eval within a run.",
+    definition: "Attempt means one repetition of an eval for an arm within a benchmark run. A task-local attempt number describes repetition of that task; a run-wide trial ordinal and a GitHub workflow run attempt are different ordering or infrastructure fields and must not be interpreted as the task-local benchmark attempt.",
+    links: [{ href: "/runs", label: "Open Runs" }]
+  },
+  {
+    term: "Confidence",
+    slug: "confidence",
+    shortDefinition: "Categorical strength of retained evidence for a derived diagnosis or reviewed estimate.",
+    definition: "Confidence is a categorical statement about how strongly retained evidence supports a derived diagnosis or reviewed estimate. It is not a probability, fabricated numeric score, or model self-assessment. The surrounding evidence contract remains authoritative: the frozen failure-taxonomy registry defines diagnosis-confidence values, while reviewed cost surfaces retain their separate cost and allocation confidence fields.",
+    links: [
+      { href: "/comprehensive-review", label: "Open Evidence Review" },
+      { href: "/trial-quality", label: "Open Trial Quality" }
+    ]
+  },
+  {
+    term: "Unresolved",
+    slug: "unresolved",
+    shortDefinition: "Retained evidence is insufficient to assign the relevant value without fabrication.",
+    definition: "Unresolved means the retained evidence is insufficient to assign the relevant value without fabrication. On Cost Coverage, an unresolved adjusted-cost row remains distinct from both zero cost and a reconstructed cost value. The surrounding field identifies what remains unresolved.",
+    links: [{ href: "/cost-coverage", label: "Open Cost Coverage" }]
+  },
+  {
+    term: "Accounting gap",
+    slug: "accounting-gap",
+    shortDefinition: "Selected reviewed cost measure minus recorded cost.",
+    definition: "Accounting gap is the selected reviewed cost measure minus recorded cost. For reviewed adjusted-known-cost rows this is the known accounting gap. When a scope uses a separately qualified cost estimate, such as the Kimi K3 retained-rate estimate, that cost basis remains explicit and is not relabeled as adjusted known cost.",
+    links: [{ href: "/cost-coverage", label: "Open Cost Coverage" }]
+  },
+  {
+    term: "Routing path",
+    slug: "routing-path",
+    shortDefinition: "The documented execution route used to reach a model backend.",
+    definition: "Routing path describes how a configured arm reached its backend, such as through the LiteLLM router or another documented benchmark route. It is execution and provenance context; routing-path presence alone does not attribute a failure to the router, provider, harness, or infrastructure.",
+    links: [{ href: "/architecture", label: "Open Architecture" }]
+  },
+  {
+    term: "Execution validity",
+    slug: "execution-validity",
+    shortDefinition: "Derived review state describing whether the retained attempt represents a supported execution path.",
+    definition: "Execution validity is a derived review axis based on retained execution evidence. It is interpreted independently from the raw benchmark outcome, so a raw success or failure does not by itself determine execution validity.",
+    links: [{ href: "/comprehensive-review", label: "Open Evidence Review" }]
+  },
+  {
+    term: "Activity class",
+    slug: "activity-class",
+    shortDefinition: "Derived class of observable retained agent activity.",
+    definition: "Activity class summarizes observable retained activity for the attempt and corresponds to the existing activity-subtype review field. It remains separate from raw reward, execution validity, policy disposition, and the frozen second-stage trajectory-disposition taxonomy.",
+    links: [{ href: "/comprehensive-review", label: "Open Evidence Review" }]
+  },
+  {
+    term: "Failure subtype",
+    slug: "failure-subtype",
+    shortDefinition: "Review classification of retained verifier, task, or solution failure evidence.",
+    definition: "Failure subtype is the comprehensive-review field describing retained verifier, task, or submitted-solution failure evidence. It remains separate from execution termination and policy disposition. The frozen failure-taxonomy registry owns the definitions of its individual verifier-failure categories; this glossary entry does not replace those canonical definitions.",
+    links: [
+      { href: "/comprehensive-review", label: "Open Evidence Review" },
+      { href: "/trial-quality", label: "Open Trial Quality" }
+    ]
+  },
+  {
+    term: "Policy disposition",
+    slug: "policy-disposition",
+    shortDefinition: "Derived policy-refusal state retained independently from other execution axes.",
+    definition: "Policy disposition records whether retained evidence supports a provider-policy refusal or another supported policy state. It remains independent from raw outcome, execution validity, termination state, and prior observable activity; a refusal can occur before or after other activity.",
+    links: [{ href: "/comprehensive-review", label: "Open Evidence Review" }]
+  },
+  {
+    term: "Telemetry consistency",
+    slug: "telemetry-consistency",
+    shortDefinition: "Whether available usage telemetry agrees across retained evidence sources.",
+    definition: "Telemetry consistency describes whether available token or usage evidence is consistent, mismatched, partially recorded, or otherwise incomplete. Missing telemetry remains not recorded rather than being coerced to zero, and telemetry interpretation never replaces the raw benchmark outcome.",
+    links: [{ href: "/comprehensive-review", label: "Open Evidence Review" }]
+  },
+  {
+    term: "Artifact completeness",
+    slug: "artifact-completeness",
+    shortDefinition: "How much of the expected canonical evidence inventory is present.",
+    definition: "Artifact completeness compares retained artifact rows with the canonical evidence inventory expected for a run or trial. It is separate from R2 byte availability and integrity verification: indexed metadata or an R2 URI alone does not prove that object bytes were read or verified.",
+    links: [{ href: "/artifacts", label: "Open Artifacts" }]
+  },
+  {
+    term: "R2 integrity",
+    slug: "r2-integrity",
+    shortDefinition: "Whether retrieved R2 evidence bytes were verified against retained integrity evidence.",
+    definition: "R2 integrity describes object-byte verification for evidence read from Cloudflare R2. It remains separate from artifact indexing, read completeness, size metadata, and local-cache fallback. An R2 URI alone does not verify object bytes.",
+    links: [{ href: "/artifacts", label: "Open Artifacts" }]
+  },
 ] as const satisfies readonly GlossaryEntry[];
 
 export type GlossaryTerm = (typeof glossaryEntries)[number]["term"];
