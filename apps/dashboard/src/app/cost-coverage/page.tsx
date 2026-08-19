@@ -18,6 +18,11 @@ import {
 import { getCostPerformanceChartArms } from "../../lib/cost-performance-chart";
 import { getGlossaryEntry } from "../../lib/glossary";
 import {
+  friendlyArmLabel,
+  friendlyProviderLabel,
+  friendlyRoutingLabel,
+} from "../../lib/presentation-labels";
+import {
   selectReviewedPhase3Scope,
   type ReviewedPhase3Arm,
 } from "../../lib/phase3-reviewed-comparison";
@@ -100,11 +105,6 @@ function reviewedArmCostLabel(arm: ReviewedPhase3Arm): string {
 
 function availablePercent(value: number | null): string {
   return value === null ? "Unavailable" : formatPercent(value);
-}
-
-function secondaryArmLabel(primary: string, secondary: string | null | undefined): string | null {
-  const value = secondary?.trim();
-  return !value || value === "—" || value === primary ? null : value;
 }
 
 export default async function CostCoveragePage({ searchParams }: CostCoveragePageProps) {
@@ -317,7 +317,9 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
             </thead>
             <tbody>
               {arms.map((arm) => {
-                const secondaryLabel = secondaryArmLabel(arm.armId, arm.backendModel);
+                const modelLabel = friendlyArmLabel(arm.armId, arm.backendModel);
+                const providerLabel = friendlyProviderLabel(arm.provider);
+                const routingLabel = friendlyRoutingLabel(arm.routingPath);
                 const chartArm = chartArmById.get(arm.armId);
                 if (!chartArm) throw new Error(`No exact frozen selected run exists for ${arm.armId}`);
                 const costHref = buildCostCoverageHref(
@@ -328,8 +330,13 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
                 return (
                   <tr key={arm.armId}>
                     <td className="sticky-id-column">
-                      <strong><Link href={buildReviewedAggregateArmEvidenceHref(arm.armId, onwardSourceScope)}>{arm.armId}</Link></strong>
-                      {secondaryLabel ? <div className="muted">{secondaryLabel}</div> : null}
+                      <strong>
+                        <Link href={buildReviewedAggregateArmEvidenceHref(arm.armId, onwardSourceScope)}>
+                          {modelLabel}
+                        </Link>
+                      </strong>
+                      <div className="muted mono">{arm.armId}</div>
+                      <div className="muted">{providerLabel} · {routingLabel}</div>
                       <div className="row-action-links">
                         <Link href={buildExactRunHref(chartArm.selectedRunLabel, onwardSourceScope)}>Selected run</Link>
                         <Link href={costHref}>Focus stored cost rows</Link>

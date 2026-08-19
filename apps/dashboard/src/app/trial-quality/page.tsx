@@ -8,6 +8,7 @@ import { InvalidReason, ValidityBadge, invalidCategory } from "../../components/
 import { buildArtifactHref } from "../../lib/links";
 import { buildExactRunHref, buildExactTrialHref } from "../../lib/evidence-links";
 import { redactSecretsInText } from "../../lib/safe-display";
+import { friendlyArmLabel } from "../../lib/presentation-labels";
 import {
   deduplicateDisplayedArmRunFreshnessIdentities,
   getArmRunQualitySummaryRows,
@@ -438,7 +439,9 @@ export default async function TrialQualityPage({
                 return (
                   <tr key={row.run_label}>
                     <td className="sticky-id-column">
-                      <Link href={buildExactRunHref(row.run_label, "all-imported")}>{row.run_label}</Link>
+                      <strong>{friendlyArmLabel(row.arm_id)}</strong>
+                      <div className="muted mono">{row.arm_id}</div>
+                      <Link className="mono" href={buildExactRunHref(row.run_label, "all-imported")}>{row.run_label}</Link>
                       {row.suite_id ? <div className="muted">{row.suite_id}</div> : null}
                       <div className="row-action-links">
                         <Link href={buildExactRunHref(row.run_label, "all-imported")}>Run detail</Link>

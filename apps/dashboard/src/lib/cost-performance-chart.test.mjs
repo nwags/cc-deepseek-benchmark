@@ -15,6 +15,10 @@ const runSelection = JSON.parse(await readFile(
   resolve(here, "../../../../results/phase3/reporting/phase3_reviewed_run_selection_20260809.json"),
   "utf8",
 ));
+const labelsSource = await readFile(join(here, "presentation-labels.ts"), "utf8");
+const labelsCompiled = ts.transpileModule(labelsSource, {
+  compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
+}).outputText;
 const viewSource = await readFile(join(here, "cost-performance-chart-view.ts"), "utf8");
 const viewCompiled = ts.transpileModule(viewSource, {
   compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
@@ -43,6 +47,7 @@ const moduleUrl = `data:text/javascript;base64,${Buffer.from(`
     const params = new URLSearchParams({ scope, arm_id: focus.armId, run_label: focus.runLabel, source_scope: sourceScope });
     return \`/cost-coverage?\${params.toString()}#cost-provenance-focus\`;
   };
+  ${labelsCompiled}
   ${viewCompiled}
   ${compiled}
 `).toString("base64")}`;
@@ -181,7 +186,7 @@ test("unsupported Kimi outcome-cost metrics stay unavailable instead of becoming
   assert.equal(armFor(coreArms, "router-gpt-5.5").failureIncompleteSpend.status, "available");
 });
 
-test("provider options preserve F1 values and normalize only Moonshot/Kimi presentation", () => {
+test("provider options preserve canonical family keys with shared friendly presentation", () => {
   const kimiK2 = armFor(extendedArms, "router-kimi-k2.6");
   const kimiK3 = armFor(extendedArms, "router-kimi-k3");
   assert.equal(kimiK2.reviewedProvider, "moonshot-kimi");
@@ -190,6 +195,12 @@ test("provider options preserve F1 values and normalize only Moonshot/Kimi prese
   assert.equal(kimiK3.providerFamily, "moonshot-kimi");
   assert.equal(kimiK2.providerFamilyLabel, "Moonshot / Kimi");
   assert.equal(kimiK3.providerFamilyLabel, "Moonshot / Kimi");
+  assert.equal(armFor(extendedArms, "router-gpt-5.5").displayName, "GPT-5.5");
+  assert.equal(armFor(extendedArms, "router-glm-5.2").displayName, "GLM 5.2");
+  assert.equal(
+    armFor(extendedArms, "router-gemini-flash").displayName,
+    "Gemini 3.5 Flash",
+  );
 
   const options = chart.deriveProviderFilterOptions(extendedArms);
   assert.deepEqual(options.map((option) => option.providerFamily), [
@@ -205,6 +216,21 @@ test("provider options preserve F1 values and normalize only Moonshot/Kimi prese
   assert.deepEqual(
     chart.deriveProviderFilterOptions([...extendedArms].reverse()),
     options,
+  );
+  assert.deepEqual(
+    Object.fromEntries(
+      options.map((option) => [option.providerFamily, option.label]),
+    ),
+    {
+      anthropic: "Anthropic",
+      "dashscope-qwen": "Alibaba / Qwen",
+      deepseek: "DeepSeek",
+      "google-gemini": "Google / Gemini",
+      "moonshot-kimi": "Moonshot / Kimi",
+      openai: "OpenAI",
+      xai: "xAI / Grok",
+      "zai-glm": "Z.AI / GLM",
+    },
   );
   assert.equal(options.find((option) => option.providerFamily === "anthropic")?.armCount, 4);
   const moonshot = options.filter((option) => option.providerFamily === "moonshot-kimi");

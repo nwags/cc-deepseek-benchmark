@@ -22,6 +22,10 @@ import {
 import { buildLiveHeartbeatLiveness, findLatestObservedTimestamp } from "../../../lib/data-freshness";
 import { LIVE_ROUTE_FRESHNESS_SOURCES } from "../../../lib/data-freshness-sources";
 import { redactSecretsInText, sanitizeDisplayedUri } from "../../../lib/safe-display";
+import {
+  friendlyArmLabel,
+  friendlyProviderLabel,
+} from "../../../lib/presentation-labels";
 
 export const dynamic = "force-dynamic";
 
@@ -68,7 +72,13 @@ function statusClass(status: string): string {
 }
 
 function modelLabel(run: LiveRunRow | null | undefined): string {
-  return redactSecretsInText(run?.backend_model ?? run?.router_model ?? run?.provider_family ?? "—");
+  return redactSecretsInText(
+    friendlyArmLabel(run?.arm_id, run?.backend_model),
+  );
+}
+
+function providerLabel(run: LiveRunRow | null | undefined): string {
+  return redactSecretsInText(friendlyProviderLabel(run?.provider_family));
 }
 
 function safeText(value: string | null | undefined, fallback = "—"): string {
@@ -284,9 +294,11 @@ export default async function LiveRunsPage({
           <div className="metric-detail">&gt; {LIVE_STALE_AFTER_SECONDS}s since heartbeat</div>
         </div>
         <div className="metric-card">
-          <div className="metric-label">Selected arm</div>
-          <div className="metric-value">{selected?.arm_id ?? "—"}</div>
-          <div className="metric-detail">{modelLabel(selected ?? runs[0])}</div>
+          <div className="metric-label">Selected model / arm</div>
+          <div className="metric-value">{modelLabel(selected ?? runs[0])}</div>
+          <div className="metric-detail">
+            {selected?.arm_id ?? runs[0]?.arm_id ?? "—"} · {providerLabel(selected ?? runs[0])}
+          </div>
         </div>
         <div className="metric-card">
           <div className="metric-label">Trials</div>
@@ -332,7 +344,11 @@ export default async function LiveRunsPage({
                 {runs.map((run) => (
                   <tr key={run.live_run_id}>
                     <td><Link className="mono" href={`/runs/live?live_run_id=${encodeURIComponent(run.live_run_id)}`}>{run.live_run_id}</Link></td>
-                    <td><div className="mono">{run.arm_id}</div><div className="muted">{modelLabel(run)}</div></td>
+                    <td>
+                      <strong>{modelLabel(run)}</strong>
+                      <div className="muted mono">{run.arm_id}</div>
+                      <div className="muted">{providerLabel(run)}</div>
+                    </td>
                     <td>{run.phase} / {run.mode}<div className="muted">{run.run_kind}{run.scored ? " · scored" : " · non-scored"}</div></td>
                     <td className="mono">{run.runner_name ?? "—"}</td>
                     <td>{run.github_run_id ?? "—"}<div className="muted">attempt {run.github_run_attempt ?? "—"}</div></td>
