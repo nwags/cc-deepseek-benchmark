@@ -1,9 +1,10 @@
 # Dashboard Revision Specification
 
 **Date:** 2026-08-04
-**Status:** Corrective implementation complete; second comprehensive manual visual acceptance passed 2026-08-12
+**Status:** P2 completion accepted 2026-08-19; DR-302 and DR-303 remain later P3 requirements
 **Target repository:** `cc-deepseek-bench`
 **Target branch:** `dashboard-revision-scope-and-stale-pages`
+**P2 closeout branch:** `dashboard-p2-completion`
 **Primary objective:** Correct dashboard scope/provenance inconsistencies and contain stale operational pages before layout polish or new charts.
 
 ## 1. Purpose
@@ -697,7 +698,11 @@ Required:
 
 **2026-08-18 gap audit:** residual DR-201/DR-202/DR-203 work is scoped in [`DASHBOARD_P2_COMPLETION_20260818.md`](DASHBOARD_P2_COMPLETION_20260818.md). The audit treats already accepted terminology, responsive containment, sticky identity columns, and canonical evidence identity as foundations to preserve rather than reimplement.
 
+**2026-08-19 P2 closeout:** DR-201, DR-202, and DR-203 are complete. P2-B completed the shared terminology contract, P2-C completed presentation-only friendly labels with canonical fallback, and P2-D completed the residual large-desktop/overflow work. Production validation and the 1920px/1440px/1280px manual visual acceptance passed. DR-302 and DR-303 remain later P3 requirements outside this closeout.
+
 ### DR-201 — Shared tooltip registry
+
+**Implementation status:** Complete. P2-B commit `0604ca9f` extended the shared conceptual glossary/`TermInfo` contract to the required P2 terms while keeping the failure-taxonomy registry authoritative for individual taxonomy enums and preserving raw identity values.
 
 Create one reusable column/term definition registry for:
 
@@ -720,6 +725,8 @@ Tooltips must be keyboard accessible and usable on touch devices.
 
 ### DR-202 — Global desktop layout and overflow
 
+**Implementation status:** Complete and production-mode manually/visually accepted 2026-08-19. P2-D commit `062dd97f` widened the large-desktop shell, added reusable column-width and opt-in sticky-header contracts, local navigation on Comprehensive Review / Trial Evidence / Live Runs, bounded Live Runs Tool Activity and Event Tail regions, and moved the progressive-artifact Preview action into the left sticky identity/action column. Existing horizontal containment and narrower responsive behavior were retained.
+
 Target large displays of at least 1920×1080.
 
 Requirements:
@@ -736,6 +743,8 @@ Requirements:
 - primary action links not hidden at the far right.
 
 ### DR-203 — Friendly labels
+
+**Implementation status:** Complete. P2-C commit `126ccebb` added one pure presentation-label layer for model, arm, provider, and routing display; unknown values fall back to the canonical source value and persisted IDs, URLs, reviewed artifacts, exports, and raw evidence identities remain unchanged.
 
 Display friendly model/arm names prominently while retaining canonical IDs in details.
 

@@ -26,7 +26,7 @@ without replacing accepted behavior or changing canonical evidence identity.
 
 ## DR-201 — Shared tooltip registry
 
-Status: PARTIAL.
+Status: COMPLETE — P2-B commit `0604ca9f`.
 
 Already satisfied:
 
@@ -41,7 +41,7 @@ Already satisfied:
 - The failure-taxonomy registry remains authoritative for individual taxonomy
   enum values and definitions.
 
-Residual work:
+Completed residual work:
 
 - add or explicitly map the conceptual terms:
   - Attempt
@@ -63,7 +63,7 @@ Residual work:
 
 ## DR-202 — Global desktop layout and overflow
 
-Status: PARTIAL.
+Status: COMPLETE — P2-D commit `062dd97f`; production manual/visual acceptance passed 2026-08-19.
 
 Already satisfied:
 
@@ -74,7 +74,7 @@ Already satisfied:
 - responsive containment previously accepted at 1920px, 1440px, and 1280px;
 - important run/trial actions moved to leftmost identity columns by DR-106.
 
-Residual work:
+Completed residual work:
 
 - increase effective large-desktop content width beyond the current 1480px
   AppShell cap while retaining the existing responsive breakpoint behavior;
@@ -93,7 +93,7 @@ Existing accepted horizontal-scroll and wrapping behavior must not regress.
 
 ## DR-203 — Friendly labels
 
-Status: PARTIAL.
+Status: COMPLETE — P2-C commit `126ccebb`.
 
 Already satisfied:
 
@@ -104,7 +104,7 @@ Already satisfied:
 - Live Runs already displays model context beneath canonical arm identity;
 - arm configuration includes checked-in `display_name` metadata.
 
-Residual work:
+Completed residual work:
 
 - add one pure presentation-only label helper rather than page-local mappings;
 - provide friendly model labels such as:
@@ -197,6 +197,36 @@ Before final acceptance:
 
 Production manual review will focus on surfaces changed by P2 at 1920px,
 1440px, and 1280px.
+
+## Completion record — 2026-08-19
+
+P2 is complete.
+
+Implementation sequence:
+
+- P2-A audit contract: `d74b2b41`;
+- P2-B / DR-201 shared terminology: `0604ca9f`;
+- P2-C / DR-203 friendly presentation labels: `126ccebb`;
+- P2-D / DR-202 desktop layout and overflow: `062dd97f`.
+
+Final validation and acceptance:
+
+- the dashboard production build passed;
+- the full dashboard Node suite passed 208/208;
+- the full Python test suite passed 429/429;
+- the strict review-output scan passed;
+- `make secret-scan` passed;
+- `git diff --check` passed;
+- protected benchmark, review-result, taxonomy, arm-config, and migration boundaries remained unchanged;
+- production `next start` returned HTTP 200 for `/`, `/comprehensive-review`, the representative reviewed trial `/trials/20c82fa9-1a3b-450f-9535-b59b32e4120c`, and `/runs/live`;
+- production manual/visual review passed at 1920×1080, 1440×1080, and 1280×1080 on Overview, Comprehensive Review, representative Trial Evidence, and Live Runs;
+- DR-201 reused the established keyboard/touch-accessible `TermInfo` interaction rather than introducing a second tooltip mechanism;
+- DR-203 added presentation-only friendly model, provider, arm, and routing labels while retaining canonical IDs for evidence identity, URLs, and raw details;
+- DR-202 widened the large-desktop shell, added reusable compact/context/identity width contracts, opt-in sticky headers for long tables, local section navigation, bounded Live Runs history tables, and left-side artifact preview actions while retaining existing responsive containment;
+- the selected Live Runs execution had no Tool Activity rows, so a populated Tool Activity scroll region was not available for visual exercise; the bounded/sticky contract is covered by the focused DR-202 source tests;
+- no benchmark run, provider probe, migration 009 execution, Supabase write, R2 write, frozen-result regeneration, or taxonomy regeneration was performed.
+
+DR-302 failure composition and DR-303 spend decomposition remain later P3 work and were not introduced by P2.
 
 ## Later work
 
