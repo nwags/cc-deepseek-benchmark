@@ -1752,7 +1752,7 @@ def test_j2c_trial_quality_uses_exact_registry_filters_and_frozen_details() -> N
     component = Path("apps/dashboard/src/components/FailureTaxonomyDetails.tsx").read_text()
     css = Path("apps/dashboard/src/app/globals.css").read_text()
 
-    assert "getFailureTaxonomySnapshot()" in page
+    assert "getFailureTaxonomyReviewedSource()" in page
     assert "normalizeFailureTaxonomyFilters(rawTaxonomyFilters)" in page
     assert 'name={axisId}' in page
     assert 'value={entry.id}' in page
