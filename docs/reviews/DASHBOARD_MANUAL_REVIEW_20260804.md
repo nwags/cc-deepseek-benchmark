@@ -3,7 +3,7 @@
 **Repository:** `cc-deepseek-bench`
 **Branch:** `dashboard-revision-scope-and-stale-pages`
 **P2 closeout branch:** `dashboard-p2-completion`
-**Status:** Acceptance current through P2 DR-201/DR-202/DR-203; latest production manual/visual acceptance passed 2026-08-19
+**Status:** Acceptance current through DR-302; latest production manual/visual acceptance passed 2026-08-19; DR-303 remains pending
 **Review type:** Post-merge manual dashboard acceptance and revision tracking
 
 ## Source material
@@ -18,6 +18,7 @@
 - Second comprehensive manual visual acceptance performed 2026-08-12 at 1920px, 1440px, and 1280px widths
 - DR-104 production-mode manual/visual acceptance performed 2026-08-17 at 1920px, 1440px, and 1280px widths
 - P2 DR-201/DR-202/DR-203 production-mode manual/visual acceptance performed 2026-08-19 at 1920px, 1440px, and 1280px widths
+- DR-302 production-mode manual/visual acceptance performed 2026-08-19 at 1920px, 1440px, and 1280px widths
 - `docs/reports/phase3/KIMI_K3_PROVIDER_LOG_RECONCILIATION_20260805.md`
 - `docs/reports/phase3/KIMI_K3_PROVIDER_EXPORT_DUPLICATE_CHECK_20260805.md`
 - `results/phase3/reporting/kimi_k3_provider_log_reconciliation_20260805.csv`
@@ -71,6 +72,7 @@ Migration 009 must not be rerun. No paid benchmark runs, provider probes, Supaba
 - [x] DR-201 shared terminology — P2-B complete; existing `TermInfo` interaction retained
 - [x] DR-202 global desktop layout and overflow — P2-D complete and production-mode manually/visually accepted 2026-08-19
 - [x] DR-203 friendly labels — P2-C complete with canonical identity retained
+- [x] DR-302 failure composition by arm — frozen Phase 3 extended 370-failure partition implemented and production-mode manually/visually accepted 2026-08-19
 
 ## Observations versus confirmed defects
 
@@ -123,6 +125,8 @@ The Implementation log below preserves the status recorded when each earlier gro
 | 2026-08-19 | DR-201 — shared terminology | Extended the existing conceptual glossary and `TermInfo` presentation to Attempt, Confidence, Unresolved, Routing path, Execution validity, Activity class, Failure subtype, Policy disposition, Telemetry consistency, Artifact completeness, R2 integrity, and existing cost/accounting concepts without duplicating taxonomy enum definitions or replacing raw values. | Shared glossary/`TermInfo` adoption across cost/evidence surfaces; focused terminology tests | Focused terminology/source tests; typecheck; repository validation | Complete in `0604ca9f`. |
 | 2026-08-19 | DR-203 — friendly labels | Added a pure deterministic presentation-label module and adopted friendly model/arm/provider/routing labels across the primary reviewed and operational surfaces while retaining canonical IDs in evidence identity, secondary detail, links, URLs, and raw source values. | Presentation-label helper/tests; Overview; Cost Coverage; Cross-phase; Runs; Arms; Trial Quality; Live Runs | Focused presentation tests; 208 dashboard Node tests; 420 Python tests; typecheck; strict output scan; secret scan; diff/protected-boundary checks | Complete in `126ccebb`. |
 | 2026-08-19 | DR-202 — desktop layout and P2 production acceptance | Increased the large-desktop AppShell cap, added reusable dense-table width contracts, opt-in sticky long-table headers, local section navigation, bounded Live Runs histories, and a left sticky progressive-artifact action while preserving existing responsive containment. Production review covered Overview, Comprehensive Review, representative Trial Evidence, and Live Runs at 1920px, 1440px, and 1280px. | `/`; `/comprehensive-review`; `/trials/[trialId]`; `/runs/live`; shared `SectionNav`; global layout CSS; focused DR-202 tests | Production build; 208 Node tests; 429 Python tests; strict output scan; secret scan; diff/protected-boundary checks; four production routes HTTP 200; three-width manual visual acceptance | Accepted and complete in `062dd97f`. The selected Live Run contained no Tool Activity rows, so populated Tool Activity scrolling was not visually exercised; its bounded/sticky source contract is tested. |
+
+| 2026-08-19 | DR-302 — failure composition by arm | Added a fail-closed display-only partition over the 370 raw failures in the frozen Phase 3 extended 16-arm / 960-trial population, a validated reviewed-source accessor, horizontal stacked count bars, an exact accessible table, explicit denominator/exclusion and unknown-residual semantics, local navigation, and responsive presentation. | `/trial-quality`; DR-302 model and tests; `FailureCompositionPanel` and tests; reviewed-source accessor; scoped CSS; dashboard test wiring; source-contract test | Focused DR-302 tests; typecheck; production build; final `make check` with 227 dashboard Node tests and 429 Python tests; strict output scan; secret scan; diff/protected-boundary checks; production visual review at 1920px, 1440px, and 1280px | Accepted; DR-302 complete. Frozen evidence remained authoritative and DR-303 remained untouched. |
 
 Commit Group C used source inspection only. No provider, LiteLLM, Claude Code, Harbor, router, runner, or infrastructure probes were run, and no external operational service was queried.
 
@@ -420,3 +424,50 @@ Final validation before acceptance included a successful production build, 208/2
 No benchmark rerun, paid provider probe, migration 009 execution, Supabase write, R2 write, frozen-result regeneration, reviewed-artifact regeneration, taxonomy regeneration, or canonical-ID rename was performed.
 
 **Outcome:** PASS. DR-201, DR-202, and DR-203 are complete and accepted. P2 is complete. DR-302 and DR-303 remain later P3 requirements outside this acceptance and branch scope.
+
+## DR-302 production manual/visual acceptance — 2026-08-19
+
+DR-302 was reviewed in production mode on `/trial-quality` after the
+bounded implementation sequence on `dashboard-dr302-failure-composition`.
+The accepted surface uses only the frozen `phase3-extended`
+Comprehensive Review and exact-ID J2 evidence: 16 arms, 960 reviewed
+trials, and exactly 370 raw failures in the chart denominator.
+
+The seven requested categories remained visibly distinct: verifier/task
+failure, timeout after meaningful activity, provider-policy refusal,
+invalid response path, missing required output, extraneous output
+artifacts, and unknown/incomplete evidence. The display partition summed
+to exactly 370 raw failures. The 562 successes and 28 `not_recorded`
+trials remained excluded, and the page disclosed that 19 successful
+trials nevertheless have timeout-after-meaningful-activity evidence.
+
+Manual visual review covered 1920×1080, 1440×1080, and 1280×1080 desktop
+viewports. The stacked-count bars, fixed legend, exact non-hover table,
+friendly arm labels, visible canonical arm IDs, per-arm raw-failure
+counts/shares, provenance text, and residual-evidence explanation
+remained readable and contained at all three widths. Frozen J2 taxonomy
+remained above DR-302, while the operational quality material remained
+below it, preserving the reviewed-versus-operational boundary.
+
+The production captures showed the operational database-backed quality
+material in an unavailable state. The frozen DR-302 panel still rendered
+from the validated reviewed source. No operational database, R2,
+live-analysis, all-imported, latest-run, browser-derived, or
+runtime-classifier fallback was used to fill, replace, or reinterpret
+the DR-302 values.
+
+Validation before acceptance included the focused model/presentation
+tests, typecheck, a successful production build, and full repository
+gates. The final `make check` passed 227 dashboard Node tests and 429
+Python tests. The strict review-output scan was clean, `make secret-scan`
+passed, `git diff --check` was clean, and the protected-boundary and
+DR-303 contamination checks were empty.
+
+No benchmark rerun, paid provider probe, migration 009 execution,
+Supabase write, R2 write, frozen-result regeneration, reviewed-artifact
+regeneration, J2 regeneration, taxonomy/classifier change, or canonical
+identity rewrite was performed.
+
+**Outcome:** PASS. DR-302 is complete and accepted. DR-303 spend
+decomposition remains separate future P3 work and was not implemented or
+modified by this branch.

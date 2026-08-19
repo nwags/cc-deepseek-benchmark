@@ -97,6 +97,14 @@ async function assertInvalidFixture(directory, expectedReason) {
   assert.equal(result.available, false);
   assert.deepEqual(result.rows, []);
   assert.match(result.message, expectedReason);
+
+  const reviewedSource =
+    await module.getFailureTaxonomyReviewedSource();
+  assert.equal(reviewedSource.state, "invalid");
+  assert.equal(reviewedSource.available, false);
+  assert.deepEqual(reviewedSource.reviewRows, []);
+  assert.deepEqual(reviewedSource.taxonomyRows, []);
+  assert.match(reviewedSource.message, expectedReason);
 }
 
 async function copyFixture(fixtureRoot, name) {
@@ -124,6 +132,41 @@ test("canonical loader validates 960 exact-ID rows and exposes canonical filteri
   assert.equal(new Set(snapshot.rows.map((row) => row.trial_id)).size, 960);
   assert.equal(snapshot.provenance.scope, "phase3-extended");
   assert.equal(snapshot.provenance.reviewQueueCount, 243);
+
+  const reviewedSource =
+    await snapshotModule.getFailureTaxonomyReviewedSource();
+  assert.equal(reviewedSource.available, true);
+  assert.equal(reviewedSource.state, "available");
+  assert.equal(reviewedSource.reviewRows.length, 960);
+  assert.equal(reviewedSource.taxonomyRows.length, 960);
+  assert.deepEqual(
+    new Set(reviewedSource.reviewRows.map((row) => row.trial_id)),
+    new Set(snapshot.rows.map((row) => row.trial_id)),
+  );
+  assert.equal(
+    reviewedSource.reviewRows.filter(
+      (row) => row.raw_outcome === "failure",
+    ).length,
+    370,
+  );
+  assert.equal(
+    reviewedSource.reviewRows.filter(
+      (row) =>
+        row.raw_outcome === "success"
+        && row.activity_subtype
+          === "timeout_after_meaningful_activity",
+    ).length,
+    19,
+  );
+  assert.equal(
+    reviewedSource.reviewRows.filter(
+      (row) =>
+        row.raw_outcome === "not_recorded"
+        && row.activity_subtype
+          === "timeout_after_meaningful_activity",
+    ).length,
+    28,
+  );
 
   const timeout = await snapshotModule.getFailureTaxonomyForTrial("06069bcf-6f36-4000-aa41-85501e197164");
   assert.equal(timeout.status, "available");

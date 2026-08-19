@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { AppShell } from "../../components/AppShell";
 import { DataFreshnessNotice } from "../../components/DataFreshnessNotice";
+import {
+  FailureCompositionPanel,
+  type FailureCompositionPresentationState,
+} from "../../components/FailureCompositionPanel";
 import { FailureTaxonomyCompactDiagnosis } from "../../components/FailureTaxonomyDetails";
+import { SectionNav } from "../../components/SectionNav";
 import { TermInfo } from "../../components/TermInfo";
 import { QualityBadge, buildSuspectNoopHref } from "../../components/QualityContext";
 import { InvalidReason, ValidityBadge, invalidCategory } from "../../components/ValidityContext";
@@ -9,6 +14,7 @@ import { buildArtifactHref } from "../../lib/links";
 import { buildExactRunHref, buildExactTrialHref } from "../../lib/evidence-links";
 import { redactSecretsInText } from "../../lib/safe-display";
 import { friendlyArmLabel } from "../../lib/presentation-labels";
+import { buildFailureCompositionModel } from "../../lib/failure-composition";
 import {
   deduplicateDisplayedArmRunFreshnessIdentities,
   getArmRunQualitySummaryRows,
@@ -26,7 +32,7 @@ import {
 import {
   FAILURE_TAXONOMY_AXIS_IDS,
   filterFailureTaxonomyRows,
-  getFailureTaxonomySnapshot,
+  getFailureTaxonomyReviewedSource,
   normalizeFailureTaxonomyFilters,
   type FailureTaxonomyFilters,
 } from "../../lib/failure-taxonomy-snapshot";
@@ -118,12 +124,43 @@ export default async function TrialQualityPage({
   if (suspectFilters.run_label) activeFilterEntries.push(["run_label", suspectFilters.run_label]);
   if (suspectFilters.task_id) activeFilterEntries.push(["task_id", suspectFilters.task_id]);
 
-  const [summaries, suspectTrials, invalidRows, taxonomySnapshot] = await Promise.all([
+  const [summaries, suspectTrials, invalidRows, taxonomySource] = await Promise.all([
     getArmRunQualitySummaryRows(120),
     getSuspectNoopTrialRowsFiltered(suspectFilters, 120),
     getInvalidArmRunRows(),
-    getFailureTaxonomySnapshot(),
+    getFailureTaxonomyReviewedSource(),
   ]);
+  const taxonomySnapshot = {
+    available: taxonomySource.available,
+    state: taxonomySource.state,
+    message: taxonomySource.message,
+    rows: taxonomySource.taxonomyRows,
+    provenance: taxonomySource.provenance,
+  };
+  const failureCompositionState: FailureCompositionPresentationState = (() => {
+    if (!taxonomySource.available || !taxonomySource.provenance) {
+      return {
+        available: false,
+        message: taxonomySource.message,
+      };
+    }
+    try {
+      return {
+        available: true,
+        model: buildFailureCompositionModel(
+          taxonomySource.reviewRows,
+          taxonomySource.taxonomyRows,
+        ),
+      };
+    } catch {
+      return {
+        available: false,
+        message:
+          "Failure composition failed closed because the validated frozen source relationship did not satisfy the DR-302 contract.",
+      };
+    }
+  })();
+
   const matchingTaxonomyRows = taxonomySnapshot.available
     ? filterFailureTaxonomyRows(taxonomySnapshot.rows, taxonomyFilters) : [];
   const taxonomyPageCount = Math.max(1, Math.ceil(matchingTaxonomyRows.length / taxonomyPageSize));
@@ -189,6 +226,40 @@ export default async function TrialQualityPage({
         </div>
       </section>
       <DataFreshnessNotice freshness={freshness} />
+
+      <SectionNav
+        ariaLabel="Trial Quality sections"
+        items={[
+          {
+            href: "#failure-taxonomy",
+            label: "Failure taxonomy",
+          },
+          {
+            href: "#failure-composition",
+            label: "Failure composition",
+          },
+          {
+            href: "#invalid-runs",
+            label: "Invalid runs",
+          },
+          {
+            href: "#interpretation-policy",
+            label: "Interpretation",
+          },
+          {
+            href: "#quality-definitions",
+            label: "Definitions",
+          },
+          {
+            href: "#arm-run-summary",
+            label: "Arm-run summary",
+          },
+          {
+            href: "#suspect-noop-trials",
+            label: "Legacy no-op rows",
+          },
+        ]}
+      />
 
       <section className="panel taxonomy-list-panel" id="failure-taxonomy" aria-labelledby="failure-taxonomy-heading">
         <div className="panel-heading">
@@ -296,7 +367,12 @@ export default async function TrialQualityPage({
         )}
       </section>
 
-      <section className="panel">
+      <FailureCompositionPanel
+        state={failureCompositionState}
+        provenance={taxonomySource.provenance}
+      />
+
+      <section className="panel" id="invalid-runs">
         <div className="panel-heading">
           <div>
             <h2>Invalid / quarantined runs</h2>
@@ -341,7 +417,7 @@ export default async function TrialQualityPage({
         </div>
       </section>
 
-      <section className="panel warning-panel">
+      <section className="panel warning-panel" id="interpretation-policy">
         <h2>Interpretation policy</h2>
         <p>
           Canary and smoke suites are diagnostic route/provider tests. They are useful for
@@ -365,7 +441,7 @@ export default async function TrialQualityPage({
         </div>
       </section>
 
-      <section className="panel">
+      <section className="panel" id="quality-definitions">
         <div className="panel-heading">
           <div>
             <h2>Definitions</h2>
@@ -410,7 +486,7 @@ export default async function TrialQualityPage({
         </article>
       </section>
 
-      <section className="panel">
+      <section className="panel" id="arm-run-summary">
         <div className="panel-heading">
           <div>
             <h2>Arm-run quality summary</h2>
