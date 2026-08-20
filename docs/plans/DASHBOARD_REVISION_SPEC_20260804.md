@@ -1,7 +1,7 @@
 # Dashboard Revision Specification
 
 **Date:** 2026-08-04
-**Status:** P2 completion and DR-302 accepted 2026-08-19; DR-303 remains a later P3 requirement
+**Status:** P2 completion and DR-302 accepted 2026-08-19; DR-303 contract defined 2026-08-19 and implementation pending
 **Target repository:** `cc-deepseek-bench`
 **Target branch:** `dashboard-revision-scope-and-stale-pages`
 **P2 closeout branch:** `dashboard-p2-completion`
@@ -759,7 +759,7 @@ Do not mass-rename canonical IDs.
 
 ## 9. Chart requirements
 
-Scope and Kimi cost integration must be completed first so chart inputs are stable. DR-301 is then completed as corrective P0 work before the second manual acceptance pass. DR-302 is complete and accepted as of 2026-08-19; DR-303 remains the later chart requirement.
+Scope and Kimi cost integration must be completed first so chart inputs are stable. DR-301 is then completed as corrective P0 work before the second manual acceptance pass. DR-302 is complete and accepted as of 2026-08-19; DR-303 is now scoped by the dedicated 2026-08-19 contract below and remains implementation-pending.
 
 ### DR-301 — Interactive cost/performance frontier
 
@@ -817,13 +817,31 @@ Stacked counts or shares for:
 
 ### DR-303 — Spend decomposition by arm
 
+**Implementation status:** Contract defined 2026-08-19; implementation pending.
+
+**2026-08-19 implementation contract:** DR-303 is scoped in
+[`DASHBOARD_DR303_SPEND_DECOMPOSITION_20260819.md`](DASHBOARD_DR303_SPEND_DECOMPOSITION_20260819.md).
+
+The default population is the frozen reviewed Phase 3 extended 16-arm /
+960-trial comparison, with the existing 15-arm / 900-trial historical core
+available through the Cost Coverage reviewed-scope selector. The primary
+five-part accounting stack uses four mutually exclusive **recorded** outcome
+spend buckets plus the existing reviewed known accounting gap. It does not
+add adjusted outcome spend and accounting gap together, because doing so
+would double-count reconstructed dollars.
+
 Show:
 
-- clean-success spend;
-- normal-failure spend;
-- exception-failure spend;
-- exception with success signal;
-- unresolved/accounting gap.
+- recorded clean-success spend;
+- recorded normal-failure spend;
+- recorded exception-failure spend;
+- recorded exception-with-success-signal spend;
+- known accounting gap, with missing/unresolved row counts shown separately.
+
+For historical core arms, adjusted-known outcome allocation may be presented
+only as secondary evidence. For Kimi K3, adjusted outcome allocation remains
+unavailable; its qualified provider-log remainder must remain unallocated
+across outcomes rather than being proportionally fabricated.
 
 ## 10. Recommended implementation sequence
 
