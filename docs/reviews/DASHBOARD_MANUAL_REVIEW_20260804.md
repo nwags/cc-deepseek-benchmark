@@ -3,7 +3,7 @@
 **Repository:** `cc-deepseek-bench`
 **Branch:** `dashboard-revision-scope-and-stale-pages`
 **P2 closeout branch:** `dashboard-p2-completion`
-**Status:** Acceptance current through DR-302; latest production manual/visual acceptance passed 2026-08-19; DR-303 remains pending
+**Status:** Acceptance current through DR-303; latest production manual/visual acceptance passed 2026-08-20
 **Review type:** Post-merge manual dashboard acceptance and revision tracking
 
 ## Source material
@@ -19,6 +19,7 @@
 - DR-104 production-mode manual/visual acceptance performed 2026-08-17 at 1920px, 1440px, and 1280px widths
 - P2 DR-201/DR-202/DR-203 production-mode manual/visual acceptance performed 2026-08-19 at 1920px, 1440px, and 1280px widths
 - DR-302 production-mode manual/visual acceptance performed 2026-08-19 at 1920px, 1440px, and 1280px widths
+- DR-303 production-mode manual/visual acceptance performed 2026-08-20 at 1920px, 1440px, and 1280px widths
 - `docs/reports/phase3/KIMI_K3_PROVIDER_LOG_RECONCILIATION_20260805.md`
 - `docs/reports/phase3/KIMI_K3_PROVIDER_EXPORT_DUPLICATE_CHECK_20260805.md`
 - `results/phase3/reporting/kimi_k3_provider_log_reconciliation_20260805.csv`
@@ -73,6 +74,7 @@ Migration 009 must not be rerun. No paid benchmark runs, provider probes, Supaba
 - [x] DR-202 global desktop layout and overflow — P2-D complete and production-mode manually/visually accepted 2026-08-19
 - [x] DR-203 friendly labels — P2-C complete with canonical identity retained
 - [x] DR-302 failure composition by arm — frozen Phase 3 extended 370-failure partition implemented and production-mode manually/visually accepted 2026-08-19
+- [x] DR-303 spend decomposition by arm — exact reviewed five-part dollar decomposition implemented and production-mode manually/visually accepted 2026-08-20
 
 ## Observations versus confirmed defects
 
@@ -127,6 +129,7 @@ The Implementation log below preserves the status recorded when each earlier gro
 | 2026-08-19 | DR-202 — desktop layout and P2 production acceptance | Increased the large-desktop AppShell cap, added reusable dense-table width contracts, opt-in sticky long-table headers, local section navigation, bounded Live Runs histories, and a left sticky progressive-artifact action while preserving existing responsive containment. Production review covered Overview, Comprehensive Review, representative Trial Evidence, and Live Runs at 1920px, 1440px, and 1280px. | `/`; `/comprehensive-review`; `/trials/[trialId]`; `/runs/live`; shared `SectionNav`; global layout CSS; focused DR-202 tests | Production build; 208 Node tests; 429 Python tests; strict output scan; secret scan; diff/protected-boundary checks; four production routes HTTP 200; three-width manual visual acceptance | Accepted and complete in `062dd97f`. The selected Live Run contained no Tool Activity rows, so populated Tool Activity scrolling was not visually exercised; its bounded/sticky source contract is tested. |
 
 | 2026-08-19 | DR-302 — failure composition by arm | Added a fail-closed display-only partition over the 370 raw failures in the frozen Phase 3 extended 16-arm / 960-trial population, a validated reviewed-source accessor, horizontal stacked count bars, an exact accessible table, explicit denominator/exclusion and unknown-residual semantics, local navigation, and responsive presentation. | `/trial-quality`; DR-302 model and tests; `FailureCompositionPanel` and tests; reviewed-source accessor; scoped CSS; dashboard test wiring; source-contract test | Focused DR-302 tests; typecheck; production build; final `make check` with 227 dashboard Node tests and 429 Python tests; strict output scan; secret scan; diff/protected-boundary checks; production visual review at 1920px, 1440px, and 1280px | Accepted; DR-302 complete. Frozen evidence remained authoritative and DR-303 remained untouched. |
+| 2026-08-20 | DR-303 — spend decomposition by arm | Added a hash-bound reviewed spend source, pure exact-decimal reconciliation model, and Cost Coverage presentation of four mutually exclusive recorded-outcome dollar buckets plus one known non-outcome accounting gap. Missing/unresolved rows remain counts; Kimi provider-log remainder remains unallocated by outcome. | `/cost-coverage`; DR-303 source/model and focused tests; `SpendDecompositionPanel` and test; scoped responsive CSS; dedicated DR-303 plan | Focused source/model/presentation contracts; typecheck during implementation; production build; final `make check` with 255 dashboard Node tests and 429 Python tests; strict output scan; secret scan; diff/protected-boundary checks; rendered-text checks for extended/core; production visual review at 1920px, 1440px, and 1280px; local table-overflow interaction check | Accepted; DR-303 complete. Exact F1 cost semantics, Kimi qualification, accessibility, and frozen/protected boundaries were retained. |
 
 Commit Group C used source inspection only. No provider, LiteLLM, Claude Code, Harbor, router, runner, or infrastructure probes were run, and no external operational service was queried.
 
@@ -471,3 +474,81 @@ identity rewrite was performed.
 **Outcome:** PASS. DR-302 is complete and accepted. DR-303 spend
 decomposition remains separate future P3 work and was not implemented or
 modified by this branch.
+
+
+## DR-303 production manual/visual acceptance — 2026-08-20
+
+DR-303 was reviewed in production mode on `/cost-coverage` after the bounded
+implementation sequence on `dashboard-dr303-spend-decomposition`. The
+accepted surface is derived only from the frozen reviewed Phase 3 cost and
+Comprehensive Review sources validated by the DR-303 source/model layer; no
+operational database, R2, live-analysis, latest-run, or browser-derived value
+fills or replaces a DR-303 fact.
+
+The default `phase3-extended` surface retained 16 arms and 960 exact reviewed
+trials. Its accepted primary decomposition showed `$845.98194175` recorded
+outcome spend plus `$157.002223139198` summed arm-level known accounting gap.
+The summed selected arm cost remained `$1002.984164889198`, while the
+authoritative F1 scope headline remained `$1002.9841648891979`; the retained
+`$0.0000000000001` difference stayed within the existing `1e-12`
+reconciliation guard and was not assigned to an outcome segment.
+
+The historical `phase3-core` alternate retained 15 arms and 900 exact
+reviewed trials, `$820.77472875` recorded outcome spend,
+`$151.395116739198` known accounting gap, and `$972.169845489198` selected
+reviewed cost. Kimi K3 remained absent from the core scope.
+
+In the extended scope, Kimi K3 remained visibly qualified rather than
+presented as invoice-level or trial-allocated spend. Its retained values were
+`$25.207213` recorded cost, `$5.6071064` known gap, and `$30.8143194`
+qualified retained-rate selected cost, with 10 missing recorded-cost rows and
+10 unresolved rows. Its provider-log remainder remained unallocated across
+outcomes.
+
+The accepted visualization uses four mutually exclusive recorded-outcome
+segments plus the known accounting gap as a fifth, explicitly non-outcome
+segment. The exception-with-success-signal category remains visible as a real
+evidence category despite `$0` recorded spend. Missing and unresolved evidence
+remain counts and are not converted into synthetic dollar geometry. All arms
+use the same absolute-dollar chart scale rather than independent normalized
+bars, and the visible exact table preserves friendly labels, canonical IDs,
+exact dollar strings, counts, cost basis, confidence, and allocation/billing
+qualifications.
+
+One accessibility defect was corrected during acceptance: the decorative
+stacked chart was already `aria-hidden`, but its right-edge selected-cost
+total initially retained a focusable evidence link. The link was removed from
+the decorative subtree while the visible exact table retained the arm-level
+evidence destinations. A focused regression test now requires the decorative
+chart to contain no focusable links.
+
+Production-mode rendered-text checks passed for both scopes, including the
+exact scope populations and accounting values above and explicit absence of
+Kimi qualification from core. Raw React server HTML initially caused a
+false-negative string check because interpolation boundaries were serialized
+with hydration markers; parsing rendered text confirmed the browser-visible
+facts without requiring a product change.
+
+Manual visual review covered 1920px, 1440px, and 1280px desktop widths for
+the reviewed extended and core surfaces. The summary cards, five-category
+legend, shared-scale stacked bars, exact table, reconciliation/qualification
+text, and surrounding Cost Coverage sections remained readable and
+contained. At 1280px the wide DR-303 table was manually scrolled to its right
+edge: Evidence qualification remained reachable through local table
+horizontal scrolling without page-wide horizontal movement.
+
+Validation before acceptance included focused source/model/presentation
+tests, TypeScript validation during implementation, a successful production
+build on the final production source, and full repository validation. The
+final focused presentation contract passed 10/10 tests. The final
+`make check` passed 255 dashboard Node tests and 429 Python tests. The strict
+review-output scan was clean, `make secret-scan` passed, `git diff --check`
+was clean, and protected-boundary inspection was empty.
+
+No benchmark rerun, paid provider probe, migration 009 execution, Supabase
+write, R2 write, frozen-result regeneration, reviewed F1 regeneration,
+Comprehensive Review regeneration, J2 regeneration, taxonomy/classifier
+change, DR-302 semantic change, or canonical identity rewrite was performed.
+
+**Outcome:** PASS. DR-303 is complete and production-mode manually/visually
+accepted 2026-08-20.

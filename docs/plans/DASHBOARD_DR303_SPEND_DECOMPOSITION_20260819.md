@@ -1,6 +1,6 @@
 # Dashboard DR-303 Spend Decomposition Plan — 2026-08-19
 
-**Status:** Contract defined; implementation pending
+**Status:** Complete and production-mode manually/visually accepted 2026-08-20
 **Repository:** `cc-deepseek-bench`
 **Branch:** `dashboard-dr303-spend-decomposition`
 **Base:** `304cac4a4198d6fd21631eedd242379d85e235d1`
@@ -626,6 +626,92 @@ Do not rerun benchmarks, provider probes, migration 009, Supabase writes,
 R2 writes, F1 generation, Comprehensive Review generation, J2 generation,
 or historical cost-report generation.
 
+#### Acceptance record — 2026-08-20
+
+The bounded DR-303 implementation completed in four pre-closeout commits:
+
+- `f7d8086c` — `Define DR-303 spend decomposition contract`;
+- `ff40c2b9` — `Add reviewed spend decomposition source`;
+- `150a726d` — `Add spend decomposition model`;
+- `9adf25f7` — `Add spend decomposition presentation`.
+
+The source layer binds the retained 900-row historical trial-cost source and
+960-row Comprehensive Review to their frozen SHA-256 identities before
+parsing. The pure model then proves the exact 900-core / 960-extended
+membership relationship, exact arm/task identity, 60 trials per arm, and
+per-arm reconciliation of the four recorded outcome buckets plus one known
+accounting gap. Kimi K3 remains the exact 60-row extended-only arm.
+
+The accepted primary accounting facts remained:
+
+- core recorded outcome spend: `$820.77472875`;
+- core known accounting gap: `$151.395116739198`;
+- core selected reviewed cost: `$972.169845489198`;
+- extended recorded outcome spend: `$845.98194175`;
+- extended summed arm-level known accounting gap: `$157.002223139198`;
+- extended summed selected arm cost: `$1002.984164889198`;
+- authoritative extended F1 scope headline:
+  `$1002.9841648891979`;
+- retained arm/scope reconciliation delta:
+  `$0.0000000000001`, within the existing F1 `1e-12` guard.
+
+The `exception_with_success_signal` outcome remains a real primary category
+even though its recorded spend is `$0`. Missing recorded-cost rows and
+unresolved-cost rows remain counts rather than fabricated dollar segments.
+
+Kimi K3 retains its reviewed qualification boundary: 44 clean successes,
+5 normal failures, 8 exception failures, and 3 exception-with-success-signal
+trials; `$25.207213` recorded cost; `$5.6071064` known accounting gap; and
+`$30.8143194` qualified retained-rate selected cost. Its 10 missing
+recorded-cost rows and 10 unresolved rows remain explicit. Trial-level and
+outcome-level allocation of the provider-log remainder remain unavailable /
+unresolved rather than proportionally fabricated. Kimi is absent from the
+historical core scope.
+
+Presentation acceptance on `/cost-coverage` confirmed:
+
+- the reviewed DR-303 panel renders after the reviewed headline metrics and
+  before optional operational Cost provenance focus;
+- all arms use one shared absolute-dollar bar scale rather than a per-arm
+  normalized scale;
+- the fixed four recorded-outcome categories plus the non-outcome accounting
+  gap are visible in the legend and exact table;
+- friendly arm labels and canonical arm IDs remain visible together;
+- exact decimal facts, missing/unresolved counts, cost basis, confidence, and
+  allocation/billing qualifications remain available in the visible table;
+- no bucket-specific evidence deep link is invented;
+- the decorative chart is `aria-hidden` and contains no focusable link, while
+  exact arm-level evidence links remain available in the visible table;
+- local horizontal table scrolling keeps right-edge Evidence qualification
+  content reachable without page-wide horizontal movement.
+
+Production-mode rendered-text checks passed for both reviewed scopes. The
+extended view exposed `phase3-extended`, 960 reviewed trials, 16 arms, the
+authoritative `$1002.9841648891979` scope headline, `$845.98194175` recorded
+outcome spend, `$157.002223139198` summed arm gap, and Kimi qualification.
+The core view exposed `phase3-core`, 900 reviewed trials, 15 arms,
+`$972.169845489198` selected reviewed cost, `$820.77472875` recorded outcome
+spend, and `$151.395116739198` known gap, while excluding Kimi qualification.
+
+Manual production visual review covered the reviewed extended and core
+surfaces at 1920px, 1440px, and 1280px desktop widths. The stacked bars,
+legend, summary facts, exact table, downstream Cost Coverage sections, and
+responsive containment passed. The 1280px exact-table check additionally
+confirmed local horizontal containment.
+
+Validation before acceptance included the focused source/model/presentation
+contracts, TypeScript validation during implementation, one successful
+production build on the final production source, and the final repository
+gate. The final focused presentation contract passed 10/10 tests. The final
+`make check` passed 255 dashboard Node tests and 429 Python tests, and the
+strict review-output scan was clean. `make secret-scan` passed,
+`git diff --check` was clean, and protected-boundary inspection was empty.
+
+No benchmark rerun, paid provider probe, migration 009 execution, Supabase
+write, R2 write, frozen-result regeneration, F1 regeneration, Comprehensive
+Review regeneration, J2 regeneration, taxonomy/classifier change, or
+canonical-ID rewrite was performed.
+
 ## Protected boundaries
 
 DR-303 must not modify:
@@ -661,4 +747,4 @@ DR-303 is complete only when:
 - production visual acceptance passes;
 - protected/frozen boundaries remain unchanged.
 
-**Disposition:** DR-303 contract defined 2026-08-19; implementation pending.
+**Disposition:** DR-303 is complete and production-mode manually/visually accepted 2026-08-20.

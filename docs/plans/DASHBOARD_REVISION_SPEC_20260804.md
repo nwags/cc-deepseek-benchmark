@@ -1,7 +1,7 @@
 # Dashboard Revision Specification
 
 **Date:** 2026-08-04
-**Status:** P2 completion and DR-302 accepted 2026-08-19; DR-303 contract defined 2026-08-19 and implementation pending
+**Status:** P2 completion and DR-302 accepted 2026-08-19; DR-303 completed and production-mode accepted 2026-08-20
 **Target repository:** `cc-deepseek-bench`
 **Target branch:** `dashboard-revision-scope-and-stale-pages`
 **P2 closeout branch:** `dashboard-p2-completion`
@@ -759,7 +759,7 @@ Do not mass-rename canonical IDs.
 
 ## 9. Chart requirements
 
-Scope and Kimi cost integration must be completed first so chart inputs are stable. DR-301 is then completed as corrective P0 work before the second manual acceptance pass. DR-302 is complete and accepted as of 2026-08-19; DR-303 is now scoped by the dedicated 2026-08-19 contract below and remains implementation-pending.
+Scope and Kimi cost integration must be completed first so chart inputs are stable. DR-301 is then completed as corrective P0 work before the second manual acceptance pass. DR-302 is complete and accepted as of 2026-08-19; DR-303 completed its dedicated reviewed spend-decomposition implementation and production acceptance on 2026-08-20.
 
 ### DR-301 — Interactive cost/performance frontier
 
@@ -817,7 +817,7 @@ Stacked counts or shares for:
 
 ### DR-303 — Spend decomposition by arm
 
-**Implementation status:** Contract defined 2026-08-19; implementation pending.
+**Implementation status:** Complete and production-mode manually/visually accepted 2026-08-20.
 
 **2026-08-19 implementation contract:** DR-303 is scoped in
 [`DASHBOARD_DR303_SPEND_DECOMPOSITION_20260819.md`](DASHBOARD_DR303_SPEND_DECOMPOSITION_20260819.md).
@@ -842,6 +842,22 @@ For historical core arms, adjusted-known outcome allocation may be presented
 only as secondary evidence. For Kimi K3, adjusted outcome allocation remains
 unavailable; its qualified provider-log remainder must remain unallocated
 across outcomes rather than being proportionally fabricated.
+
+**2026-08-20 closeout:** DR-303 was implemented through contract
+`f7d8086c`, reviewed-source `ff40c2b9`, quantitative-model `150a726d`, and
+presentation `9adf25f7`. The accepted Cost Coverage surface preserves the
+four recorded-outcome buckets plus the known non-outcome accounting gap,
+keeps missing/unresolved values as counts, exposes exact reviewed cost basis
+and qualifications, and uses no operational fallback for DR-303 facts.
+
+The final validation gate passed 255 dashboard Node tests and 429 Python
+tests with a clean strict review-output scan, secret scan, and diff check.
+The final production build passed. Rendered-text production checks passed for
+both the 16-arm / 960-trial extended scope and 15-arm / 900-trial core scope,
+including Kimi exclusion from core. Production manual visual review passed at
+1920px, 1440px, and 1280px, and the wide exact table retained local
+horizontal containment. Protected/frozen result, generated F1/run-selection,
+migration, taxonomy/J2, and DR-302 boundaries remained unchanged.
 
 ## 10. Recommended implementation sequence
 
