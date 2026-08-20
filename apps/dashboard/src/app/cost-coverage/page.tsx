@@ -5,6 +5,11 @@ import { CorpusScopeNotice } from "../../components/CorpusScopeNotice";
 import { CorpusScopeSelector } from "../../components/CorpusScopeSelector";
 import { EvidenceSourceContextNotice } from "../../components/EvidenceSourceContextNotice";
 import { MetricCard } from "../../components/MetricCard";
+import {
+  SpendDecompositionPanel,
+  type SpendDecompositionArmLinks,
+  type SpendDecompositionPresentationState,
+} from "../../components/SpendDecompositionPanel";
 import { TermInfo } from "../../components/TermInfo";
 import { getCostProvenanceFocusRows, type CostProvenanceFocusRow } from "../../lib/dashboard-data";
 import {
@@ -26,6 +31,12 @@ import {
   selectReviewedPhase3Scope,
   type ReviewedPhase3Arm,
 } from "../../lib/phase3-reviewed-comparison";
+import {
+  buildSpendDecompositionModel,
+} from "../../lib/spend-decomposition";
+import {
+  getSpendDecompositionSource,
+} from "../../lib/spend-decomposition-source";
 import { formatNumber, formatPercent } from "../../lib/format";
 
 export const dynamic = "force-dynamic";
@@ -139,6 +150,66 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
   }
   const kimiChartArm = kimi ? chartArmById.get(kimi.armId) ?? null : null;
 
+  const spendSource = await getSpendDecompositionSource();
+
+  let spendState: SpendDecompositionPresentationState;
+
+  if (!spendSource.available) {
+    spendState = {
+      available: false,
+      message: spendSource.message,
+    };
+  } else {
+    try {
+      spendState = {
+        available: true,
+        model: buildSpendDecompositionModel(
+          spendSource.coreRows,
+          spendSource.reviewRows,
+          selection.scope,
+        ),
+      };
+    } catch {
+      spendState = {
+        available: false,
+        message:
+          "Frozen DR-303 source relationship failed closed because the validated reviewed inputs did not satisfy the spend-decomposition contract.",
+      };
+    }
+  }
+
+  const spendArmLinks: SpendDecompositionArmLinks =
+    Object.fromEntries(
+      arms.map((arm) => {
+        const chartArm = chartArmById.get(arm.armId);
+        if (!chartArm) {
+          throw new Error(
+            `No exact frozen selected run exists for ${arm.armId}`,
+          );
+        }
+
+        return [
+          arm.armId,
+          {
+            armEvidenceHref:
+              buildReviewedAggregateArmEvidenceHref(
+                arm.armId,
+                onwardSourceScope,
+              ),
+            costProvenanceHref:
+              buildCostCoverageHref(
+                selection.scopeId,
+                {
+                  armId: arm.armId,
+                  runLabel: chartArm.selectedRunLabel,
+                },
+                onwardSourceScope,
+              ),
+          },
+        ];
+      }),
+    );
+
   return (
     <AppShell
       title={`Cost Coverage: ${scope.displayName}`}
@@ -222,6 +293,16 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
             : `${formatNumber(scope.arms.reduce((sum, arm) => sum + arm.cleanSuccessCount, 0))} clean successes.`}
         />
       </section>
+
+      <SpendDecompositionPanel
+        state={spendState}
+        provenance={
+          spendSource.available
+            ? spendSource.provenance
+            : null
+        }
+        armLinks={spendArmLinks}
+      />
 
       <section className="panel" id="cost-provenance-focus">
         <div className="panel-heading">
