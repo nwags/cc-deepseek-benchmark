@@ -8,7 +8,7 @@ import ts from "typescript";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const comparison = JSON.parse(await readFile(
-  resolve(here, "../../../../results/phase3/reporting/phase3_extended_reviewed_comparison_20260805.json"),
+  resolve(here, "../../../../results/phase3/reporting/phase3_current_reviewed_comparison_20260821.json"),
   "utf8",
 ));
 const runSelection = JSON.parse(await readFile(
@@ -56,7 +56,7 @@ function databaseRunRows() {
       success_count: arm.successCount,
       failure_count: arm.trialCount - arm.successCount,
       median_runtime_seconds: arm.medianWallClockSeconds,
-      trial_cost_usd: arm.recordedCostUsd,
+      trial_cost_usd: arm.historicalHarnessRecordedCostUsd,
       cost_row_count: arm.trialCount - arm.missingRecordedCostCount,
       missing_cost_count: arm.missingRecordedCostCount,
       artifact_count: 1,
@@ -75,7 +75,7 @@ function databaseCostRows() {
       arm_id: arm.armId,
       suite_id: "phase3-full-20",
       trial_count: arm.trialCount,
-      recorded_cost_usd: arm.recordedCostUsd,
+      recorded_cost_usd: arm.historicalHarnessRecordedCostUsd,
       adjusted_known_cost_usd: kimi ? null : arm.adjustedKnownCostUsd,
       accounting_gap_usd: kimi ? null : arm.accountingGapUsd,
       missing_recorded_cost_count: arm.missingRecordedCostCount,
@@ -106,9 +106,15 @@ function rowFor(result, armId) {
   return row;
 }
 
-test("joins all 16 F1 arms to exactly one frozen G1 selected run", () => {
+test("joins all 16 current-reviewed arms to exactly one frozen G1 selected run", () => {
   const result = build();
   assert.deepEqual([result.armCount, result.trialCount, result.successCount], [16, 960, 562]);
+  assert.equal(result.selectedCostUsd, "713.775490893867");
+  assert.equal(
+    result.historicalReviewedCostUsd,
+    "1002.984164889198",
+  );
+  assert.equal(result.reviewedAt, "2026-08-21");
   assert.equal(result.rows.length, 16);
   assert.equal(new Set(result.rows.map((row) => row.selectedRunLabel)).size, 16);
   const kimi = rowFor(result, "router-kimi-k3");
@@ -187,7 +193,68 @@ test("core recorded and adjusted cost mismatches are detected without float equa
   assert.equal(matching.databaseCostEvidenceStatus, "match");
 });
 
-test("unavailable database reads retain reviewed identity and costs", () => {
+test("OpenAI provider-billed selected totals remain separate from historical database reconciliation", () => {
+  const result = build();
+  const gpt54 = rowFor(result, "router-gpt-5.4");
+  const gpt55 = rowFor(result, "router-gpt-5.5");
+
+  assert.equal(gpt54.selectedCostUsd, "29.7919335");
+  assert.equal(gpt54.providerBilledCostUsd, "29.7919335");
+  assert.equal(gpt54.selectedCostBasis, "provider_billed");
+  assert.equal(
+    gpt54.selectedCostConfidence,
+    "exact_provider_arm_total",
+  );
+  assert.equal(
+    gpt54.historicalHarnessRecordedCostUsd,
+    "173.09483",
+  );
+  assert.equal(
+    gpt54.historicalReviewedCostUsd,
+    "183.646689146806",
+  );
+
+  // Stored DB evidence is historical benchmark-side evidence.
+  assert.equal(gpt54.reviewedRecordedCostUsd, "173.09483");
+  assert.equal(
+    gpt54.reviewedAdjustedKnownCostUsd,
+    "183.646689146806",
+  );
+  assert.equal(gpt54.databaseRunEvidenceStatus, "match");
+  assert.equal(gpt54.databaseCostEvidenceStatus, "match");
+
+  assert.equal(
+    gpt54.providerBillingReconciliationStatus,
+    "exact_arm_total",
+  );
+  assert.equal(
+    gpt54.selectedTrialCostAllocationStatus,
+    "unavailable_provider_aggregate",
+  );
+  assert.equal(
+    gpt54.selectedOutcomeCostAllocationStatus,
+    "unavailable_provider_aggregate",
+  );
+  assert.equal(
+    gpt54.providerSelectedRunLabel,
+    gpt54.selectedRunLabel,
+  );
+
+  assert.equal(gpt55.selectedCostUsd, "48.604914");
+  assert.equal(gpt55.providerBilledCostUsd, "48.604914");
+  assert.equal(
+    gpt55.historicalHarnessRecordedCostUsd,
+    "168.708375",
+  );
+  assert.equal(
+    gpt55.historicalReviewedCostUsd,
+    "183.958832348525",
+  );
+  assert.equal(gpt55.databaseRunEvidenceStatus, "match");
+  assert.equal(gpt55.databaseCostEvidenceStatus, "match");
+});
+
+test("unavailable database reads retain current selected and historical reviewed costs", () => {
   const result = build({
     databaseRunReadStatus: "unavailable",
     databaseRunRows: [],
@@ -198,7 +265,19 @@ test("unavailable database reads retain reviewed identity and costs", () => {
   assert.equal(row.databaseRunEvidenceStatus, "unavailable");
   assert.equal(row.databaseCostEvidenceStatus, "unavailable");
   assert.equal(row.databaseRunEvidence, null);
-  assert.equal(row.reviewedRecordedCostUsd, scope.arms.find((arm) => arm.armId === row.armId).recordedCostUsd);
+  const arm = scope.arms.find(
+    (candidate) => candidate.armId === row.armId,
+  );
+  assert.ok(arm);
+  assert.equal(
+    row.reviewedRecordedCostUsd,
+    arm.historicalHarnessRecordedCostUsd,
+  );
+  assert.equal(row.selectedCostUsd, arm.selectedCostUsd);
+  assert.equal(
+    row.historicalReviewedCostUsd,
+    arm.historicalReviewedCostUsd,
+  );
 });
 
 test("Kimi database evidence cannot become adjusted-known cost", () => {
@@ -222,7 +301,7 @@ test("Kimi database evidence cannot become adjusted-known cost", () => {
   assert.equal(kimi.billingReconciliationStatus, "not_invoice_level_or_provider_billed");
 });
 
-test("F1 and G1 membership disagreement fails instead of falling back", () => {
+test("current-reviewed and G1 membership disagreement fails instead of falling back", () => {
   const mismatched = structuredClone(selectionScope);
   mismatched.selections.pop();
   mismatched.armCount -= 1;
@@ -230,6 +309,45 @@ test("F1 and G1 membership disagreement fails instead of falling back", () => {
   mismatched.trialCount -= 60;
   assert.throws(
     () => build({ runSelectionScope: mismatched }),
-    /F1 reviewed arms and G1 selected-run membership disagree/,
+    /Current-reviewed arms and G1 selected-run membership disagree/,
+  );
+});
+
+test("Kimi selected aggregate ratio stays separate from allocation evidence", () => {
+  const kimi = rowFor(build(), "router-kimi-k3");
+
+  assert.equal(kimi.selectedCostUsd, "30.8143194");
+  assert.equal(
+    kimi.selectedCostPerCleanSuccessUsd,
+    "0.7003254409090909090909090909",
+  );
+  assert.equal(kimi.providerBilledCostUsd, null);
+  assert.equal(
+    kimi.providerBillingReconciliationStatus,
+    "not_available_in_current_provider_layer",
+  );
+  assert.equal(
+    kimi.selectedTrialCostAllocationStatus,
+    "unresolved",
+  );
+  assert.equal(
+    kimi.selectedOutcomeCostAllocationStatus,
+    "unavailable",
+  );
+});
+
+test("provider billing run identity must match the frozen G1 selection", () => {
+  const mismatchedScope = structuredClone(scope);
+  const gpt54 = mismatchedScope.arms.find(
+    (arm) => arm.armId === "router-gpt-5.4",
+  );
+  assert.ok(gpt54);
+
+  gpt54.providerSelectedRunLabel =
+    "router-gpt-5.4/2099-01-01__00-00-00";
+
+  assert.throws(
+    () => build({ scope: mismatchedScope }),
+    /Provider billing run and G1 selected run disagree for router-gpt-5\.4/,
   );
 });

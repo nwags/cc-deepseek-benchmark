@@ -727,8 +727,8 @@ def test_overview_uses_frozen_reviewed_runs_and_exact_database_reconciliation() 
     ).read_text()
     package = Path("apps/dashboard/package.json").read_text()
 
-    assert "PHASE3_REVIEWED_COMPARISON" in overview
-    assert "getReviewedPhase3Scope" in overview
+    assert "PHASE3_CURRENT_REVIEWED_COMPARISON" in overview
+    assert "getCurrentReviewedPhase3Scope" in overview
     assert "PHASE3_REVIEWED_RUN_SELECTION" in overview
     assert "getReviewedRunSelectionScope" in overview
     assert "getReviewedSelectedRunLabels" in overview
@@ -743,10 +743,18 @@ def test_overview_uses_frozen_reviewed_runs_and_exact_database_reconciliation() 
     assert "where run_label = any($1::text[])" in data
     assert "group by run_label, arm_id, suite_id" in data
 
-    assert "The reviewed comparison freezes one complete valid full-suite run per arm" in overview
-    assert "do not automatically change when" in overview
+    assert "The current-reviewed comparison keeps one complete valid full-suite run per arm" in overview
+    assert "automatically change when newer runs are imported" in overview
     assert "the database does not select a newer run" in overview
     assert "no mutable suite/arm aggregate is used as a fallback" in overview
+    assert "Current selected cost" in overview
+    assert "Historical reviewed cost" in overview
+    assert "Historical harness recorded" in overview
+    assert "Historical reviewed accounting gap" in overview
+    assert "Provider-billed arm total" in overview
+    assert "Selected trial allocation" in overview
+    assert "Selected outcome allocation" in overview
+    assert "Compared only with historical benchmark-side recorded/adjusted cost evidence." in overview
     assert "href={row.selectedRunHref}" in overview
     assert 'buildExactRunHref(runLabel, "phase3-extended")' in reconciliation
     assert "buildCostCoverageHref" in reconciliation
@@ -757,15 +765,15 @@ def test_overview_uses_frozen_reviewed_runs_and_exact_database_reconciliation() 
     assert "16 selected runs" in overview
     assert 'scopeId="valid-imported"' in overview
     assert "Valid imported evidence inventory" in overview
-    assert "Qualified retained-rate estimate" in overview
-    assert "Adjusted known cost: Unavailable" in overview
-    assert "Pricing-source provenance incomplete" in overview
-    assert "Provider-log allocation confidence low" in overview
+    assert "Qualified retained-rate estimate; aggregate efficiency ratios do not imply trial or" in overview
+    assert "Historical adjusted known cost: Unavailable" in overview
+    assert "Historical pricing provenance" in overview
+    assert "Historical arm/run allocation" in overview
     assert "Provider-log exclusivity not proven" in overview
-    assert "Trial allocation unresolved" in overview
-    assert "Not invoice-level or provider-billed spend" in overview
-    assert "Missing recorded" in overview
-    assert "Unresolved adjusted" in overview
+    assert "Historical trial allocation" in overview
+    assert "Historical billing reconciliation" in overview
+    assert "Historical missing recorded" in overview
+    assert "Historical unresolved adjusted" in overview
 
     assert "Dynamic valid-imported full-suite heatmap" in overview
     assert "not restricted to the frozen" in overview
@@ -882,7 +890,7 @@ def test_cost_performance_chart_h2_renders_h1_view_on_overview() -> None:
     assert "getCostPerformanceChartArms(chartScopeSelection.scopeId)" in overview
     assert "deriveProviderFilterOptions(chartArms)" in overview
     assert "key={chartScopeSelection.scopeId}" in overview
-    assert overview.index("Reviewed full-suite comparison") < overview.index(
+    assert overview.index("Current reviewed full-suite comparison") < overview.index(
         "<CostPerformanceChart"
     ) < overview.index("Different population below")
 
@@ -902,7 +910,7 @@ def test_cost_performance_chart_h2_renders_h1_view_on_overview() -> None:
     assert 'parameters.set("scope", nextScope)' not in chart
     assert "Reviewed chart scope" in chart
 
-    assert 'getReviewedPhase3Scope("phase3-extended")' in overview
+    assert 'getCurrentReviewedPhase3Scope("phase3-extended")' in overview
     assert 'getReviewedRunSelectionScope("phase3-extended")' in overview
     assert 'getReviewedSelectedRunLabels("phase3-extended")' in overview
 
@@ -1029,7 +1037,7 @@ def test_overview_has_population_specific_freshness_and_snapshot_provenance() ->
 
     assert "DataFreshnessNotice" in overview
     assert "buildReviewedSnapshotFreshness" in overview
-    assert "PHASE3_REVIEWED_COMPARISON" in overview
+    assert "PHASE3_CURRENT_REVIEWED_COMPARISON" in overview
     assert "PHASE3_REVIEWED_RUN_SELECTION" in overview
     assert "reviewedComparisonFreshness" in overview
     assert "reviewedRunSelectionFreshness" in overview
@@ -1057,10 +1065,11 @@ def test_overview_has_population_specific_freshness_and_snapshot_provenance() ->
         "benchmark.v_valid_eval_arm_comparison",
     ):
         assert relation in sources
-    assert "PHASE3_REVIEWED_COMPARISON.reviewedAt" in sources
+    assert "PHASE3_CURRENT_REVIEWED_COMPARISON.reviewedAt" in sources
     assert "PHASE3_REVIEWED_RUN_SELECTION.reviewedAt" in sources
-    assert "phase3-reviewed-comparison-v1" in Path(
-        "apps/dashboard/src/lib/phase3-reviewed-comparison.ts"
+    assert "phase3_current_reviewed_comparison_20260821.json" in sources
+    assert "phase3-current-reviewed-comparison-v2" in Path(
+        "apps/dashboard/src/lib/phase3-current-reviewed-comparison.ts"
     ).read_text()
     assert "phase3-reviewed-run-selection-v1" in Path(
         "apps/dashboard/src/lib/phase3-reviewed-run-selection.ts"

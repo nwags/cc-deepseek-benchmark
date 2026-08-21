@@ -4,8 +4,11 @@ import type {
 } from "./dashboard-data";
 import type {
   ReviewedPhase3Arm,
-  ReviewedPhase3Scope,
 } from "./phase3-reviewed-comparison";
+import type {
+  CurrentReviewedPhase3Arm,
+  CurrentReviewedPhase3Scope,
+} from "./phase3-current-reviewed-comparison";
 import type {
   ReviewedRunSelectionScope,
   ReviewedSelectedRun,
@@ -68,6 +71,29 @@ export type OverviewReviewedComparisonRow = Readonly<{
   databaseCostEvidenceStatus: DatabaseCostEvidenceStatus;
   databaseRunEvidence: ReviewedSelectedArmRunDbRow | null;
   databaseAdjustedCostEvidence: ReviewedSelectedRunAdjustedCostDbRow | null;
+
+  // Current decision-facing selected-cost layer.
+  selectedCostUsd: string;
+  selectedCostPerAttemptUsd: string;
+  selectedCostPerCleanSuccessUsd: string;
+  selectedCostBasis: CurrentReviewedPhase3Arm["selectedCostBasis"];
+  selectedCostConfidence: string;
+  providerBilledCostUsd: string | null;
+  providerBillingReconciliationStatus:
+    CurrentReviewedPhase3Arm["providerBillingReconciliationStatus"];
+  providerSelectedRunLabel: string | null;
+  selectedTrialCostAllocationStatus:
+    CurrentReviewedPhase3Arm["selectedTrialCostAllocationStatus"];
+  selectedOutcomeCostAllocationStatus:
+    CurrentReviewedPhase3Arm["selectedOutcomeCostAllocationStatus"];
+
+  // Frozen historical benchmark/reviewed evidence. These fields remain
+  // the comparison target for stored database cost evidence.
+  historicalHarnessRecordedCostUsd: string;
+  historicalReviewedCostUsd: string;
+  historicalReviewedCostBasis:
+    CurrentReviewedPhase3Arm["historicalReviewedCostBasis"];
+
   reviewedRecordedCostUsd: string;
   reviewedAdjustedKnownCostUsd: string | null;
   reviewedQualifiedRetainedRateCostUsd: string | null;
@@ -92,6 +118,8 @@ export type OverviewReviewedComparison = Readonly<{
   armCount: number;
   trialCount: number;
   successCount: number;
+  selectedCostUsd: string;
+  historicalReviewedCostUsd: string;
   reviewedAt: string;
   runSelectionReviewedAt: string;
   rows: readonly OverviewReviewedComparisonRow[];
@@ -99,7 +127,7 @@ export type OverviewReviewedComparison = Readonly<{
 }>;
 
 export type BuildOverviewReviewedComparisonInput = Readonly<{
-  scope: ReviewedPhase3Scope;
+  scope: CurrentReviewedPhase3Scope;
   runSelectionScope: ReviewedRunSelectionScope;
   comparisonReviewedAt: string;
   runSelectionReviewedAt: string;
@@ -154,7 +182,7 @@ function rowsByRunLabel<T extends { run_label: string }>(rows: readonly T[]): Ma
 }
 
 function assertReviewedMembership(
-  scope: ReviewedPhase3Scope,
+  scope: CurrentReviewedPhase3Scope,
   runSelectionScope: ReviewedRunSelectionScope,
 ): void {
   if (scope.scopeId !== "phase3-extended" || runSelectionScope.scopeId !== scope.scopeId) {
@@ -163,13 +191,13 @@ function assertReviewedMembership(
   const armIds = scope.arms.map((arm) => arm.armId).sort();
   const selectionArmIds = runSelectionScope.selections.map((selection) => selection.armId).sort();
   if (JSON.stringify(armIds) !== JSON.stringify(selectionArmIds)) {
-    throw new Error("F1 reviewed arms and G1 selected-run membership disagree");
+    throw new Error("Current-reviewed arms and G1 selected-run membership disagree");
   }
   if (scope.armCount !== scope.arms.length
     || runSelectionScope.selectedRunCount !== runSelectionScope.selections.length
     || scope.armCount !== runSelectionScope.selectedRunCount
     || scope.trialCount !== runSelectionScope.trialCount) {
-    throw new Error("F1 and G1 reviewed scope totals disagree");
+    throw new Error("Current-reviewed and G1 scope totals disagree");
   }
 }
 
@@ -203,7 +231,7 @@ function primaryStatus(issues: readonly OverviewReconciliationIssue[]): "match" 
 }
 
 function runEvidenceFor(
-  arm: ReviewedPhase3Arm,
+  arm: CurrentReviewedPhase3Arm,
   selection: ReviewedSelectedRun,
   readStatus: DatabaseReadStatus,
   matches: readonly ReviewedSelectedArmRunDbRow[],
@@ -255,7 +283,7 @@ function runEvidenceFor(
   }
   if (row.trial_cost_usd === null || row.cost_row_count === 0) {
     addIssue(issues, messages, "partial_cost_evidence", "The stored run summary does not contain recorded-cost evidence.");
-  } else if (!decimalEvidenceWithinTolerance(row.trial_cost_usd, arm.recordedCostUsd)) {
+  } else if (!decimalEvidenceWithinTolerance(row.trial_cost_usd, arm.historicalHarnessRecordedCostUsd)) {
     addIssue(issues, messages, "cost_mismatch", "Stored run recorded cost differs from the reviewed recorded cost.");
   }
   if (row.missing_cost_count !== arm.missingRecordedCostCount) {
@@ -265,7 +293,7 @@ function runEvidenceFor(
 }
 
 function costEvidenceFor(
-  arm: ReviewedPhase3Arm,
+  arm: CurrentReviewedPhase3Arm,
   readStatus: DatabaseReadStatus,
   matches: readonly ReviewedSelectedRunAdjustedCostDbRow[],
   issues: OverviewReconciliationIssue[],
@@ -304,7 +332,7 @@ function costEvidenceFor(
   }
 
   const recordedMatches = row.recorded_cost_usd !== null
-    && decimalEvidenceWithinTolerance(row.recorded_cost_usd, arm.recordedCostUsd);
+    && decimalEvidenceWithinTolerance(row.recorded_cost_usd, arm.historicalHarnessRecordedCostUsd);
   if (!recordedMatches) {
     addIssue(issues, messages, "cost_mismatch", "Selected-run recorded cost differs from the reviewed recorded cost.");
   }
@@ -366,6 +394,14 @@ export function buildOverviewReviewedComparison(
   const unsortedRows = input.scope.arms.map((arm) => {
     const selection = selectionsByArm.get(arm.armId);
     if (!selection) throw new Error(`No reviewed selected run exists for ${arm.armId}`);
+    if (
+      arm.providerSelectedRunLabel !== null
+      && arm.providerSelectedRunLabel !== selection.selectedRunLabel
+    ) {
+      throw new Error(
+        `Provider billing run and G1 selected run disagree for ${arm.armId}`,
+      );
+    }
     const issues: OverviewReconciliationIssue[] = [];
     const messages: string[] = [];
     const databaseRun = runEvidenceFor(
@@ -412,11 +448,34 @@ export function buildOverviewReviewedComparison(
       databaseCostEvidenceStatus: databaseCost.status,
       databaseRunEvidence: databaseRun.row,
       databaseAdjustedCostEvidence: databaseCost.row,
-      reviewedRecordedCostUsd: arm.recordedCostUsd,
+
+      selectedCostUsd: arm.selectedCostUsd,
+      selectedCostPerAttemptUsd: arm.selectedCostPerAttemptUsd,
+      selectedCostPerCleanSuccessUsd:
+        arm.selectedCostPerCleanSuccessUsd,
+      selectedCostBasis: arm.selectedCostBasis,
+      selectedCostConfidence: arm.selectedCostConfidence,
+      providerBilledCostUsd: arm.providerBilledCostUsd,
+      providerBillingReconciliationStatus:
+        arm.providerBillingReconciliationStatus,
+      providerSelectedRunLabel: arm.providerSelectedRunLabel,
+      selectedTrialCostAllocationStatus:
+        arm.selectedTrialCostAllocationStatus,
+      selectedOutcomeCostAllocationStatus:
+        arm.selectedOutcomeCostAllocationStatus,
+
+      historicalHarnessRecordedCostUsd:
+        arm.historicalHarnessRecordedCostUsd,
+      historicalReviewedCostUsd: arm.historicalReviewedCostUsd,
+      historicalReviewedCostBasis: arm.historicalReviewedCostBasis,
+
+      reviewedRecordedCostUsd:
+        arm.historicalHarnessRecordedCostUsd,
       reviewedAdjustedKnownCostUsd: arm.adjustedKnownCostUsd,
-      reviewedQualifiedRetainedRateCostUsd: arm.qualifiedRetainedRateCostUsd,
+      reviewedQualifiedRetainedRateCostUsd:
+        arm.qualifiedRetainedRateCostUsd,
       reviewedAccountingGapUsd: arm.accountingGapUsd,
-      reviewedCostBasis: arm.costBasis,
+      reviewedCostBasis: arm.historicalReviewedCostBasis,
       missingRecordedCostCount: arm.missingRecordedCostCount,
       unresolvedAdjustedCostCount: arm.unresolvedCostCount,
       costSources: arm.costSources,
@@ -443,6 +502,11 @@ export function buildOverviewReviewedComparison(
     armCount: input.scope.armCount,
     trialCount: input.scope.trialCount,
     successCount: input.scope.successCount,
+    selectedCostUsd:
+      input.scope.selectedCostEvidence.selectedCostUsd,
+    historicalReviewedCostUsd:
+      input.scope.selectedCostEvidence
+        .historicalReviewedArmSumCostUsd,
     reviewedAt: input.comparisonReviewedAt,
     runSelectionReviewedAt: input.runSelectionReviewedAt,
     rows,

@@ -1,7 +1,7 @@
 import {
-  PHASE3_REVIEWED_COMPARISON,
-  PHASE3_REVIEWED_COMPARISON_SCHEMA_VERSION,
-} from "./phase3-reviewed-comparison";
+  PHASE3_CURRENT_REVIEWED_COMPARISON,
+  PHASE3_CURRENT_REVIEWED_COMPARISON_SCHEMA_VERSION,
+} from "./phase3-current-reviewed-comparison";
 import {
   PHASE3_REVIEWED_RUN_SELECTION,
   PHASE3_REVIEWED_RUN_SELECTION_SCHEMA_VERSION,
@@ -29,13 +29,13 @@ export type LiveRouteSourceDefinition = Readonly<{
 export const OVERVIEW_FRESHNESS_SOURCES = Object.freeze({
   reviewedComparison: Object.freeze({
     sourceKind: "reviewed",
-    sourceLabel: "Phase 3 reviewed comparison",
+    sourceLabel: "Phase 3 current reviewed comparison",
     sourceRelations: Object.freeze([]),
-    populationLabel: "Phase 3 extended reviewed comparison (16 arms / 960 trials)",
-    reviewedAt: PHASE3_REVIEWED_COMPARISON.reviewedAt,
-    schemaVersion: PHASE3_REVIEWED_COMPARISON_SCHEMA_VERSION,
+    populationLabel: "Phase 3 extended current-reviewed comparison (16 arms / 960 trials)",
+    reviewedAt: PHASE3_CURRENT_REVIEWED_COMPARISON.reviewedAt,
+    schemaVersion: PHASE3_CURRENT_REVIEWED_COMPARISON_SCHEMA_VERSION,
     provenanceIdentifier:
-      "results/phase3/reporting/phase3_extended_reviewed_comparison_20260805.json",
+      "results/phase3/reporting/phase3_current_reviewed_comparison_20260821.json",
   } satisfies DashboardDataSourceDefinition),
   reviewedRunSelection: Object.freeze({
     sourceKind: "reviewed",

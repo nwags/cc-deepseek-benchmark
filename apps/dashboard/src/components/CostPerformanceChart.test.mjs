@@ -64,7 +64,7 @@ test("invalid geometry inputs cannot produce NaN or Infinity SVG coordinates", (
   assert.throws(() => scale(Number.NaN), /must be finite/);
 });
 
-test("Overview constructs the chart from reviewed H1 scope data on the server", () => {
+test("Overview constructs the chart from current-reviewed cost scope and frozen run evidence on the server", () => {
   assert.match(pageSource, /chart_scope\?: string \| string\[\]/);
   assert.match(pageSource, /selectCostPerformanceChartScope\(query\.chart_scope\)/);
   assert.doesNotMatch(pageSource, /selectCostPerformanceChartScope\(query\.scope\)/);
@@ -72,7 +72,7 @@ test("Overview constructs the chart from reviewed H1 scope data on the server", 
   assert.match(pageSource, /deriveProviderFilterOptions\(chartArms\)/);
   assert.match(pageSource, /key=\{chartScopeSelection\.scopeId\}/);
   assert.match(pageSource, /scopeWarningMessage=\{chartScopeSelection\.warningMessage\}/);
-  assert.match(pageSource, /getReviewedPhase3Scope\("phase3-extended"\)/);
+  assert.match(pageSource, /getCurrentReviewedPhase3Scope\("phase3-extended"\)/);
   assert.match(pageSource, /getReviewedRunSelectionScope\("phase3-extended"\)/);
   assert.match(pageSource, /getReviewedSelectedRunLabels\("phase3-extended"\)/);
   assert.ok(
