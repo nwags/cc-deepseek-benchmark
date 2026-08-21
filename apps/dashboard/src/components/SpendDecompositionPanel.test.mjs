@@ -59,6 +59,45 @@ test(
 );
 
 test(
+  "Cost Coverage overlays current selected costs without changing the historical DR-303 model",
+  () => {
+    assert.match(
+      page,
+      /PHASE3_CURRENT_REVIEWED_COMPARISON/,
+    );
+    assert.match(
+      page,
+      /getCurrentReviewedPhase3Scope/,
+    );
+    assert.match(
+      page,
+      /currentScope\.selectedCostEvidence\.selectedCostUsd/,
+    );
+    assert.match(
+      page,
+      /Current selected and historical arm cost evidence/,
+    );
+    assert.match(
+      page,
+      /Historical DR-303 spend decomposition/,
+    );
+    assert.match(
+      page,
+      /not redistributed into these trial or outcome buckets/,
+    );
+
+    assert.doesNotMatch(
+      model,
+      /phase3-current-reviewed-comparison/,
+    );
+    assert.doesNotMatch(
+      model,
+      /providerBilledCostUsd/,
+    );
+  },
+);
+
+test(
   "DR-303 follows reviewed headline metrics and precedes operational cost focus",
   () => {
     const metrics = page.indexOf(

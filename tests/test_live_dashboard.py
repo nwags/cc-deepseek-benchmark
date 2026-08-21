@@ -367,7 +367,10 @@ def test_dr106a_evidence_destinations_are_exact_scoped_and_read_only() -> None:
     assert "buildExactTrialHref(row.trial_id, onwardSourceScope)" in cost_page
     assert "buildExactRunHref(row.run_label, onwardSourceScope)" in cost_page
     assert "Cost provenance focus" in cost_page
-    assert "never changes the reviewed scope totals above" in cost_page
+    assert (
+        "never changes either the current selected totals or preserved historical reviewed totals above"
+        in cost_page
+    )
     assert "arm-only focus may span multiple valid runs" in cost_page.lower()
     assert "No latest, prefix, or alternate-trial fallback" in cost_page
     assert "benchmark.v_trial_adjusted_cost_coverage" in data
@@ -584,6 +587,10 @@ def test_comparative_pages_disclose_their_distinct_corpus_scopes() -> None:
         assert "scopeId={selection.scopeId}" in page
         assert "phase3_extended_reviewed_comparison_20260805.json" in page
 
+    assert "getCurrentReviewedPhase3Scope" in cost
+    assert "PHASE3_CURRENT_REVIEWED_COMPARISON" in cost
+    assert "phase3_current_reviewed_comparison_20260821.json" in cost
+
     assert "getCrossPhaseRows(selectedScope)" in cross_phase
     assert "getPhaseSummaries(rows, selectedScope)" in cross_phase
     assert "reviewed 2026-08-05 comparison layer" in cross_phase
@@ -609,7 +616,14 @@ def test_comparative_pages_disclose_their_distinct_corpus_scopes() -> None:
 
     assert "scope.costEvidence" in cost
     assert "scope.outcomeCostCoverage" in cost
-    assert "scope.arms" in cost
+    assert "currentScope.arms" in cost
+    assert "currentScope.selectedCostEvidence.selectedCostUsd" in cost
+    assert "currentScope.selectedCostEvidence.historicalReviewedArmSumCostUsd" in cost
+    assert "Current selected cost" in cost
+    assert "Historical reviewed arm-sum cost" in cost
+    assert "Historical DR-303 spend decomposition" in cost
+    assert "not redistributed into these trial or outcome buckets" in cost
+    assert "Historical outcome-cost breakdown" in cost
     assert "getAdjustedCostOverview" not in cost
     assert "getAdjustedCostArmRows" not in cost
     assert "getAdjustedOutcomeCostRows" not in cost
