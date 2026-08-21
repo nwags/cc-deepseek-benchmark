@@ -1,7 +1,7 @@
 # DR-304 — Provider-Billed Cost Reconciliation
 
 **Date:** 2026-08-21
-**Status:** DR-304A source contract in progress
+**Status:** DR-304B current reviewed cost model in progress
 **Base:** `main` at `886e893167d1026b1033ec87c8133143928063d3`
 **Branch:** `dashboard-dr304-provider-billed-cost`
 
@@ -113,10 +113,22 @@ estimates separately.
 Expected selected-cost anchors, if every non-OpenAI selected cost remains
 unchanged:
 
-- Phase 3 core: **$682.961171493867**
-- Phase 3 extended: **$713.7754908938669**
+- Phase 3 core arm-summed selected cost: **$682.961171493867**
+- Phase 3 extended arm-summed selected cost: **$713.775490893867**
 
-The generator must reproduce these independently before they are accepted.
+The frozen 2026-08-05 extended scope carries a pre-existing
+**-$0.0000000000001** source-scope reconciliation residual: its qualified
+scope total is `$1002.9841648891979`, while its exact 16-arm reviewed-cost sum
+is `$1002.984164889198`. Applying the OpenAI replacements to the former yields
+`$713.7754908938669`; summing the selected arm costs yields
+`$713.775490893867`.
+
+DR-304 uses the exact arm-summed value as the primary selected reporting total
+and preserves the source-scope value plus the **-$0.0000000000001** residual
+as provenance. No arm-level cost may be altered to absorb this residual.
+
+The generator must reproduce these values independently before they are
+accepted.
 
 ### DR-304C — dashboard reporting and cost/performance charts
 

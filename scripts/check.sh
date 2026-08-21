@@ -16,6 +16,7 @@ python -m py_compile scripts/classify_phase3_exception_artifacts.py
 python -m py_compile scripts/classify_phase3_normal_failures.py
 python -m py_compile scripts/run_qualitative_reporting.py
 python -m py_compile scripts/ingest_phase3_run_metadata.py
+python -m py_compile scripts/generate_phase3_current_reviewed_comparison.py
 python -m py_compile scripts/run_arm_live.py
 python -m py_compile scripts/publish_phase3_run.py
 python -m py_compile scripts/apply_live_supervision_migration.py
