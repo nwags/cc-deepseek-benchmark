@@ -7,34 +7,76 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const snapshot = JSON.parse(await readFile(
-  resolve(here, "../../../../results/phase3/reporting/phase3_extended_reviewed_comparison_20260805.json"),
-  "utf8",
-));
-const generatedSource = await readFile(
+
+async function transpiledDataUrl(source) {
+  const compiled = ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.ES2022,
+      target: ts.ScriptTarget.ES2022,
+    },
+  }).outputText;
+  return `data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`;
+}
+
+const historicalGeneratedSource = await readFile(
   resolve(here, "../generated/phase3-reviewed-comparison-data.ts"),
   "utf8",
 );
-const generatedCompiled = ts.transpileModule(generatedSource, {
-  compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
-}).outputText;
-const snapshotModule = `data:text/javascript;base64,${Buffer.from(generatedCompiled).toString("base64")}`;
-const reviewedSource = (await readFile(join(here, "phase3-reviewed-comparison.ts"), "utf8"))
+const historicalGeneratedModuleUrl =
+  await transpiledDataUrl(historicalGeneratedSource);
+
+const historicalLoaderSource = (
+  await readFile(join(here, "phase3-reviewed-comparison.ts"), "utf8")
+).replace(
+  '"../generated/phase3-reviewed-comparison-data"',
+  `"${historicalGeneratedModuleUrl}"`,
+);
+const reviewedModuleUrl =
+  await transpiledDataUrl(historicalLoaderSource);
+const { PHASE3_REVIEWED_COMPARISON } =
+  await import(reviewedModuleUrl);
+
+const currentGeneratedSource = await readFile(
+  resolve(
+    here,
+    "../generated/phase3-current-reviewed-comparison-data.ts",
+  ),
+  "utf8",
+);
+const currentGeneratedModuleUrl =
+  await transpiledDataUrl(currentGeneratedSource);
+
+const currentLoaderSource = (
+  await readFile(
+    join(here, "phase3-current-reviewed-comparison.ts"),
+    "utf8",
+  )
+)
   .replace(
-    '"../generated/phase3-reviewed-comparison-data"',
-    `"${snapshotModule}"`,
+    '"../generated/phase3-current-reviewed-comparison-data"',
+    `"${currentGeneratedModuleUrl}"`,
+  )
+  .replace(
+    '"./phase3-reviewed-comparison"',
+    `"${reviewedModuleUrl}"`,
   );
-const reviewedCompiled = ts.transpileModule(reviewedSource, {
-  compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
-}).outputText;
-const reviewedModuleUrl = `data:text/javascript;base64,${Buffer.from(reviewedCompiled).toString("base64")}`;
-const { PHASE3_REVIEWED_COMPARISON } = await import(reviewedModuleUrl);
-const source = (await readFile(join(here, "corpus-scopes.ts"), "utf8"))
-  .replace('from "./phase3-reviewed-comparison"', `from "${reviewedModuleUrl}"`);
-const compiled = ts.transpileModule(source, {
-  compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
-}).outputText;
-const moduleUrl = `data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`;
+const currentModuleUrl =
+  await transpiledDataUrl(currentLoaderSource);
+const { PHASE3_CURRENT_REVIEWED_COMPARISON } =
+  await import(currentModuleUrl);
+
+const source = (
+  await readFile(join(here, "corpus-scopes.ts"), "utf8")
+)
+  .replace(
+    'from "./phase3-current-reviewed-comparison"',
+    `from "${currentModuleUrl}"`,
+  )
+  .replace(
+    'from "./phase3-reviewed-comparison"',
+    `from "${reviewedModuleUrl}"`,
+  );
+const moduleUrl = await transpiledDataUrl(source);
 const {
   CORPUS_SCOPES,
   compareCorpusScopeCounts,
@@ -71,6 +113,20 @@ test("fixed core and extended scopes retain reviewed counts and Kimi K3 boundari
   const extended = getCorpusScope("phase3-extended");
   assert.deepEqual(core.expectedCounts, { armCount: 15, trialCount: 900, successCount: 515 });
   assert.equal(Object.isFrozen(core.expectedCounts), true);
+  assert.equal(core.selectedCostUsd, 682.961171493867);
+  assert.equal(core.historicalReviewedCostUsd, 972.169845489198);
+  assert.equal(
+    core.selectedCostBasis,
+    "mixed_best_available_arm_evidence",
+  );
+  assert.equal(core.providerReconciledArmCount, 2);
+  assert.equal(core.providerReconciledCostUsd, 78.3968475);
+  assert.equal(core.currentCostReviewedAt, "2026-08-21");
+  assert.match(
+    core.selectedCostDescription,
+    /provider-billed reconciliation/,
+  );
+
   assert.equal(core.adjustedKnownCostUsd, 972.169845489198);
   assert.equal(core.qualifiedAdjustedCostEstimateUsd, null);
   assert.equal(core.costDisplayLabel, "Adjusted known cost");
@@ -81,6 +137,23 @@ test("fixed core and extended scopes retain reviewed counts and Kimi K3 boundari
   assert.deepEqual(extended.expectedCounts, { armCount: 16, trialCount: 960, successCount: 562 });
   assert.equal(Object.isFrozen(extended.expectedCounts), true);
   assert.equal(extended.comparisonValid, true);
+  assert.equal(extended.selectedCostUsd, 713.775490893867);
+  assert.equal(
+    extended.historicalReviewedCostUsd,
+    1002.984164889198,
+  );
+  assert.equal(
+    extended.selectedCostBasis,
+    "mixed_best_available_arm_evidence",
+  );
+  assert.equal(extended.providerReconciledArmCount, 2);
+  assert.equal(extended.providerReconciledCostUsd, 78.3968475);
+  assert.equal(extended.currentCostReviewedAt, "2026-08-21");
+  assert.match(
+    extended.selectedCostDescription,
+    /provider aggregates are not redistributed/,
+  );
+
   assert.equal(extended.adjustedKnownCostUsd, null);
   assert.equal(extended.qualifiedAdjustedCostEstimateUsd, 1002.9841648891979);
   assert.equal(extended.costDisplayLabel, "Phase 3 extended qualified adjusted-cost estimate");
@@ -94,6 +167,9 @@ test("fixed registry facts must agree with the validated reviewed comparison", (
   for (const id of ["phase3-core", "phase3-extended"]) {
     const registry = getCorpusScope(id);
     const reviewed = PHASE3_REVIEWED_COMPARISON.scopes[id];
+    const current =
+      PHASE3_CURRENT_REVIEWED_COMPARISON.scopes[id];
+
     assert.deepEqual(registry.expectedCounts, {
       armCount: reviewed.armCount,
       trialCount: reviewed.trialCount,
@@ -101,6 +177,36 @@ test("fixed registry facts must agree with the validated reviewed comparison", (
     });
     assert.equal(registry.presentationKind, reviewed.presentationKind);
     assert.equal(registry.snapshotDate, reviewed.snapshotDate);
+
+    assert.equal(
+      registry.selectedCostUsd,
+      Number(current.selectedCostEvidence.selectedCostUsd),
+    );
+    assert.equal(
+      registry.historicalReviewedCostUsd,
+      Number(
+        current.selectedCostEvidence
+          .historicalReviewedArmSumCostUsd,
+      ),
+    );
+    assert.equal(
+      registry.selectedCostBasis,
+      current.selectedCostEvidence.selectedCostBasis,
+    );
+    assert.equal(
+      registry.providerReconciledArmCount,
+      current.selectedCostEvidence.providerReconciledArmCount,
+    );
+    assert.equal(
+      registry.providerReconciledCostUsd,
+      Number(
+        current.selectedCostEvidence.providerReconciledCostUsd,
+      ),
+    );
+    assert.equal(
+      registry.currentCostReviewedAt,
+      PHASE3_CURRENT_REVIEWED_COMPARISON.reviewedAt,
+    );
     assert.equal(registry.adjustedKnownCostUsd, reviewed.costEvidence.adjustedKnownCostUsd === null
       ? null
       : Number(reviewed.costEvidence.adjustedKnownCostUsd));
@@ -122,6 +228,13 @@ test("dynamic imported scopes fabricate no fixed totals or comparison validity",
     const scope = getCorpusScope(id);
     assert.equal(scope.populationKind, "dynamic");
     assert.equal(scope.expectedCounts, null);
+    assert.equal(scope.selectedCostUsd, null);
+    assert.equal(scope.historicalReviewedCostUsd, null);
+    assert.equal(scope.selectedCostBasis, null);
+    assert.equal(scope.providerReconciledArmCount, null);
+    assert.equal(scope.providerReconciledCostUsd, null);
+    assert.equal(scope.currentCostReviewedAt, null);
+    assert.equal(scope.selectedCostDescription, null);
     assert.equal(scope.adjustedKnownCostUsd, null);
     assert.equal(scope.qualifiedAdjustedCostEstimateUsd, null);
     assert.equal(scope.costDisplayLabel, null);

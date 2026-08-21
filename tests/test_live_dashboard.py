@@ -550,6 +550,12 @@ def test_dashboard_corpus_scopes_are_centralized_and_visible() -> None:
     assert 'reason: "no_observed_counts"' in scopes
     assert "compareCorpusScopeCounts" in notice
     assert "getCorpusScopePresentationLabel" in notice
+    assert "costPresentation" in notice
+    assert '"current_and_historical"' in notice
+    assert "scope.selectedCostUsd" in notice
+    assert "scope.historicalReviewedCostUsd" in notice
+    assert "Current selected-cost coverage:" in notice
+    assert "Historical cost coverage:" in notice
     assert "qualifiedAdjustedCostEstimateUsd" in notice
     assert "costDisplayLabel" in notice
     assert 'role="alert"' in notice
@@ -575,6 +581,7 @@ def test_comparative_pages_disclose_their_distinct_corpus_scopes() -> None:
     data = Path("apps/dashboard/src/lib/dashboard-data.ts").read_text()
 
     assert 'scopeId="phase3-extended"' in overview
+    assert 'costPresentation="current_and_historical"' in overview
     assert "Phase 3 extended full-suite comparison" in overview
     assert 'scopeId="valid-imported"' in overview
     assert "Valid imported evidence inventory" in overview
@@ -590,6 +597,11 @@ def test_comparative_pages_disclose_their_distinct_corpus_scopes() -> None:
     assert "getCurrentReviewedPhase3Scope" in cost
     assert "PHASE3_CURRENT_REVIEWED_COMPARISON" in cost
     assert "phase3_current_reviewed_comparison_20260821.json" in cost
+    assert 'costPresentation="current_and_historical"' in cost
+
+    # Cross-phase remains historical-only until C3c; the notice defaults
+    # to historical presentation unless a migrated page explicitly opts in.
+    assert 'costPresentation="current_and_historical"' not in cross_phase
 
     assert "getCrossPhaseRows(selectedScope)" in cross_phase
     assert "getPhaseSummaries(rows, selectedScope)" in cross_phase

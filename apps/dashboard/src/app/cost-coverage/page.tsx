@@ -247,6 +247,7 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
       <EvidenceSourceContextNotice value={params.source_scope} />
       <CorpusScopeNotice
         scopeId={selection.scopeId}
+        costPresentation="current_and_historical"
         observedCounts={{
           armCount: scope.armCount,
           trialCount: scope.trialCount,
@@ -267,8 +268,8 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
           <p className="mono">results/phase3/reporting/phase3_extended_reviewed_comparison_20260805.json</p>
         </details>
         <p className="muted">
-          The corpus-scope notice identifies the retained corpus and historical cost-coverage metadata.
-          Current selected cost is labeled explicitly below.
+          The corpus-scope notice identifies the retained corpus and separates current selected cost from
+          preserved historical reviewed cost metadata. Detailed arm-level evidence remains below.
         </p>
       </section>
 

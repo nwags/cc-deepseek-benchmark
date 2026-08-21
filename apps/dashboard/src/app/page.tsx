@@ -239,6 +239,7 @@ export default async function DashboardPage({
       <h2>Phase 3 extended full-suite comparison</h2>
       <CorpusScopeNotice
         scopeId="phase3-extended"
+        costPresentation="current_and_historical"
         observedCounts={{
           armCount: reviewedComparison.armCount,
           trialCount: reviewedComparison.trialCount,
