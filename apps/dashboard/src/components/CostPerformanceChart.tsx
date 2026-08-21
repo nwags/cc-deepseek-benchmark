@@ -467,19 +467,31 @@ export function CostPerformanceChart({
                     : metricValueText(metricValue)}</dd></div>
                   <div><dt>Reviewed pass rate</dt><dd>{formatPercent(arm.passRate)} · {arm.successCount} / {arm.trialCount} successes</dd></div>
                   <div><dt>Cost basis</dt><dd>{arm.costBasisLabel} <span className="mono">{arm.costBasis}</span></dd></div>
-                  <div><dt>Cost sources / confidence</dt><dd>{arm.costSources.join(", ")} · {arm.costConfidence}</dd></div>
-                  <div><dt>Accounting gap</dt><dd><Link href={arm.costProvenanceHref}>${arm.accountingGapUsd}</Link></dd></div>
-                  <div><dt>Pricing provenance</dt><dd>{statusLabel(arm.pricingProvenanceStatus)}</dd></div>
-                  <div><dt>Arm/run allocation</dt><dd>{statusLabel(arm.armRunAllocationConfidence)}</dd></div>
-                  <div><dt>Trial allocation</dt><dd>{statusLabel(arm.trialAllocationStatus)}</dd></div>
-                  <div><dt>Billing reconciliation</dt><dd>{statusLabel(arm.billingReconciliationStatus)}</dd></div>
+                  <div><dt>Selected cost total</dt><dd>${arm.selectedCostUsd}</dd></div>
+                  {arm.selectedCostUsd !== arm.historicalReviewedCostUsd ? (
+                    <div><dt>Historical reviewed cost total</dt><dd><Link href={arm.costProvenanceHref}>${arm.historicalReviewedCostUsd}</Link></dd></div>
+                  ) : null}
+                  <div><dt>Selected cost sources / confidence</dt><dd>{arm.costSources.join(", ")} · {arm.costConfidence}</dd></div>
+                  <div><dt>Historical reviewed accounting gap</dt><dd><Link href={arm.costProvenanceHref}>${arm.accountingGapUsd}</Link></dd></div>
+                  <div><dt>Historical pricing provenance</dt><dd>{statusLabel(arm.pricingProvenanceStatus)}</dd></div>
+                  <div><dt>Historical arm/run allocation</dt><dd>{statusLabel(arm.armRunAllocationConfidence)}</dd></div>
+                  <div><dt>Selected trial allocation</dt><dd>{statusLabel(arm.trialAllocationStatus)}</dd></div>
+                  <div><dt>Provider billing reconciliation</dt><dd>{statusLabel(arm.billingReconciliationStatus)}</dd></div>
+                  {arm.providerSelectedRunLabel ? (
+                    <div><dt>Provider-reconciled run</dt><dd className="mono">{arm.providerSelectedRunLabel}</dd></div>
+                  ) : null}
                   <div><dt>Provider-log exclusivity</dt><dd>{statusLabel(arm.providerLogExclusivityStatus)}</dd></div>
                   <div><dt>Failure / incomplete spend</dt><dd>{arm.failureIncompleteSpend.status === "available"
                     ? <Link href={arm.costProvenanceHref}>{failureSpendText(arm)}</Link>
                     : failureSpendText(arm)}</dd></div>
                   <div><dt>Frozen selected run</dt><dd className="mono">{arm.selectedRunLabel}</dd></div>
                 </dl>
-                {arm.costBasis === "qualified_retained_rate_estimate" ? (
+                {arm.costBasis === "provider_billed" ? (
+                  <div className="chart-qualified-callout" role="note">
+                    <strong>Exact provider-billed arm total — current decision-oriented cost basis.</strong>
+                    <span>Provider evidence resolves the arm total but not trial or outcome allocation; historical adjusted-cost evidence remains separate and is not reallocated.</span>
+                  </div>
+                ) : arm.costBasis === "qualified_retained_rate_estimate" ? (
                   <div className="chart-qualified-callout" role="note">
                     <strong>Qualified retained-rate estimate — not adjusted-known, invoice, or provider-billed cost.</strong>
                     <span>Pricing provenance is incomplete; allocation confidence is low; trial allocation is unresolved; provider-log exclusivity is not proven.</span>

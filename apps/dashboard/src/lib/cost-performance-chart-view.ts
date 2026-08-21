@@ -12,7 +12,8 @@ export type ChartMetricAvailable = Readonly<{
   sourceTotalUsd: string | null;
   derivation:
     | "reviewed_total_divided_by_trial_count"
-    | "reviewed_f1_cost_per_clean_success";
+    | "current_selected_cost_per_attempt"
+    | "current_selected_cost_per_clean_success";
   qualification: string | null;
 }>;
 
@@ -57,17 +58,32 @@ export type ChartArmDatum = Readonly<{
   passRate: number;
   cleanSuccessCount: number;
   recordedCostUsd: string;
+  selectedCostUsd: string;
+  historicalReviewedCostUsd: string;
+  providerBilledCostUsd: string | null;
   reviewedComparableCostUsd: string | null;
   adjustedKnownCostUsd: string | null;
   qualifiedRetainedRateCostUsd: string | null;
-  costBasis: "adjusted_known_cost" | "qualified_retained_rate_estimate";
-  costBasisLabel: "Adjusted known cost" | "Qualified retained-rate estimate";
+  costBasis:
+    | "adjusted_known_cost"
+    | "qualified_retained_rate_estimate"
+    | "provider_billed";
+  costBasisLabel:
+    | "Adjusted known cost"
+    | "Qualified retained-rate estimate"
+    | "Provider-billed arm total";
   costSources: readonly string[];
   costConfidence: string;
   pricingProvenanceStatus: "historical_reviewed_layer" | "incomplete";
   armRunAllocationConfidence: "reviewed_core_layer" | "low";
-  trialAllocationStatus: "available_for_reviewed_layer" | "unresolved";
-  billingReconciliationStatus: "not_invoice_level" | "not_invoice_level_or_provider_billed";
+  trialAllocationStatus:
+    | "available_for_reviewed_layer"
+    | "unresolved"
+    | "unavailable_provider_aggregate";
+  billingReconciliationStatus:
+    | "exact_arm_total"
+    | "not_available_in_current_provider_layer";
+  providerSelectedRunLabel: string | null;
   providerLogExclusivityStatus: "not_proven" | null;
   accountingGapUsd: string;
   missingRecordedCostCount: number;
@@ -133,6 +149,9 @@ export type AccessibleChartRow = Readonly<{
   passRate: number;
   xMetric: ChartXAxisMetric;
   xMetricValue: ChartMetricValue;
+  selectedCostUsd: string;
+  historicalReviewedCostUsd: string;
+  providerBilledCostUsd: string | null;
   costBasis: ChartArmDatum["costBasis"];
   costBasisLabel: ChartArmDatum["costBasisLabel"];
   costSources: readonly string[];
@@ -141,6 +160,7 @@ export type AccessibleChartRow = Readonly<{
   armRunAllocationConfidence: ChartArmDatum["armRunAllocationConfidence"];
   trialAllocationStatus: ChartArmDatum["trialAllocationStatus"];
   billingReconciliationStatus: ChartArmDatum["billingReconciliationStatus"];
+  providerSelectedRunLabel: string | null;
   providerLogExclusivityStatus: ChartArmDatum["providerLogExclusivityStatus"];
   accountingGapUsd: string;
   failureIncompleteSpend: ChartEvidenceAmount;
@@ -160,7 +180,7 @@ export const CHART_X_AXIS_OPTIONS: readonly Readonly<{
   metric: ChartXAxisMetric;
   label: string;
 }>[] = Object.freeze([
-  Object.freeze({ metric: "adjusted_cost_per_attempt", label: "Adjusted cost per attempt" }),
+  Object.freeze({ metric: "adjusted_cost_per_attempt", label: "Selected cost per attempt" }),
   Object.freeze({ metric: "cost_per_clean_success", label: "Cost per clean success" }),
   Object.freeze({ metric: "recorded_cost_per_attempt", label: "Recorded cost per attempt" }),
 ]);
@@ -396,6 +416,9 @@ export function buildAccessibleChartRows(
     passRate: arm.passRate,
     xMetric: metric,
     xMetricValue: metricValueForArm(arm, metric),
+    selectedCostUsd: arm.selectedCostUsd,
+    historicalReviewedCostUsd: arm.historicalReviewedCostUsd,
+    providerBilledCostUsd: arm.providerBilledCostUsd,
     costBasis: arm.costBasis,
     costBasisLabel: arm.costBasisLabel,
     costSources: arm.costSources,
@@ -404,6 +427,7 @@ export function buildAccessibleChartRows(
     armRunAllocationConfidence: arm.armRunAllocationConfidence,
     trialAllocationStatus: arm.trialAllocationStatus,
     billingReconciliationStatus: arm.billingReconciliationStatus,
+    providerSelectedRunLabel: arm.providerSelectedRunLabel,
     providerLogExclusivityStatus: arm.providerLogExclusivityStatus,
     accountingGapUsd: arm.accountingGapUsd,
     failureIncompleteSpend: arm.failureIncompleteSpend,

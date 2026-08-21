@@ -104,19 +104,37 @@ export function CostPerformanceChartTable({
                 <td>
                   <div>{row.costBasisLabel}</div>
                   <div className="mono">{row.costBasis}</div>
-                  <div>Sources: {row.costSources.join(", ")}</div>
+                  <div>Selected total: ${row.selectedCostUsd}</div>
+                  {row.selectedCostUsd !== row.historicalReviewedCostUsd ? (
+                    <div>
+                      Historical reviewed total:{" "}
+                      <Link href={row.costProvenanceHref}>
+                        ${row.historicalReviewedCostUsd}
+                      </Link>
+                    </div>
+                  ) : null}
+                  <div>Selected sources: {row.costSources.join(", ")}</div>
                 </td>
                 <td>
                   <div>Cost confidence: {row.costConfidence}</div>
-                  <div>Pricing provenance: {evidenceStatusLabel(row.pricingProvenanceStatus)}</div>
-                  <div>Arm/run allocation: {evidenceStatusLabel(row.armRunAllocationConfidence)}</div>
-                  <div>Trial allocation: {evidenceStatusLabel(row.trialAllocationStatus)}</div>
-                  <div>Billing reconciliation: {evidenceStatusLabel(row.billingReconciliationStatus)}</div>
+                  <div>Historical pricing provenance: {evidenceStatusLabel(row.pricingProvenanceStatus)}</div>
+                  <div>Historical arm/run allocation: {evidenceStatusLabel(row.armRunAllocationConfidence)}</div>
+                  <div>Selected trial allocation: {evidenceStatusLabel(row.trialAllocationStatus)}</div>
+                  <div>Provider billing reconciliation: {evidenceStatusLabel(row.billingReconciliationStatus)}</div>
+                  {row.providerSelectedRunLabel ? (
+                    <div>
+                      Provider-reconciled run:{" "}
+                      <span className="mono">{row.providerSelectedRunLabel}</span>
+                    </div>
+                  ) : null}
                   <div>Provider-log exclusivity: {row.providerLogExclusivityStatus
                     ? evidenceStatusLabel(row.providerLogExclusivityStatus)
                     : "not separately qualified in G1"}</div>
                 </td>
-                <td><Link href={row.costProvenanceHref}>${row.accountingGapUsd}</Link></td>
+                <td>
+                  <div>Historical reviewed gap</div>
+                  <Link href={row.costProvenanceHref}>${row.accountingGapUsd}</Link>
+                </td>
                 <td>{linkedEvidenceAmount(row.failureIncompleteSpend, row.costProvenanceHref)}</td>
                 <td>{row.qualificationText ?? "No additional qualification beyond the listed reviewed evidence statuses."}</td>
               </tr>

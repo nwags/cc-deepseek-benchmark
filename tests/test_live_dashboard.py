@@ -773,7 +773,7 @@ def test_overview_uses_frozen_reviewed_runs_and_exact_database_reconciliation() 
     assert "overview-reviewed-comparison.test.mjs" in package
 
 
-def test_cost_performance_chart_foundation_uses_only_reviewed_f1_g1_contracts() -> None:
+def test_cost_performance_chart_foundation_uses_current_reviewed_cost_and_frozen_g1_contracts() -> None:
     model = Path("apps/dashboard/src/lib/cost-performance-chart.ts").read_text()
     presentation = Path(
         "apps/dashboard/src/lib/presentation-labels.ts"
@@ -784,8 +784,8 @@ def test_cost_performance_chart_foundation_uses_only_reviewed_f1_g1_contracts() 
     ).read_text()
     package = Path("apps/dashboard/package.json").read_text()
 
-    assert "PHASE3_REVIEWED_COMPARISON" in model
-    assert "getReviewedPhase3Scope" in model
+    assert "PHASE3_CURRENT_REVIEWED_COMPARISON" in model
+    assert "getCurrentReviewedPhase3Scope" in model
     assert "getReviewedRunSelectionScope" in model
     assert "buildExactRunHref" in model
     assert "buildCostCoverageHref" in model
@@ -803,9 +803,16 @@ def test_cost_performance_chart_foundation_uses_only_reviewed_f1_g1_contracts() 
     assert 'familyKey: "moonshot-kimi"' in presentation
     assert 'label: "Moonshot / Kimi"' in presentation
     assert "const passRate = arm.successCount / arm.trialCount" in model
-    assert 'arm.costBasis === "qualified_retained_rate_estimate"' in model
-    assert "not adjusted-known, invoice, provider-billed, or official-price" in model
-    assert "not derived from a qualified total by arithmetic convenience" in model
+    assert "arm.selectedCostBasis" in model
+    assert '"qualified_retained_rate_estimate"' in model
+    assert 'arm.selectedCostBasis === "provider_billed"' in model
+    assert "arm.selectedCostPerAttemptUsd" in model
+    assert "arm.selectedCostPerCleanSuccessUsd" in model
+    assert "arm.selectedOutcomeCostAllocationStatus" in model
+    assert '"unavailable_provider_aggregate"' in model
+    assert "arm.providerSelectedRunLabel" in model
+    assert "historical adjusted outcome spend is not reallocated" in model
+    assert "not adjusted-known or provider-billed cost" in model
     assert 'export * from "./cost-performance-chart-view"' in model
     assert "PARETO_FLOAT_TOLERANCE = 1e-12" in view
     assert "candidate.xValue" in view
@@ -815,6 +822,7 @@ def test_cost_performance_chart_foundation_uses_only_reviewed_f1_g1_contracts() 
     assert 'from "../lib/cost-performance-chart"' not in table
     for forbidden_reference in (
         "phase3-reviewed-comparison",
+        "phase3-current-reviewed-comparison",
         "phase3-reviewed-run-selection",
         "overview-reviewed-comparison",
         "generated/",

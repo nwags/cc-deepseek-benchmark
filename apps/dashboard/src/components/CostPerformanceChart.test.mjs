@@ -101,6 +101,7 @@ test("client-boundary modules import only the pure chart view layer", () => {
   assert.doesNotMatch(tableSource, /from "\.\.\/lib\/cost-performance-chart"/);
   for (const forbiddenReference of [
     "phase3-reviewed-comparison",
+    "phase3-current-reviewed-comparison",
     "phase3-reviewed-run-selection",
     "overview-reviewed-comparison",
     "generated/",
@@ -150,8 +151,9 @@ test("points and controls expose keyboard interaction and persistent evidence de
       "Frozen selected-run evidence →",
       "costProvenanceHref",
       "successes",
-      "Accounting gap",
-      "Pricing provenance",
+      "Historical reviewed accounting gap",
+      "Historical pricing provenance",
+      "Provider billing reconciliation",
       "Provider-log exclusivity",
       "Failure / incomplete spend",
     ]
@@ -159,6 +161,12 @@ test("points and controls expose keyboard interaction and persistent evidence de
 
   assert.match(componentSource, /Qualified retained-rate estimate — not adjusted-known, invoice, or provider-billed cost/);
   assert.match(componentSource, /Pricing provenance is incomplete; allocation confidence is low; trial allocation is unresolved; provider-log exclusivity is not proven/);
+  assert.match(componentSource, /Exact provider-billed arm total — current decision-oriented cost basis/);
+  assert.match(componentSource, /historical adjusted-cost evidence remains separate and is not reallocated/i);
+  assert.match(componentSource, /Selected cost total/);
+  assert.match(componentSource, /Historical reviewed cost total/);
+  assert.match(tableSource, /Selected total/);
+  assert.match(tableSource, /Historical reviewed total/);
   assert.match(componentSource, /cost-performance-point-qualified/);
 });
 
