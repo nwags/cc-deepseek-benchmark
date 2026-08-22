@@ -890,6 +890,95 @@ function validateScope(
   });
 }
 
+export type CurrentSelectedOutcomeCostEvidence =
+  | Readonly<{
+      status: "available";
+      evidenceBasis: "historical_reviewed_selected_cost";
+      adjustedCleanSuccessCostUsd: string;
+      adjustedFailureOrIncompleteCostUsd: string;
+      adjustedExceptionSuccessSignalCostUsd: string;
+      failureOrIncompleteSpendShare: number;
+      nonproductiveOrUncleanSpendShare: number;
+    }>
+  | Readonly<{
+      status: Exclude<
+        CurrentSelectedOutcomeCostAllocationStatus,
+        "available"
+      >;
+      evidenceBasis: null;
+      adjustedCleanSuccessCostUsd: null;
+      adjustedFailureOrIncompleteCostUsd: null;
+      adjustedExceptionSuccessSignalCostUsd: null;
+      failureOrIncompleteSpendShare: null;
+      nonproductiveOrUncleanSpendShare: null;
+    }>;
+
+/**
+ * Return outcome-cost evidence only when it belongs to the selected cost.
+ *
+ * Current provider aggregates are never redistributed across historical
+ * trials or outcomes. Historical outcome-cost fields can coexist on the
+ * reviewed arm for provenance, but they are not selected-cost allocation
+ * evidence unless the selected cost is the same historical reviewed basis.
+ */
+export function getCurrentSelectedOutcomeCostEvidence(
+  arm: CurrentReviewedPhase3Arm,
+): CurrentSelectedOutcomeCostEvidence {
+  const status = arm.selectedOutcomeCostAllocationStatus;
+
+  if (status !== "available") {
+    return Object.freeze({
+      status,
+      evidenceBasis: null,
+      adjustedCleanSuccessCostUsd: null,
+      adjustedFailureOrIncompleteCostUsd: null,
+      adjustedExceptionSuccessSignalCostUsd: null,
+      failureOrIncompleteSpendShare: null,
+      nonproductiveOrUncleanSpendShare: null,
+    });
+  }
+
+  if (
+    arm.selectedTrialCostAllocationStatus
+      !== "available_for_reviewed_layer"
+    || arm.selectedCostBasis
+      !== arm.historicalReviewedCostBasis
+    || arm.selectedCostUsd
+      !== arm.historicalReviewedCostUsd
+  ) {
+    throw new Error(
+      `${arm.armId} selected outcome allocation is not owned by the selected cost`,
+    );
+  }
+
+  if (
+    arm.adjustedCleanSuccessCostUsd === null
+    || arm.adjustedFailureOrIncompleteCostUsd === null
+    || arm.adjustedExceptionSuccessSignalCostUsd === null
+    || arm.failureOrIncompleteSpendShare === null
+    || arm.nonproductiveOrUncleanSpendShare === null
+  ) {
+    throw new Error(
+      `${arm.armId} selected outcome allocation is incomplete`,
+    );
+  }
+
+  return Object.freeze({
+    status: "available",
+    evidenceBasis: "historical_reviewed_selected_cost",
+    adjustedCleanSuccessCostUsd:
+      arm.adjustedCleanSuccessCostUsd,
+    adjustedFailureOrIncompleteCostUsd:
+      arm.adjustedFailureOrIncompleteCostUsd,
+    adjustedExceptionSuccessSignalCostUsd:
+      arm.adjustedExceptionSuccessSignalCostUsd,
+    failureOrIncompleteSpendShare:
+      arm.failureOrIncompleteSpendShare,
+    nonproductiveOrUncleanSpendShare:
+      arm.nonproductiveOrUncleanSpendShare,
+  });
+}
+
 export function validatePhase3CurrentReviewedComparison(
   value: unknown,
 ): Phase3CurrentReviewedComparison {

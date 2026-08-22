@@ -392,3 +392,24 @@ test(
     );
   },
 );
+
+test(
+  "DR-303 historical model cannot consume current selected provider fields",
+  () => {
+    for (const forbidden of [
+      /phase3-current-reviewed-comparison/,
+      /\bproviderBilledCostUsd\b/,
+      /\bselectedCostUsd\b/,
+      /\bselectedOutcomeCostAllocationStatus\b/,
+      /\bselectedTrialCostAllocationStatus\b/,
+      /\bproviderBillingReconciliationStatus\b/,
+    ]) {
+      assert.doesNotMatch(model, forbidden);
+    }
+
+    assert.match(
+      model,
+      /phase3-reviewed-comparison/,
+    );
+  },
+);

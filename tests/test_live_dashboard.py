@@ -848,7 +848,8 @@ def test_cost_performance_chart_foundation_uses_current_reviewed_cost_and_frozen
     assert 'arm.selectedCostBasis === "provider_billed"' in model
     assert "arm.selectedCostPerAttemptUsd" in model
     assert "arm.selectedCostPerCleanSuccessUsd" in model
-    assert "arm.selectedOutcomeCostAllocationStatus" in model
+    assert "getCurrentSelectedOutcomeCostEvidence" in model
+    assert "getCurrentSelectedOutcomeCostEvidence(arm)" in model
     assert '"unavailable_provider_aggregate"' in model
     assert "arm.providerSelectedRunLabel" in model
     assert "historical adjusted outcome spend is not reallocated" in model
@@ -1860,3 +1861,58 @@ def test_j2c_frozen_classification_outputs_retain_accepted_hashes() -> None:
     }
     for name, digest in expected.items():
         assert hashlib.sha256((snapshot / name).read_bytes()).hexdigest() == digest
+
+def test_dr304_current_selected_outcome_cost_firewall() -> None:
+    current = Path(
+        "apps/dashboard/src/lib/phase3-current-reviewed-comparison.ts"
+    ).read_text()
+    chart = Path(
+        "apps/dashboard/src/lib/cost-performance-chart.ts"
+    ).read_text()
+    spend = Path(
+        "apps/dashboard/src/lib/spend-decomposition.ts"
+    ).read_text()
+
+    assert "getCurrentSelectedOutcomeCostEvidence" in current
+    assert "historical_reviewed_selected_cost" in current
+    assert (
+        'arm.selectedOutcomeCostAllocationStatus'
+        in current
+    )
+    assert (
+        'status !== "available"'
+        in current
+    )
+    assert (
+        "arm.selectedCostUsd"
+        in current
+        and "arm.historicalReviewedCostUsd"
+        in current
+    )
+    assert (
+        "arm.selectedCostBasis"
+        in current
+        and "arm.historicalReviewedCostBasis"
+        in current
+    )
+    assert (
+        "selected outcome allocation is not owned by the selected cost"
+        in current
+    )
+
+    assert "getCurrentSelectedOutcomeCostEvidence(arm)" in chart
+
+    start = chart.index("function failureIncompleteSpendForArm")
+    end = chart.index("function qualificationForArm", start)
+    failure_spend = chart[start:end]
+
+    assert "arm.adjustedFailureOrIncompleteCostUsd" not in failure_spend
+    assert "arm.failureOrIncompleteSpendShare" not in failure_spend
+    assert "arm.nonproductiveOrUncleanSpendShare" not in failure_spend
+
+    assert "phase3-current-reviewed-comparison" not in spend
+    assert "providerBilledCostUsd" not in spend
+    assert "selectedCostUsd" not in spend
+    assert "selectedOutcomeCostAllocationStatus" not in spend
+    assert "selectedTrialCostAllocationStatus" not in spend
+    assert "phase3-reviewed-comparison" in spend

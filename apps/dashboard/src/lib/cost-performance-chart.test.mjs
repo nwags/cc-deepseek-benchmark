@@ -33,6 +33,29 @@ const moduleUrl = `data:text/javascript;base64,${Buffer.from(`
   const PHASE3_CURRENT_REVIEWED_COMPARISON = ${JSON.stringify(comparison)};
   const PHASE3_REVIEWED_RUN_SELECTION = ${JSON.stringify(runSelection)};
   const getCurrentReviewedPhase3Scope = (scopeId) => PHASE3_CURRENT_REVIEWED_COMPARISON.scopes[scopeId];
+  const getCurrentSelectedOutcomeCostEvidence = (arm) => {
+    const status = arm.selectedOutcomeCostAllocationStatus;
+    if (status !== "available") {
+      return {
+        status,
+        evidenceBasis: null,
+        adjustedCleanSuccessCostUsd: null,
+        adjustedFailureOrIncompleteCostUsd: null,
+        adjustedExceptionSuccessSignalCostUsd: null,
+        failureOrIncompleteSpendShare: null,
+        nonproductiveOrUncleanSpendShare: null,
+      };
+    }
+    return {
+      status: "available",
+      evidenceBasis: "historical_reviewed_selected_cost",
+      adjustedCleanSuccessCostUsd: arm.adjustedCleanSuccessCostUsd,
+      adjustedFailureOrIncompleteCostUsd: arm.adjustedFailureOrIncompleteCostUsd,
+      adjustedExceptionSuccessSignalCostUsd: arm.adjustedExceptionSuccessSignalCostUsd,
+      failureOrIncompleteSpendShare: arm.failureOrIncompleteSpendShare,
+      nonproductiveOrUncleanSpendShare: arm.nonproductiveOrUncleanSpendShare,
+    };
+  };
   const getReviewedRunSelectionScope = (scopeId) => PHASE3_REVIEWED_RUN_SELECTION.scopes[scopeId];
   const selectCurrentReviewedPhase3Scope = (value) => ({
     scopeId: value === "phase3-core" ? "phase3-core" : "phase3-extended",
@@ -496,3 +519,46 @@ test("x-axis validation defaults deterministically and accepts only the reviewed
   assert.equal(chart.selectChartXAxisMetric("not-a-metric").warning, "invalid_metric");
   assert.equal(chart.selectChartXAxisMetric(["recorded_cost_per_attempt"]).warning, "repeated_metric");
 });
+
+test(
+  "current-selected outcome consumers use the v2 allocation firewall",
+  () => {
+    assert.match(
+      source,
+      /getCurrentSelectedOutcomeCostEvidence/,
+    );
+
+    const start = source.indexOf(
+      "function failureIncompleteSpendForArm",
+    );
+    const end = source.indexOf(
+      "function qualificationForArm",
+      start,
+    );
+
+    assert.ok(start >= 0);
+    assert.ok(end > start);
+
+    const failureSpendSource = source.slice(start, end);
+
+    assert.match(
+      failureSpendSource,
+      /getCurrentSelectedOutcomeCostEvidence\(arm\)/,
+    );
+
+    assert.doesNotMatch(
+      failureSpendSource,
+      /arm\.adjustedFailureOrIncompleteCostUsd/,
+    );
+
+    assert.doesNotMatch(
+      failureSpendSource,
+      /arm\.failureOrIncompleteSpendShare/,
+    );
+
+    assert.doesNotMatch(
+      failureSpendSource,
+      /arm\.nonproductiveOrUncleanSpendShare/,
+    );
+  },
+);

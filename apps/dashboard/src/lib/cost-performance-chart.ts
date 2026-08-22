@@ -1,6 +1,7 @@
 import {
   PHASE3_CURRENT_REVIEWED_COMPARISON,
   getCurrentReviewedPhase3Scope,
+  getCurrentSelectedOutcomeCostEvidence,
   selectCurrentReviewedPhase3Scope,
   type CurrentReviewedPhase3Arm,
   type CurrentReviewedPhase3Scope,
@@ -203,15 +204,16 @@ function recordedMetricForArm(
 function failureIncompleteSpendForArm(
   arm: CurrentReviewedPhase3Arm,
 ): ChartEvidenceAmount {
-  if (
-    arm.adjustedFailureOrIncompleteCostUsd === null
-    || arm.selectedOutcomeCostAllocationStatus !== "available"
-  ) {
+  const outcomeEvidence =
+    getCurrentSelectedOutcomeCostEvidence(arm);
+
+  if (outcomeEvidence.status !== "available") {
     const reason =
-      arm.selectedOutcomeCostAllocationStatus
+      outcomeEvidence.status
         === "unavailable_provider_aggregate"
         ? "The current selected provider-billed arm total is aggregate-only; failure/incomplete spend is unavailable and historical adjusted outcome spend is not reallocated."
         : "Current selected outcome-cost allocation is unavailable for this arm; failure/incomplete spend is not treated as zero.";
+
     return Object.freeze({
       status: "unavailable",
       decimalUsd: null,
@@ -220,11 +222,13 @@ function failureIncompleteSpendForArm(
       reason,
     });
   }
+
   return Object.freeze({
     status: "available",
-    decimalUsd: arm.adjustedFailureOrIncompleteCostUsd,
+    decimalUsd:
+      outcomeEvidence.adjustedFailureOrIncompleteCostUsd,
     value: decimalNumber(
-      arm.adjustedFailureOrIncompleteCostUsd,
+      outcomeEvidence.adjustedFailureOrIncompleteCostUsd,
       `${arm.armId} failure/incomplete spend`,
     ),
     evidenceBasis: "reviewed_adjusted_outcome_cost",
