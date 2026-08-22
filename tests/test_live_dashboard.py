@@ -587,25 +587,31 @@ def test_comparative_pages_disclose_their_distinct_corpus_scopes() -> None:
     assert "Valid imported evidence inventory" in overview
 
     for page in (cross_phase, cost):
-        assert "selectReviewedPhase3Scope" in page
         assert "CorpusScopeSelector" in page
         assert "selection.warningMessage" in page
         assert 'role="alert"' in page
         assert "scopeId={selection.scopeId}" in page
         assert "phase3_extended_reviewed_comparison_20260805.json" in page
 
+    assert "selectCurrentReviewedPhase3Scope" in cross_phase
+    assert "selectReviewedPhase3Scope" not in cross_phase
+    assert "selectReviewedPhase3Scope" in cost
+
     assert "getCurrentReviewedPhase3Scope" in cost
     assert "PHASE3_CURRENT_REVIEWED_COMPARISON" in cost
     assert "phase3_current_reviewed_comparison_20260821.json" in cost
     assert 'costPresentation="current_and_historical"' in cost
 
-    # Cross-phase remains historical-only until C3c; the notice defaults
-    # to historical presentation unless a migrated page explicitly opts in.
-    assert 'costPresentation="current_and_historical"' not in cross_phase
+    assert 'costPresentation="current_and_historical"' in cross_phase
+    assert "PHASE3_CURRENT_REVIEWED_COMPARISON" in cross_phase
+    assert "phase3_current_reviewed_comparison_20260821.json" in cross_phase
 
     assert "getCrossPhaseRows(selectedScope)" in cross_phase
     assert "getPhaseSummaries(rows, selectedScope)" in cross_phase
-    assert "reviewed 2026-08-05 comparison layer" in cross_phase
+    assert "current-reviewed 2026-08-21 selected-cost layer" in cross_phase
+    assert "Provider-billed aggregate totals" in cross_phase
+    assert "are not redistributed across trials or outcomes" in cross_phase
+    assert "frozen historical adjusted-cost ratios" in cross_phase
     assert "retained 15-arm Phase 3 core comparison" in cross_phase
     assert "does not include Kimi K3 or inherit the selected extended denominator" in cross_phase
 
@@ -992,10 +998,12 @@ def test_dr013_heatmap_headers_wrap_and_phase_summaries_are_structured() -> None
     assert '<section className="phase-summary-grid"' in cross_phase
     assert 'className="metric-card phase-summary-card"' in cross_phase
     assert '<dl className="phase-summary-details">' in cross_phase
-    for label in ("Population", "Results", "Reviewed cost", "Cost basis"):
+    for label in ("Population", "Results", "Comparison cost", "Cost basis"):
         assert f"<dt>{label}</dt>" in cross_phase
     assert "summary.success_count}/{summary.trial_count} successes" in cross_phase
-    assert "summary.adjusted_cost_usd" in cross_phase
+    assert "summary.comparison_cost_usd" in cross_phase
+    assert "summary.historical_reviewed_cost_usd" in cross_phase
+    assert "summary.historical_unclean_spend_share" in cross_phase
     assert "grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));" in css
 
 
