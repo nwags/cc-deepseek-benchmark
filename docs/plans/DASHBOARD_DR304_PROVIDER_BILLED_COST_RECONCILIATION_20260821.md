@@ -1,7 +1,7 @@
 # DR-304 — Provider-Billed Cost Reconciliation
 
 **Date:** 2026-08-21
-**Status:** DR-304B current reviewed cost model in progress
+**Status:** DR-304A–E implemented and branch acceptance passed; merge to `main` pending
 **Base:** `main` at `886e893167d1026b1033ec87c8133143928063d3`
 **Branch:** `dashboard-dr304-provider-billed-cost`
 
@@ -184,3 +184,95 @@ default cost/performance comparison.
 Quality/performance outcomes are unchanged.
 
 No private provider IDs or raw provider exports may enter the repository.
+
+## Branch acceptance and closeout — 2026-08-22
+
+Implementation and production acceptance are complete on
+`dashboard-dr304-provider-billed-cost`. The plan's final merge criterion remains
+open until the accepted branch is merged to `main`.
+
+Implemented sequence:
+
+- DR-304A established sanitized/hash-bound provider evidence and the correction
+  contract without changing frozen historical results.
+- DR-304B added the current reviewed provider-aware cost model.
+- DR-304C migrated the decision-facing cost/performance frontier, Overview,
+  Cost Coverage, corpus-scope presentation, and Cross-phase reporting to the
+  selected current reviewed cost while retaining historical evidence
+  separately.
+- DR-304D added the selected-cost outcome-allocation firewall. Provider
+  aggregate totals cannot inherit or fabricate historical trial/outcome
+  allocation; the historical DR-303 spend-decomposition model remains
+  unchanged.
+- DR-304E added prospective runtime provenance capture without changing the
+  canonical publication fingerprint or historical result artifacts.
+
+Accepted decision-facing OpenAI anchors:
+
+- GPT-5.4 selected/provider-billed cost: **$29.7919335**
+- GPT-5.5 selected/provider-billed cost: **$48.604914**
+- combined selected OpenAI full-sweep provider cost: **$78.3968475**
+
+Historical harness and reviewed adjusted values remain separately traceable and
+do not drive the default current comparison when superior provider evidence is
+available. Provider-billed OpenAI totals remain explicitly unavailable for
+trial-level and outcome-level cost allocation and are never proportionally
+redistributed across historical DR-303 buckets.
+
+The accepted current reviewed scope retains:
+
+- Phase 3 core selected arm-summed cost:
+  **$682.961171493867**
+- Phase 3 extended selected arm-summed cost:
+  **$713.775490893867**
+- Phase 3 extended historical reviewed arm sum:
+  **$1002.984164889198**
+
+Kimi K3 remains a separately qualified retained-rate estimate rather than
+provider-billed spend. Its aggregate selected-cost efficiency may be shown
+where supported, while trial-level allocation remains unresolved and
+outcome-cost allocation remains unavailable.
+
+DR-304E runtime provenance records future execution evidence rather than
+retroactively guessing historical versions. Future final publication stores
+structured run-level provenance for the installed Harbor distribution, the
+actual isolated `.tools/litellm-proxy` LiteLLM distribution, runner-side Claude
+Code CLI evidence, and Claude Code versions observed in retained
+`system`/`init` agent records. Missing evidence remains explicitly unavailable.
+`runtime_versions` is intentionally outside the existing publication
+fingerprint contract, and `scripts/lib/publication_fingerprint.py` was not
+changed.
+
+The historical LiteLLM proxy version for runs where no reliable version was
+retained remains unreconstructable. Versions observed during this 2026-08-22
+closeout environment must not be presented as historical run versions.
+
+Branch acceptance evidence:
+
+- full dashboard Node suite: **270/270 passed**;
+- full Python suite after the runtime-provenance addition:
+  **450/450 passed**;
+- strict review-output scan: clean;
+- secret scan: passed;
+- `git diff --check`: clean;
+- production Next.js build: passed;
+- production HTTP checks returned 200 for Overview, Cost Coverage core and
+  extended, and Cross-phase core and extended;
+- rendered current/historical boundary checks passed;
+- manual production review passed at 1920px, 1440px, and 1280px for Overview,
+  Cost Coverage core/extended, and Cross-phase core/extended;
+- no frozen Phase 3 result, reviewed historical source, DR-303 implementation,
+  or publication-fingerprint implementation was modified.
+
+Key prevention commits:
+
+- `5d3fdc4d` — selected-cost allocation firewall;
+- `082486eb` — benchmark runtime provenance capture.
+
+No benchmark rerun, paid provider probe, migration execution, Supabase write,
+R2 write, frozen-result regeneration, historical-cost rewrite, or fabricated
+provider trial/outcome allocation was performed during branch acceptance.
+
+**Branch outcome:** PASS. DR-304A–E are implementation-complete and accepted on
+the branch. The remaining plan action is merge to `main`; only after that merge
+does the plan's final `main` acceptance criterion become satisfied.
