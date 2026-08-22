@@ -98,3 +98,25 @@ def test_completed_replay_artifact_change_changes_fingerprint() -> None:
     second["artifacts"][0]["sha256"] = "b" * 64  # type: ignore[index]
 
     assert publication_fingerprint(first) != publication_fingerprint(second)
+
+
+def test_runtime_provenance_does_not_change_publication_fingerprint() -> None:
+    first = manifest()
+    second = deepcopy(first)
+
+    first["run"]["runtime_versions"] = {
+        "schema_version": "phase3-runtime-provenance-v1",
+        "control_plane": {
+            "harbor": {"version": "0.6.6"},
+            "litellm_proxy": {"version": "1.91.1"},
+        },
+    }
+    second["run"]["runtime_versions"] = {
+        "schema_version": "phase3-runtime-provenance-v1",
+        "control_plane": {
+            "harbor": {"version": "0.6.6"},
+            "litellm_proxy": {"version": "1.92.0"},
+        },
+    }
+
+    assert publication_fingerprint(first) == publication_fingerprint(second)

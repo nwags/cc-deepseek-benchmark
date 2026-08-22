@@ -51,6 +51,7 @@ from scripts.lib.phase3_freeze import assert_phase3_publication_allowed
 from scripts.lib.publication_fingerprint import (
     publication_fingerprint as compute_publication_fingerprint,
 )
+from scripts.lib.runtime_versions import build_runtime_provenance
 
 
 R2_REQUIRED = (
@@ -466,6 +467,10 @@ def main(argv: list[str] | None = None) -> int:
                 "github_job": args.github_job or None,
                 "live_run_id": args.live_run_id,
             }
+        )
+        manifest["run"]["runtime_versions"] = build_runtime_provenance(
+            context.get("runtime_versions"),
+            run_dir=run_dir,
         )
         manifest["publication"] = {
             "live_run_id": args.live_run_id,
