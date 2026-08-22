@@ -8,7 +8,7 @@ import ts from "typescript";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const comparison = JSON.parse(await readFile(
-  resolve(here, "../../../../results/phase3/reporting/phase3_extended_reviewed_comparison_20260805.json"),
+  resolve(here, "../../../../results/phase3/reporting/phase3_current_reviewed_comparison_20260821.json"),
   "utf8",
 ));
 const runSelection = JSON.parse(await readFile(
@@ -30,13 +30,36 @@ const compiled = ts.transpileModule(source, {
   .replace(/^import .*;$/gm, "")
   .replace(/^export \* .*;$/gm, "");
 const moduleUrl = `data:text/javascript;base64,${Buffer.from(`
-  const PHASE3_REVIEWED_COMPARISON = ${JSON.stringify(comparison)};
+  const PHASE3_CURRENT_REVIEWED_COMPARISON = ${JSON.stringify(comparison)};
   const PHASE3_REVIEWED_RUN_SELECTION = ${JSON.stringify(runSelection)};
-  const getReviewedPhase3Scope = (scopeId) => PHASE3_REVIEWED_COMPARISON.scopes[scopeId];
+  const getCurrentReviewedPhase3Scope = (scopeId) => PHASE3_CURRENT_REVIEWED_COMPARISON.scopes[scopeId];
+  const getCurrentSelectedOutcomeCostEvidence = (arm) => {
+    const status = arm.selectedOutcomeCostAllocationStatus;
+    if (status !== "available") {
+      return {
+        status,
+        evidenceBasis: null,
+        adjustedCleanSuccessCostUsd: null,
+        adjustedFailureOrIncompleteCostUsd: null,
+        adjustedExceptionSuccessSignalCostUsd: null,
+        failureOrIncompleteSpendShare: null,
+        nonproductiveOrUncleanSpendShare: null,
+      };
+    }
+    return {
+      status: "available",
+      evidenceBasis: "historical_reviewed_selected_cost",
+      adjustedCleanSuccessCostUsd: arm.adjustedCleanSuccessCostUsd,
+      adjustedFailureOrIncompleteCostUsd: arm.adjustedFailureOrIncompleteCostUsd,
+      adjustedExceptionSuccessSignalCostUsd: arm.adjustedExceptionSuccessSignalCostUsd,
+      failureOrIncompleteSpendShare: arm.failureOrIncompleteSpendShare,
+      nonproductiveOrUncleanSpendShare: arm.nonproductiveOrUncleanSpendShare,
+    };
+  };
   const getReviewedRunSelectionScope = (scopeId) => PHASE3_REVIEWED_RUN_SELECTION.scopes[scopeId];
-  const selectReviewedPhase3Scope = (value) => ({
+  const selectCurrentReviewedPhase3Scope = (value) => ({
     scopeId: value === "phase3-core" ? "phase3-core" : "phase3-extended",
-    scope: getReviewedPhase3Scope(value === "phase3-core" ? "phase3-core" : "phase3-extended"),
+    scope: getCurrentReviewedPhase3Scope(value === "phase3-core" ? "phase3-core" : "phase3-extended"),
     warning: null,
     warningMessage: null,
     usedDefault: value !== "phase3-core" && value !== "phase3-extended",
@@ -143,7 +166,7 @@ test("pass-rate numerator and denominator remain exact reviewed counts", () => {
   assert.equal(row.passRate, 47 / 60);
 });
 
-test("per-attempt costs use deterministic reviewed decimal division", () => {
+test("selected per-attempt costs use the current reviewed ratios while recorded cost remains deterministic", () => {
   const kimi = armFor(extendedArms, "router-kimi-k3");
   assert.deepEqual(
     {
@@ -160,7 +183,7 @@ test("per-attempt costs use deterministic reviewed decimal division", () => {
   assert.equal(kimi.recordedCostPerAttempt.value, Number("0.420120216666667"));
 });
 
-test("Kimi adjusted metric preserves its qualified retained-rate basis", () => {
+test("Kimi selected metric preserves its qualified retained-rate basis", () => {
   const kimi = armFor(extendedArms, "router-kimi-k3");
   assert.equal(kimi.adjustedKnownCostUsd, null);
   assert.equal(kimi.qualifiedRetainedRateCostUsd, "30.8143194");
@@ -169,21 +192,95 @@ test("Kimi adjusted metric preserves its qualified retained-rate basis", () => {
   assert.equal(kimi.adjustedCostPerAttempt.status, "available");
   assert.equal(kimi.adjustedCostPerAttempt.decimalUsd, "0.51357199");
   assert.match(kimi.adjustedCostPerAttempt.qualification, /qualified retained-rate estimate/);
-  assert.match(kimi.adjustedCostPerAttempt.qualification, /not adjusted-known, invoice, provider-billed, or official-price/);
+  assert.match(kimi.adjustedCostPerAttempt.qualification, /not adjusted-known or provider-billed cost/);
   assert.match(kimi.qualificationText, /pricing-source provenance incomplete/);
   assert.match(kimi.qualificationText, /trial allocation unresolved/);
 });
 
-test("unsupported Kimi outcome-cost metrics stay unavailable instead of becoming zero", () => {
+
+test("OpenAI frontier uses exact provider-billed selected costs", () => {
+  const gpt54 = armFor(extendedArms, "router-gpt-5.4");
+  const gpt55 = armFor(extendedArms, "router-gpt-5.5");
+
+  assert.equal(gpt54.selectedCostUsd, "29.7919335");
+  assert.equal(
+    gpt54.historicalReviewedCostUsd,
+    "183.646689146806",
+  );
+  assert.equal(gpt54.providerBilledCostUsd, "29.7919335");
+  assert.equal(gpt54.costBasis, "provider_billed");
+  assert.equal(
+    gpt54.adjustedCostPerAttempt.decimalUsd,
+    "0.496532225",
+  );
+  assert.equal(
+    gpt54.costPerCleanSuccess.decimalUsd,
+    "0.78399825",
+  );
+
+  assert.equal(gpt55.selectedCostUsd, "48.604914");
+  assert.equal(
+    gpt55.historicalReviewedCostUsd,
+    "183.958832348525",
+  );
+  assert.equal(gpt55.providerBilledCostUsd, "48.604914");
+  assert.equal(gpt55.costBasis, "provider_billed");
+  assert.equal(
+    gpt55.adjustedCostPerAttempt.decimalUsd,
+    "0.8100819",
+  );
+  assert.equal(
+    gpt55.costPerCleanSuccess.decimalUsd,
+    "1.157259857142857142857142857",
+  );
+  assert.equal(
+    gpt55.trialAllocationStatus,
+    "unavailable_provider_aggregate",
+  );
+  assert.equal(
+    gpt55.billingReconciliationStatus,
+    "exact_arm_total",
+  );
+  assert.equal(
+    gpt55.providerSelectedRunLabel,
+    gpt55.selectedRunLabel,
+  );
+  assert.deepEqual(gpt55.costSources, [
+    "sanitized_provider_billing_reconciliation",
+  ]);
+  assert.equal(
+    gpt55.costConfidence,
+    "exact_provider_arm_total",
+  );
+});
+
+test("selected aggregate ratios remain available without fabricating outcome allocation", () => {
   const kimi = armFor(extendedArms, "router-kimi-k3");
-  const cleanSuccess = chart.metricValueForArm(kimi, "cost_per_clean_success");
-  assert.equal(cleanSuccess.status, "unavailable");
-  assert.equal(cleanSuccess.value, null);
-  assert.match(cleanSuccess.reason, /not derived.*arithmetic convenience/);
+  const cleanSuccess =
+    chart.metricValueForArm(kimi, "cost_per_clean_success");
+  assert.equal(cleanSuccess.status, "available");
+  assert.equal(
+    cleanSuccess.decimalUsd,
+    "0.7003254409090909090909090909",
+  );
   assert.equal(kimi.failureIncompleteSpend.status, "unavailable");
-  assert.equal(kimi.failureIncompleteSpend.value, null);
-  assert.match(kimi.failureIncompleteSpend.reason, /not treated as zero/);
-  assert.equal(armFor(coreArms, "router-gpt-5.5").failureIncompleteSpend.status, "available");
+  assert.match(
+    kimi.failureIncompleteSpend.reason,
+    /outcome-cost allocation is unavailable/i,
+  );
+
+  const gpt55 = armFor(coreArms, "router-gpt-5.5");
+  assert.equal(gpt55.failureIncompleteSpend.status, "unavailable");
+  assert.match(
+    gpt55.failureIncompleteSpend.reason,
+    /provider-billed arm total is aggregate-only/i,
+  );
+
+  assert.equal(
+    armFor(coreArms, "router-deepseek-flash")
+      .failureIncompleteSpend.status,
+    "available",
+  );
 });
 
 test("provider options preserve canonical family keys with shared friendly presentation", () => {
@@ -278,21 +375,40 @@ test("arm select-all and clear are independent from provider visibility", () => 
   assert.equal(noArms.plotPoints.length, 0);
 });
 
-test("a selected metric-unavailable arm remains represented but is not plotted", () => {
-  const result = view(extendedArms, "cost_per_clean_success", {
-    selectedProviderFamilies: ["moonshot-kimi"],
-    selectedArmIds: ["router-kimi-k3"],
-  });
+test("a selected synthetic metric-unavailable arm remains represented but is not plotted", () => {
+  const base = armFor(extendedArms, "router-kimi-k3");
+  const synthetic = {
+    ...base,
+    costPerCleanSuccess: {
+      status: "unavailable",
+      value: null,
+      decimalUsd: null,
+      sourceTotalUsd: null,
+      derivation: null,
+      qualification: null,
+      reason: "Synthetic future evidence gap.",
+    },
+  };
+  const result = view([synthetic], "cost_per_clean_success");
   assert.deepEqual(result.selectedArmIds, ["router-kimi-k3"]);
-  assert.deepEqual(result.selectedVisibleArms.map((arm) => arm.armId), ["router-kimi-k3"]);
+  assert.deepEqual(
+    result.selectedVisibleArms.map((arm) => arm.armId),
+    ["router-kimi-k3"],
+  );
   assert.equal(result.plotPoints.length, 0);
-  assert.deepEqual(result.unavailableMetricArms.map((arm) => arm.armId), ["router-kimi-k3"]);
+  assert.deepEqual(
+    result.unavailableMetricArms.map((arm) => arm.armId),
+    ["router-kimi-k3"],
+  );
   const accessible = chart.buildAccessibleChartRows(
     result.selectedVisibleArms,
     "cost_per_clean_success",
   );
   assert.equal(accessible[0].xMetricValue.status, "unavailable");
-  assert.match(accessible[0].xMetricValue.reason, /reviewed F1 contract/);
+  assert.match(
+    accessible[0].xMetricValue.reason,
+    /Synthetic future evidence gap/,
+  );
 });
 
 test("Pareto frontier uses lower cost and higher pass rate dominance", () => {
@@ -403,3 +519,46 @@ test("x-axis validation defaults deterministically and accepts only the reviewed
   assert.equal(chart.selectChartXAxisMetric("not-a-metric").warning, "invalid_metric");
   assert.equal(chart.selectChartXAxisMetric(["recorded_cost_per_attempt"]).warning, "repeated_metric");
 });
+
+test(
+  "current-selected outcome consumers use the v2 allocation firewall",
+  () => {
+    assert.match(
+      source,
+      /getCurrentSelectedOutcomeCostEvidence/,
+    );
+
+    const start = source.indexOf(
+      "function failureIncompleteSpendForArm",
+    );
+    const end = source.indexOf(
+      "function qualificationForArm",
+      start,
+    );
+
+    assert.ok(start >= 0);
+    assert.ok(end > start);
+
+    const failureSpendSource = source.slice(start, end);
+
+    assert.match(
+      failureSpendSource,
+      /getCurrentSelectedOutcomeCostEvidence\(arm\)/,
+    );
+
+    assert.doesNotMatch(
+      failureSpendSource,
+      /arm\.adjustedFailureOrIncompleteCostUsd/,
+    );
+
+    assert.doesNotMatch(
+      failureSpendSource,
+      /arm\.failureOrIncompleteSpendShare/,
+    );
+
+    assert.doesNotMatch(
+      failureSpendSource,
+      /arm\.nonproductiveOrUncleanSpendShare/,
+    );
+  },
+);

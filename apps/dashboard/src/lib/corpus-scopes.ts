@@ -1,3 +1,6 @@
+import {
+  PHASE3_CURRENT_REVIEWED_COMPARISON,
+} from "./phase3-current-reviewed-comparison";
 import { PHASE3_REVIEWED_COMPARISON } from "./phase3-reviewed-comparison";
 
 export type CorpusScopeId =
@@ -38,9 +41,23 @@ export type CorpusScope = Readonly<{
   populationKind: "fixed_corpus" | "dynamic";
   presentationKind: CorpusScopePresentationKind;
   expectedCounts: CorpusScopeCounts | null;
+
+  // Current decision-facing selected-cost metadata. These fields are
+  // populated only for fixed reviewed Phase 3 scopes.
+  selectedCostUsd: number | null;
+  historicalReviewedCostUsd: number | null;
+  selectedCostBasis: "mixed_best_available_arm_evidence" | null;
+  providerReconciledArmCount: number | null;
+  providerReconciledCostUsd: number | null;
+  currentCostReviewedAt: string | null;
+  selectedCostDescription: string | null;
+
+  // Preserved historical reviewed cost metadata. These compatibility
+  // fields retain the original reviewed scope semantics.
   adjustedKnownCostUsd: number | null;
   qualifiedAdjustedCostEstimateUsd: number | null;
   costDisplayLabel: string | null;
+
   comparisonValid: boolean;
   costCoverageState: CorpusCostCoverageState;
   costCoverageDescription: string;
@@ -74,6 +91,11 @@ function freezeScope(scope: CorpusScope): CorpusScope {
 const REVIEWED_CORE = PHASE3_REVIEWED_COMPARISON.scopes["phase3-core"];
 const REVIEWED_EXTENDED = PHASE3_REVIEWED_COMPARISON.scopes["phase3-extended"];
 
+const CURRENT_REVIEWED_CORE =
+  PHASE3_CURRENT_REVIEWED_COMPARISON.scopes["phase3-core"];
+const CURRENT_REVIEWED_EXTENDED =
+  PHASE3_CURRENT_REVIEWED_COMPARISON.scopes["phase3-extended"];
+
 function reviewedCounts(scope: typeof REVIEWED_CORE | typeof REVIEWED_EXTENDED): CorpusScopeCounts {
   return {
     armCount: scope.armCount,
@@ -105,6 +127,34 @@ export const CORPUS_SCOPES: Readonly<Record<CorpusScopeId, CorpusScope>> = Objec
     populationKind: "fixed_corpus",
     presentationKind: REVIEWED_CORE.presentationKind,
     expectedCounts: reviewedCounts(REVIEWED_CORE),
+
+    selectedCostUsd: reviewedDecimal(
+      CURRENT_REVIEWED_CORE.selectedCostEvidence.selectedCostUsd,
+      "phase3-core current selected cost",
+    ),
+    historicalReviewedCostUsd: reviewedDecimal(
+      CURRENT_REVIEWED_CORE.selectedCostEvidence
+        .historicalReviewedArmSumCostUsd,
+      "phase3-core historical reviewed arm-sum cost",
+    ),
+    selectedCostBasis:
+      CURRENT_REVIEWED_CORE.selectedCostEvidence.selectedCostBasis,
+    providerReconciledArmCount:
+      CURRENT_REVIEWED_CORE.selectedCostEvidence
+        .providerReconciledArmCount,
+    providerReconciledCostUsd: reviewedDecimal(
+      CURRENT_REVIEWED_CORE.selectedCostEvidence
+        .providerReconciledCostUsd,
+      "phase3-core provider-reconciled selected cost",
+    ),
+    currentCostReviewedAt:
+      PHASE3_CURRENT_REVIEWED_COMPARISON.reviewedAt,
+    selectedCostDescription:
+      `Current selected arm-sum cost is $${Number(
+        CURRENT_REVIEWED_CORE.selectedCostEvidence.selectedCostUsd,
+      ).toFixed(6)} using mixed best-available arm evidence. `
+      + `${CURRENT_REVIEWED_CORE.selectedCostEvidence.providerReconciledArmCount}/${REVIEWED_CORE.armCount} arms use exact provider-billed reconciliation; provider aggregates are not redistributed to trials or outcomes.`,
+
     adjustedKnownCostUsd: reviewedDecimal(
       REVIEWED_CORE.costEvidence.adjustedKnownCostUsd,
       "phase3-core adjusted known cost",
@@ -127,6 +177,34 @@ export const CORPUS_SCOPES: Readonly<Record<CorpusScopeId, CorpusScope>> = Objec
     populationKind: "fixed_corpus",
     presentationKind: REVIEWED_EXTENDED.presentationKind,
     expectedCounts: reviewedCounts(REVIEWED_EXTENDED),
+
+    selectedCostUsd: reviewedDecimal(
+      CURRENT_REVIEWED_EXTENDED.selectedCostEvidence.selectedCostUsd,
+      "phase3-extended current selected cost",
+    ),
+    historicalReviewedCostUsd: reviewedDecimal(
+      CURRENT_REVIEWED_EXTENDED.selectedCostEvidence
+        .historicalReviewedArmSumCostUsd,
+      "phase3-extended historical reviewed arm-sum cost",
+    ),
+    selectedCostBasis:
+      CURRENT_REVIEWED_EXTENDED.selectedCostEvidence.selectedCostBasis,
+    providerReconciledArmCount:
+      CURRENT_REVIEWED_EXTENDED.selectedCostEvidence
+        .providerReconciledArmCount,
+    providerReconciledCostUsd: reviewedDecimal(
+      CURRENT_REVIEWED_EXTENDED.selectedCostEvidence
+        .providerReconciledCostUsd,
+      "phase3-extended provider-reconciled selected cost",
+    ),
+    currentCostReviewedAt:
+      PHASE3_CURRENT_REVIEWED_COMPARISON.reviewedAt,
+    selectedCostDescription:
+      `Current selected arm-sum cost is $${Number(
+        CURRENT_REVIEWED_EXTENDED.selectedCostEvidence.selectedCostUsd,
+      ).toFixed(6)} using mixed best-available arm evidence. `
+      + `${CURRENT_REVIEWED_EXTENDED.selectedCostEvidence.providerReconciledArmCount}/${REVIEWED_EXTENDED.armCount} arms use exact provider-billed reconciliation; provider aggregates are not redistributed to trials or outcomes.`,
+
     adjustedKnownCostUsd: null,
     qualifiedAdjustedCostEstimateUsd: reviewedDecimal(
       REVIEWED_EXTENDED.costEvidence.qualifiedAdjustedCostEstimateUsd,
@@ -149,6 +227,13 @@ export const CORPUS_SCOPES: Readonly<Record<CorpusScopeId, CorpusScope>> = Objec
     populationKind: "dynamic",
     presentationKind: "dynamic_inventory",
     expectedCounts: null,
+    selectedCostUsd: null,
+    historicalReviewedCostUsd: null,
+    selectedCostBasis: null,
+    providerReconciledArmCount: null,
+    providerReconciledCostUsd: null,
+    currentCostReviewedAt: null,
+    selectedCostDescription: null,
     adjustedKnownCostUsd: null,
     qualifiedAdjustedCostEstimateUsd: null,
     costDisplayLabel: null,
@@ -168,6 +253,13 @@ export const CORPUS_SCOPES: Readonly<Record<CorpusScopeId, CorpusScope>> = Objec
     populationKind: "dynamic",
     presentationKind: "dynamic_inventory",
     expectedCounts: null,
+    selectedCostUsd: null,
+    historicalReviewedCostUsd: null,
+    selectedCostBasis: null,
+    providerReconciledArmCount: null,
+    providerReconciledCostUsd: null,
+    currentCostReviewedAt: null,
+    selectedCostDescription: null,
     adjustedKnownCostUsd: null,
     qualifiedAdjustedCostEstimateUsd: null,
     costDisplayLabel: null,

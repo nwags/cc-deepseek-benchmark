@@ -1,11 +1,12 @@
 import {
-  PHASE3_REVIEWED_COMPARISON,
-  getReviewedPhase3Scope,
-  selectReviewedPhase3Scope,
-  type ReviewedPhase3Arm,
-  type ReviewedPhase3Scope,
-  type ReviewedScopeSelection,
-} from "./phase3-reviewed-comparison";
+  PHASE3_CURRENT_REVIEWED_COMPARISON,
+  getCurrentReviewedPhase3Scope,
+  getCurrentSelectedOutcomeCostEvidence,
+  selectCurrentReviewedPhase3Scope,
+  type CurrentReviewedPhase3Arm,
+  type CurrentReviewedPhase3Scope,
+  type CurrentReviewedScopeSelection,
+} from "./phase3-current-reviewed-comparison";
 import {
   getReviewedRunSelectionScope,
   type ReviewedSelectedRun,
@@ -91,14 +92,22 @@ function availableDerivedMetric(
   });
 }
 
-function availableReviewedMetric(valueUsd: string, label: string): ChartMetricAvailable {
+function availableSelectedMetric(
+  valueUsd: string,
+  sourceTotalUsd: string,
+  derivation:
+    | "current_selected_cost_per_attempt"
+    | "current_selected_cost_per_clean_success",
+  qualification: string | null,
+  label: string,
+): ChartMetricAvailable {
   return Object.freeze({
     status: "available",
     value: decimalNumber(valueUsd, label),
     decimalUsd: valueUsd,
-    sourceTotalUsd: null,
-    derivation: "reviewed_f1_cost_per_clean_success",
-    qualification: null,
+    sourceTotalUsd,
+    derivation,
+    qualification,
   });
 }
 
@@ -114,43 +123,73 @@ function unavailableMetric(reason: string): ChartMetricUnavailable {
   });
 }
 
-function reviewedComparableCost(arm: ReviewedPhase3Arm): string | null {
-  if (arm.costBasis === "adjusted_known_cost") return arm.adjustedKnownCostUsd;
-  if (arm.costBasis === "qualified_retained_rate_estimate") return arm.qualifiedRetainedRateCostUsd;
+function reviewedComparableCost(
+  arm: CurrentReviewedPhase3Arm,
+): string | null {
+  if (
+    arm.historicalReviewedCostBasis === "adjusted_known_cost"
+  ) {
+    return arm.adjustedKnownCostUsd;
+  }
+  if (
+    arm.historicalReviewedCostBasis
+      === "qualified_retained_rate_estimate"
+  ) {
+    return arm.qualifiedRetainedRateCostUsd;
+  }
   return null;
 }
 
-function adjustedMetricForArm(arm: ReviewedPhase3Arm): ChartMetricValue {
-  const reviewedCost = reviewedComparableCost(arm);
-  if (reviewedCost === null) {
-    return unavailableMetric(
-      "The reviewed F1 contract provides neither adjusted-known cost nor a qualified comparable estimate for this arm.",
-    );
+function selectedMetricQualification(
+  arm: CurrentReviewedPhase3Arm,
+): string | null {
+  if (arm.selectedCostBasis === "provider_billed") {
+    return [
+      "Exact provider-billed arm total",
+      "current decision-oriented aggregate ratio",
+      "trial and outcome allocation unavailable",
+      "historical adjusted-cost evidence retained separately",
+    ].join("; ");
   }
-  const qualification = arm.costBasis === "qualified_retained_rate_estimate"
-    ? "Uses the reviewed qualified retained-rate estimate, not adjusted-known, invoice, provider-billed, or official-price cost."
-    : null;
-  return availableDerivedMetric(
-    reviewedCost,
-    arm.trialCount,
-    qualification,
-    `${arm.armId} reviewed comparable cost`,
+  if (
+    arm.selectedCostBasis
+      === "qualified_retained_rate_estimate"
+  ) {
+    return [
+      "Uses the current reviewed qualified retained-rate estimate",
+      "not adjusted-known or provider-billed cost",
+    ].join("; ");
+  }
+  return null;
+}
+
+function adjustedMetricForArm(
+  arm: CurrentReviewedPhase3Arm,
+): ChartMetricValue {
+  return availableSelectedMetric(
+    arm.selectedCostPerAttemptUsd,
+    arm.selectedCostUsd,
+    "current_selected_cost_per_attempt",
+    selectedMetricQualification(arm),
+    `${arm.armId} selected cost per attempt`,
   );
 }
 
-function cleanSuccessMetricForArm(arm: ReviewedPhase3Arm): ChartMetricValue {
-  if (arm.adjustedCostPerCleanSuccessUsd === null) {
-    return unavailableMetric(
-      "The reviewed F1 contract marks cost per clean success unavailable; it is not derived from a qualified total by arithmetic convenience.",
-    );
-  }
-  return availableReviewedMetric(
-    arm.adjustedCostPerCleanSuccessUsd,
-    `${arm.armId} reviewed cost per clean success`,
+function cleanSuccessMetricForArm(
+  arm: CurrentReviewedPhase3Arm,
+): ChartMetricValue {
+  return availableSelectedMetric(
+    arm.selectedCostPerCleanSuccessUsd,
+    arm.selectedCostUsd,
+    "current_selected_cost_per_clean_success",
+    selectedMetricQualification(arm),
+    `${arm.armId} selected cost per clean success`,
   );
 }
 
-function recordedMetricForArm(arm: ReviewedPhase3Arm): ChartMetricValue {
+function recordedMetricForArm(
+  arm: CurrentReviewedPhase3Arm,
+): ChartMetricValue {
   const qualification = arm.missingRecordedCostCount > 0
     ? `Recorded cost is a lower bound because ${arm.missingRecordedCostCount} reviewed trial cost row${arm.missingRecordedCostCount === 1 ? " is" : "s are"} missing.`
     : null;
@@ -162,22 +201,34 @@ function recordedMetricForArm(arm: ReviewedPhase3Arm): ChartMetricValue {
   );
 }
 
-function failureIncompleteSpendForArm(arm: ReviewedPhase3Arm): ChartEvidenceAmount {
-  if (arm.adjustedFailureOrIncompleteCostUsd === null
-    || arm.outcomeCostAllocationStatus !== "available") {
+function failureIncompleteSpendForArm(
+  arm: CurrentReviewedPhase3Arm,
+): ChartEvidenceAmount {
+  const outcomeEvidence =
+    getCurrentSelectedOutcomeCostEvidence(arm);
+
+  if (outcomeEvidence.status !== "available") {
+    const reason =
+      outcomeEvidence.status
+        === "unavailable_provider_aggregate"
+        ? "The current selected provider-billed arm total is aggregate-only; failure/incomplete spend is unavailable and historical adjusted outcome spend is not reallocated."
+        : "Current selected outcome-cost allocation is unavailable for this arm; failure/incomplete spend is not treated as zero.";
+
     return Object.freeze({
       status: "unavailable",
       decimalUsd: null,
       value: null,
       evidenceBasis: null,
-      reason: "Reviewed F1 outcome-cost allocation is unavailable for this arm; failure/incomplete spend is not treated as zero.",
+      reason,
     });
   }
+
   return Object.freeze({
     status: "available",
-    decimalUsd: arm.adjustedFailureOrIncompleteCostUsd,
+    decimalUsd:
+      outcomeEvidence.adjustedFailureOrIncompleteCostUsd,
     value: decimalNumber(
-      arm.adjustedFailureOrIncompleteCostUsd,
+      outcomeEvidence.adjustedFailureOrIncompleteCostUsd,
       `${arm.armId} failure/incomplete spend`,
     ),
     evidenceBasis: "reviewed_adjusted_outcome_cost",
@@ -185,10 +236,24 @@ function failureIncompleteSpendForArm(arm: ReviewedPhase3Arm): ChartEvidenceAmou
 }
 
 function qualificationForArm(
-  arm: ReviewedPhase3Arm,
+  arm: CurrentReviewedPhase3Arm,
   selection: ReviewedSelectedRun,
 ): string | null {
-  if (arm.costBasis !== "qualified_retained_rate_estimate") return null;
+  if (arm.selectedCostBasis === "provider_billed") {
+    return [
+      "Exact provider-billed arm total",
+      "current decision-oriented cost basis",
+      "trial allocation unavailable from provider aggregate",
+      "outcome allocation unavailable from provider aggregate",
+      "historical benchmark cost evidence retained separately",
+    ].join("; ");
+  }
+  if (
+    arm.selectedCostBasis
+      !== "qualified_retained_rate_estimate"
+  ) {
+    return null;
+  }
   const qualifications = [
     "Qualified retained-rate estimate",
     "pricing-source provenance incomplete",
@@ -208,7 +273,7 @@ function armDetailHref(armId: string): string {
 }
 
 function assertMatchingReviewedInputs(
-  scope: ReviewedPhase3Scope,
+  scope: CurrentReviewedPhase3Scope,
   runSelectionScope: ReviewedRunSelectionScope,
 ): Map<string, ReviewedRunSelectionScope["selections"][number]> {
   if (scope.scopeId !== runSelectionScope.scopeId) {
@@ -238,7 +303,7 @@ function assertMatchingReviewedInputs(
 }
 
 export function buildCostPerformanceChartArms(
-  scope: ReviewedPhase3Scope,
+  scope: CurrentReviewedPhase3Scope,
   runSelectionScope: ReviewedRunSelectionScope,
   coreArmIds: readonly string[],
 ): readonly ChartArmDatum[] {
@@ -257,6 +322,15 @@ export function buildCostPerformanceChartArms(
     if (!selection) throw new Error(`No frozen G1 selected run exists for ${arm.armId}`);
     if (selection.trialCount !== arm.trialCount) {
       throw new Error(`F1/G1 trial counts disagree for ${arm.armId}`);
+    }
+    if (
+      arm.providerSelectedRunLabel !== null
+      && arm.providerSelectedRunLabel
+        !== selection.selectedRunLabel
+    ) {
+      throw new Error(
+        `Provider billing run and G1 selected run disagree for ${arm.armId}`,
+      );
     }
 
     const adjustedCostPerAttempt = adjustedMetricForArm(arm);
@@ -291,19 +365,35 @@ export function buildCostPerformanceChartArms(
       passRate,
       cleanSuccessCount: arm.cleanSuccessCount,
       recordedCostUsd: arm.recordedCostUsd,
+      selectedCostUsd: arm.selectedCostUsd,
+      historicalReviewedCostUsd: arm.historicalReviewedCostUsd,
+      providerBilledCostUsd: arm.providerBilledCostUsd,
       reviewedComparableCostUsd: reviewedComparableCost(arm),
       adjustedKnownCostUsd: arm.adjustedKnownCostUsd,
-      qualifiedRetainedRateCostUsd: arm.qualifiedRetainedRateCostUsd,
-      costBasis: arm.costBasis,
-      costBasisLabel: arm.costBasis === "qualified_retained_rate_estimate"
-        ? "Qualified retained-rate estimate"
-        : "Adjusted known cost",
-      costSources: Object.freeze([...arm.costSources]),
-      costConfidence: arm.costConfidence,
+      qualifiedRetainedRateCostUsd:
+        arm.qualifiedRetainedRateCostUsd,
+      costBasis: arm.selectedCostBasis,
+      costBasisLabel:
+        arm.selectedCostBasis === "provider_billed"
+          ? "Provider-billed arm total"
+          : arm.selectedCostBasis
+              === "qualified_retained_rate_estimate"
+            ? "Qualified retained-rate estimate"
+            : "Adjusted known cost",
+      costSources: Object.freeze(
+        arm.selectedCostBasis === "provider_billed"
+          ? ["sanitized_provider_billing_reconciliation"]
+          : [...arm.costSources],
+      ),
+      costConfidence: arm.selectedCostConfidence,
       pricingProvenanceStatus: arm.pricingProvenanceStatus,
-      armRunAllocationConfidence: arm.armRunAllocationConfidence,
-      trialAllocationStatus: arm.trialAllocationStatus,
-      billingReconciliationStatus: arm.billingReconciliationStatus,
+      armRunAllocationConfidence:
+        arm.armRunAllocationConfidence,
+      trialAllocationStatus:
+        arm.selectedTrialCostAllocationStatus,
+      billingReconciliationStatus:
+        arm.providerBillingReconciliationStatus,
+      providerSelectedRunLabel: arm.providerSelectedRunLabel,
       providerLogExclusivityStatus:
         selection.providerLogAllocationQualification?.providerLogExclusivityStatus ?? null,
       accountingGapUsd: arm.accountingGapUsd,
@@ -331,11 +421,11 @@ export function buildCostPerformanceChartArms(
 export function getCostPerformanceChartArms(
   scopeId: ChartScope = DEFAULT_CHART_SCOPE,
 ): readonly ChartArmDatum[] {
-  const coreArmIds = PHASE3_REVIEWED_COMPARISON.scopes["phase3-core"].arms.map(
+  const coreArmIds = PHASE3_CURRENT_REVIEWED_COMPARISON.scopes["phase3-core"].arms.map(
     (arm) => arm.armId,
   );
   return buildCostPerformanceChartArms(
-    getReviewedPhase3Scope(scopeId),
+    getCurrentReviewedPhase3Scope(scopeId),
     getReviewedRunSelectionScope(scopeId),
     coreArmIds,
   );
@@ -343,6 +433,6 @@ export function getCostPerformanceChartArms(
 
 export function selectCostPerformanceChartScope(
   value: string | readonly string[] | null | undefined,
-): ReviewedScopeSelection {
-  return selectReviewedPhase3Scope(value);
+): CurrentReviewedScopeSelection {
+  return selectCurrentReviewedPhase3Scope(value);
 }

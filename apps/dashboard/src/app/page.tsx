@@ -26,9 +26,9 @@ import {
 } from "../lib/data-freshness";
 import { OVERVIEW_FRESHNESS_SOURCES } from "../lib/data-freshness-sources";
 import {
-  PHASE3_REVIEWED_COMPARISON,
-  getReviewedPhase3Scope,
-} from "../lib/phase3-reviewed-comparison";
+  PHASE3_CURRENT_REVIEWED_COMPARISON,
+  getCurrentReviewedPhase3Scope,
+} from "../lib/phase3-current-reviewed-comparison";
 import {
   PHASE3_REVIEWED_RUN_SELECTION,
   getReviewedRunSelectionScope,
@@ -100,7 +100,8 @@ export default async function DashboardPage({
   const chartScopeSelection = selectCostPerformanceChartScope(query.chart_scope);
   const chartArms = getCostPerformanceChartArms(chartScopeSelection.scopeId);
   const chartProviderOptions = deriveProviderFilterOptions(chartArms);
-  const reviewedScope = getReviewedPhase3Scope("phase3-extended");
+  const reviewedScope =
+    getCurrentReviewedPhase3Scope("phase3-extended");
   const reviewedArmById = new Map(
     reviewedScope.arms.map((arm) => [arm.armId, arm]),
   );
@@ -131,7 +132,8 @@ export default async function DashboardPage({
   const reviewedComparison = buildOverviewReviewedComparison({
     scope: reviewedScope,
     runSelectionScope,
-    comparisonReviewedAt: PHASE3_REVIEWED_COMPARISON.reviewedAt,
+    comparisonReviewedAt:
+      PHASE3_CURRENT_REVIEWED_COMPARISON.reviewedAt,
     runSelectionReviewedAt: PHASE3_REVIEWED_RUN_SELECTION.reviewedAt,
     databaseRunReadStatus: selectedRunRead.status,
     databaseRunRows: selectedRunRead.value ?? [],
@@ -237,6 +239,7 @@ export default async function DashboardPage({
       <h2>Phase 3 extended full-suite comparison</h2>
       <CorpusScopeNotice
         scopeId="phase3-extended"
+        costPresentation="current_and_historical"
         observedCounts={{
           armCount: reviewedComparison.armCount,
           trialCount: reviewedComparison.trialCount,
@@ -249,12 +252,25 @@ export default async function DashboardPage({
         <MetricCard label="Reviewed arms" value={formatNumber(reviewedComparison.armCount)} detail="Frozen reviewed comparison membership" />
         <MetricCard label="Reviewed trials" value={formatNumber(reviewedComparison.trialCount)} detail="20 tasks × 3 attempts × 16 selected runs" />
         <MetricCard label="Reviewed pass rate" value={formatPercent(reviewedScope.passRate)} detail={`${formatNumber(reviewedComparison.successCount)} reviewed successes`} />
+        <MetricCard
+          label="Current selected cost"
+          value={formatReviewedUsd(reviewedComparison.selectedCostUsd)}
+          detail="Best available reviewed arm-level cost evidence; provider-billed where reconciled"
+        />
+        <MetricCard
+          label="Historical reviewed cost"
+          value={formatReviewedUsd(reviewedComparison.historicalReviewedCostUsd)}
+          detail="Frozen August 5 reviewed arm-sum cost retained for historical evidence"
+        />
       </section>
 
       <section className="quality-context-panel">
-        <strong>Reviewed comparison provenance:</strong> Arm-level facts and cost evidence come from the reviewed
-        2026-08-05 comparison layer. Exact run labels come from the 2026-08-09 reviewed run-selection contract.
-        Database evidence is resolved only for those labels; the database does not select a newer run.
+        <strong>Current reviewed comparison provenance:</strong> Decision-facing selected costs come from the
+        2026-08-21 current-reviewed layer. It preserves the 2026-08-05 historical benchmark/reviewed cost evidence
+        as a separate layer. Exact run labels remain frozen by the 2026-08-09 reviewed run-selection contract.
+        Database evidence is resolved only for those labels; the database does not select a newer run. Stored cost
+        reconciliation compares against the historical benchmark-side recorded/adjusted evidence, not against
+        provider-billed aggregate totals, and provider aggregates are never reallocated to trials or outcomes.
         Current invalid/quarantined full-suite records remain visible in the audit layer:{" "}
         {invalidFullSuiteCount === null ? "Unavailable" : formatNumber(invalidFullSuiteCount)}.{" "}
         <Link href="/trial-quality">Open trial quality audit</Link>.
@@ -278,17 +294,22 @@ export default async function DashboardPage({
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <h2>Reviewed full-suite comparison</h2>
+            <h2>Current reviewed full-suite comparison</h2>
             <p>
-              The reviewed comparison freezes one complete valid full-suite run per arm. These run labels are
-              recorded by the 2026-08-09 reviewed run-selection contract and do not automatically change when
-              newer runs are imported.
+              The current-reviewed comparison keeps one complete valid full-suite run per arm while selecting the
+              best available reviewed arm-level cost basis. Exact provider-billed arm totals are used where provider
+              reconciliation exists; historical reviewed cost evidence remains separately visible.
             </p>
             <p>
-              Database evidence shown here is resolved for those exact run labels. Reviewed facts remain visible
-              when current stored evidence is missing, and no mutable suite/arm aggregate is used as a fallback.
+              The 2026-08-09 reviewed run-selection contract freezes the exact run labels and they do not
+              automatically change when newer runs are imported. Current stored evidence is resolved only for those
+              labels, and no mutable suite/arm aggregate is used as a fallback.
+            </p>
+            <p>
               Stored reconciliation reads <code>benchmark.v_valid_arm_run_summary</code> and{" "}
-              <code>benchmark.v_trial_adjusted_cost_coverage</code> for the exact labels.
+              <code>benchmark.v_trial_adjusted_cost_coverage</code> for the exact labels. Those database cost rows
+              are historical benchmark-side evidence; they are not expected to equal a provider-billed aggregate
+              selected cost.
             </p>
           </div>
           <Link href="/eval-suites/phase3-full-20">Open suite →</Link>
@@ -300,12 +321,11 @@ export default async function DashboardPage({
                 <th>Rank</th>
                 <th>Arm and selected reviewed run</th>
                 <th>Reviewed result</th>
-                <th>Recorded cost</th>
-                <th>Reviewed cost and basis</th>
-                <th>Accounting gap</th>
-                <th>Cost coverage</th>
-                <th>Source and confidence</th>
-                <th>Stored-evidence reconciliation</th>
+                <th>Current selected cost</th>
+                <th>Selected-cost status</th>
+                <th>Historical benchmark cost evidence</th>
+                <th>Historical cost coverage</th>
+                <th>Stored historical-evidence reconciliation</th>
               </tr>
             </thead>
             <tbody>
@@ -345,40 +365,110 @@ export default async function DashboardPage({
                         <QualityBadge count={suspectNoopCount} />
                       ) : <div>Suspect no-op: Unavailable</div>}
                     </td>
-                    <td>{linkedReviewedUsd(row.reviewedRecordedCostUsd, row.costProvenanceHref)}</td>
                     <td>
-                      {isKimi ? (
-                        <>
-                          <strong>Qualified retained-rate estimate:</strong>{" "}
-                          {linkedReviewedUsd(row.reviewedQualifiedRetainedRateCostUsd, row.costProvenanceHref)}
-                          <div>Adjusted known cost: Unavailable</div>
-                        </>
-                      ) : (
-                        <>
-                          <strong>Adjusted known cost:</strong>{" "}
-                          {linkedReviewedUsd(row.reviewedAdjustedKnownCostUsd, row.costProvenanceHref)}
-                        </>
+                      <strong>{formatReviewedUsd(row.selectedCostUsd)}</strong>
+                      <div>Per attempt: {formatReviewedUsd(row.selectedCostPerAttemptUsd)}</div>
+                      <div>Per clean success: {formatReviewedUsd(row.selectedCostPerCleanSuccessUsd)}</div>
+                    </td>
+                    <td>
+                      <div>Selected basis: {evidenceLabel(row.selectedCostBasis)}</div>
+                      <div>Selected confidence: {row.selectedCostConfidence}</div>
+                      <div>
+                        Provider billing reconciliation:{" "}
+                        {evidenceLabel(row.providerBillingReconciliationStatus)}
+                      </div>
+                      <div>
+                        Selected trial allocation:{" "}
+                        {evidenceLabel(row.selectedTrialCostAllocationStatus)}
+                      </div>
+                      <div>
+                        Selected outcome allocation:{" "}
+                        {evidenceLabel(row.selectedOutcomeCostAllocationStatus)}
+                      </div>
+                      {row.providerBilledCostUsd !== null && (
+                        <div>
+                          Provider-billed arm total:{" "}
+                          {formatReviewedUsd(row.providerBilledCostUsd)}
+                        </div>
                       )}
-                    </td>
-                    <td>{linkedReviewedUsd(row.reviewedAccountingGapUsd, row.costProvenanceHref)}</td>
-                    <td>
-                      <div>Missing recorded: {formatNumber(row.missingRecordedCostCount)}</div>
-                      <div>Unresolved adjusted: {formatNumber(row.unresolvedAdjustedCostCount)}</div>
-                    </td>
-                    <td>
-                      <div>{row.costSources.join(", ")}</div>
-                      <div>Confidence: {row.costConfidence}</div>
+                      {row.providerSelectedRunLabel && (
+                        <div>
+                          Provider-reconciled run:{" "}
+                          <span className="mono">{row.providerSelectedRunLabel}</span>
+                        </div>
+                      )}
                       {isKimi && (
                         <>
-                          <div>Pricing-source provenance incomplete</div>
-                          <div>Provider-log allocation confidence low</div>
+                          <div>
+                            Qualified retained-rate estimate; aggregate efficiency ratios do not imply trial or
+                            outcome allocation.
+                          </div>
                           <div>Provider-log exclusivity not proven</div>
-                          <div>Trial allocation unresolved</div>
-                          <div>Not invoice-level or provider-billed spend</div>
                         </>
                       )}
                     </td>
+                    <td>
+                      <div>
+                        Historical harness recorded:{" "}
+                        {linkedReviewedUsd(
+                          row.historicalHarnessRecordedCostUsd,
+                          row.costProvenanceHref,
+                        )}
+                      </div>
+                      <div>
+                        Historical reviewed cost:{" "}
+                        {linkedReviewedUsd(
+                          row.historicalReviewedCostUsd,
+                          row.costProvenanceHref,
+                        )}
+                      </div>
+                      <div>
+                        Historical reviewed basis:{" "}
+                        {evidenceLabel(row.historicalReviewedCostBasis)}
+                      </div>
+                      <div>
+                        Historical reviewed accounting gap:{" "}
+                        {linkedReviewedUsd(
+                          row.reviewedAccountingGapUsd,
+                          row.costProvenanceHref,
+                        )}
+                      </div>
+                      <div>Historical sources: {row.costSources.join(", ")}</div>
+                      <div>Historical confidence: {row.costConfidence}</div>
+                      <div>
+                        Historical pricing provenance:{" "}
+                        {evidenceLabel(row.pricingProvenanceStatus)}
+                      </div>
+                      <div>
+                        Historical arm/run allocation:{" "}
+                        {evidenceLabel(row.armRunAllocationConfidence)}
+                      </div>
+                      <div>
+                        Historical trial allocation:{" "}
+                        {evidenceLabel(row.trialAllocationStatus)}
+                      </div>
+                      <div>
+                        Historical billing reconciliation:{" "}
+                        {evidenceLabel(row.billingReconciliationStatus)}
+                      </div>
+                      {isKimi && (
+                        <div>Historical adjusted known cost: Unavailable</div>
+                      )}
+                    </td>
+                    <td>
+                      <div>
+                        Historical missing recorded:{" "}
+                        {formatNumber(row.missingRecordedCostCount)}
+                      </div>
+                      <div>
+                        Historical unresolved adjusted:{" "}
+                        {formatNumber(row.unresolvedAdjustedCostCount)}
+                      </div>
+                    </td>
                     <td className="table-cell-wrap">
+                      <div>
+                        Compared only with historical benchmark-side recorded/adjusted cost evidence.
+                      </div>
                       <strong>{evidenceLabel(row.reconciliationStatus)}</strong>
                       <div>Run evidence: {evidenceLabel(row.databaseRunEvidenceStatus)}</div>
                       <div>Cost evidence: {evidenceLabel(row.databaseCostEvidenceStatus)}</div>

@@ -367,7 +367,10 @@ def test_dr106a_evidence_destinations_are_exact_scoped_and_read_only() -> None:
     assert "buildExactTrialHref(row.trial_id, onwardSourceScope)" in cost_page
     assert "buildExactRunHref(row.run_label, onwardSourceScope)" in cost_page
     assert "Cost provenance focus" in cost_page
-    assert "never changes the reviewed scope totals above" in cost_page
+    assert (
+        "never changes either the current selected totals or preserved historical reviewed totals above"
+        in cost_page
+    )
     assert "arm-only focus may span multiple valid runs" in cost_page.lower()
     assert "No latest, prefix, or alternate-trial fallback" in cost_page
     assert "benchmark.v_trial_adjusted_cost_coverage" in data
@@ -547,6 +550,12 @@ def test_dashboard_corpus_scopes_are_centralized_and_visible() -> None:
     assert 'reason: "no_observed_counts"' in scopes
     assert "compareCorpusScopeCounts" in notice
     assert "getCorpusScopePresentationLabel" in notice
+    assert "costPresentation" in notice
+    assert '"current_and_historical"' in notice
+    assert "scope.selectedCostUsd" in notice
+    assert "scope.historicalReviewedCostUsd" in notice
+    assert "Current selected-cost coverage:" in notice
+    assert "Historical cost coverage:" in notice
     assert "qualifiedAdjustedCostEstimateUsd" in notice
     assert "costDisplayLabel" in notice
     assert 'role="alert"' in notice
@@ -572,21 +581,37 @@ def test_comparative_pages_disclose_their_distinct_corpus_scopes() -> None:
     data = Path("apps/dashboard/src/lib/dashboard-data.ts").read_text()
 
     assert 'scopeId="phase3-extended"' in overview
+    assert 'costPresentation="current_and_historical"' in overview
     assert "Phase 3 extended full-suite comparison" in overview
     assert 'scopeId="valid-imported"' in overview
     assert "Valid imported evidence inventory" in overview
 
     for page in (cross_phase, cost):
-        assert "selectReviewedPhase3Scope" in page
         assert "CorpusScopeSelector" in page
         assert "selection.warningMessage" in page
         assert 'role="alert"' in page
         assert "scopeId={selection.scopeId}" in page
         assert "phase3_extended_reviewed_comparison_20260805.json" in page
 
+    assert "selectCurrentReviewedPhase3Scope" in cross_phase
+    assert "selectReviewedPhase3Scope" not in cross_phase
+    assert "selectReviewedPhase3Scope" in cost
+
+    assert "getCurrentReviewedPhase3Scope" in cost
+    assert "PHASE3_CURRENT_REVIEWED_COMPARISON" in cost
+    assert "phase3_current_reviewed_comparison_20260821.json" in cost
+    assert 'costPresentation="current_and_historical"' in cost
+
+    assert 'costPresentation="current_and_historical"' in cross_phase
+    assert "PHASE3_CURRENT_REVIEWED_COMPARISON" in cross_phase
+    assert "phase3_current_reviewed_comparison_20260821.json" in cross_phase
+
     assert "getCrossPhaseRows(selectedScope)" in cross_phase
     assert "getPhaseSummaries(rows, selectedScope)" in cross_phase
-    assert "reviewed 2026-08-05 comparison layer" in cross_phase
+    assert "current-reviewed 2026-08-21 selected-cost layer" in cross_phase
+    assert "Provider-billed aggregate totals" in cross_phase
+    assert "are not redistributed across trials or outcomes" in cross_phase
+    assert "frozen historical adjusted-cost ratios" in cross_phase
     assert "retained 15-arm Phase 3 core comparison" in cross_phase
     assert "does not include Kimi K3 or inherit the selected extended denominator" in cross_phase
 
@@ -609,7 +634,14 @@ def test_comparative_pages_disclose_their_distinct_corpus_scopes() -> None:
 
     assert "scope.costEvidence" in cost
     assert "scope.outcomeCostCoverage" in cost
-    assert "scope.arms" in cost
+    assert "currentScope.arms" in cost
+    assert "currentScope.selectedCostEvidence.selectedCostUsd" in cost
+    assert "currentScope.selectedCostEvidence.historicalReviewedArmSumCostUsd" in cost
+    assert "Current selected cost" in cost
+    assert "Historical reviewed arm-sum cost" in cost
+    assert "Historical DR-303 spend decomposition" in cost
+    assert "not redistributed into these trial or outcome buckets" in cost
+    assert "Historical outcome-cost breakdown" in cost
     assert "getAdjustedCostOverview" not in cost
     assert "getAdjustedCostArmRows" not in cost
     assert "getAdjustedOutcomeCostRows" not in cost
@@ -727,8 +759,8 @@ def test_overview_uses_frozen_reviewed_runs_and_exact_database_reconciliation() 
     ).read_text()
     package = Path("apps/dashboard/package.json").read_text()
 
-    assert "PHASE3_REVIEWED_COMPARISON" in overview
-    assert "getReviewedPhase3Scope" in overview
+    assert "PHASE3_CURRENT_REVIEWED_COMPARISON" in overview
+    assert "getCurrentReviewedPhase3Scope" in overview
     assert "PHASE3_REVIEWED_RUN_SELECTION" in overview
     assert "getReviewedRunSelectionScope" in overview
     assert "getReviewedSelectedRunLabels" in overview
@@ -743,10 +775,18 @@ def test_overview_uses_frozen_reviewed_runs_and_exact_database_reconciliation() 
     assert "where run_label = any($1::text[])" in data
     assert "group by run_label, arm_id, suite_id" in data
 
-    assert "The reviewed comparison freezes one complete valid full-suite run per arm" in overview
-    assert "do not automatically change when" in overview
+    assert "The current-reviewed comparison keeps one complete valid full-suite run per arm" in overview
+    assert "automatically change when newer runs are imported" in overview
     assert "the database does not select a newer run" in overview
     assert "no mutable suite/arm aggregate is used as a fallback" in overview
+    assert "Current selected cost" in overview
+    assert "Historical reviewed cost" in overview
+    assert "Historical harness recorded" in overview
+    assert "Historical reviewed accounting gap" in overview
+    assert "Provider-billed arm total" in overview
+    assert "Selected trial allocation" in overview
+    assert "Selected outcome allocation" in overview
+    assert "Compared only with historical benchmark-side recorded/adjusted cost evidence." in overview
     assert "href={row.selectedRunHref}" in overview
     assert 'buildExactRunHref(runLabel, "phase3-extended")' in reconciliation
     assert "buildCostCoverageHref" in reconciliation
@@ -757,15 +797,15 @@ def test_overview_uses_frozen_reviewed_runs_and_exact_database_reconciliation() 
     assert "16 selected runs" in overview
     assert 'scopeId="valid-imported"' in overview
     assert "Valid imported evidence inventory" in overview
-    assert "Qualified retained-rate estimate" in overview
-    assert "Adjusted known cost: Unavailable" in overview
-    assert "Pricing-source provenance incomplete" in overview
-    assert "Provider-log allocation confidence low" in overview
+    assert "Qualified retained-rate estimate; aggregate efficiency ratios do not imply trial or" in overview
+    assert "Historical adjusted known cost: Unavailable" in overview
+    assert "Historical pricing provenance" in overview
+    assert "Historical arm/run allocation" in overview
     assert "Provider-log exclusivity not proven" in overview
-    assert "Trial allocation unresolved" in overview
-    assert "Not invoice-level or provider-billed spend" in overview
-    assert "Missing recorded" in overview
-    assert "Unresolved adjusted" in overview
+    assert "Historical trial allocation" in overview
+    assert "Historical billing reconciliation" in overview
+    assert "Historical missing recorded" in overview
+    assert "Historical unresolved adjusted" in overview
 
     assert "Dynamic valid-imported full-suite heatmap" in overview
     assert "not restricted to the frozen" in overview
@@ -773,7 +813,7 @@ def test_overview_uses_frozen_reviewed_runs_and_exact_database_reconciliation() 
     assert "overview-reviewed-comparison.test.mjs" in package
 
 
-def test_cost_performance_chart_foundation_uses_only_reviewed_f1_g1_contracts() -> None:
+def test_cost_performance_chart_foundation_uses_current_reviewed_cost_and_frozen_g1_contracts() -> None:
     model = Path("apps/dashboard/src/lib/cost-performance-chart.ts").read_text()
     presentation = Path(
         "apps/dashboard/src/lib/presentation-labels.ts"
@@ -784,8 +824,8 @@ def test_cost_performance_chart_foundation_uses_only_reviewed_f1_g1_contracts() 
     ).read_text()
     package = Path("apps/dashboard/package.json").read_text()
 
-    assert "PHASE3_REVIEWED_COMPARISON" in model
-    assert "getReviewedPhase3Scope" in model
+    assert "PHASE3_CURRENT_REVIEWED_COMPARISON" in model
+    assert "getCurrentReviewedPhase3Scope" in model
     assert "getReviewedRunSelectionScope" in model
     assert "buildExactRunHref" in model
     assert "buildCostCoverageHref" in model
@@ -803,9 +843,17 @@ def test_cost_performance_chart_foundation_uses_only_reviewed_f1_g1_contracts() 
     assert 'familyKey: "moonshot-kimi"' in presentation
     assert 'label: "Moonshot / Kimi"' in presentation
     assert "const passRate = arm.successCount / arm.trialCount" in model
-    assert 'arm.costBasis === "qualified_retained_rate_estimate"' in model
-    assert "not adjusted-known, invoice, provider-billed, or official-price" in model
-    assert "not derived from a qualified total by arithmetic convenience" in model
+    assert "arm.selectedCostBasis" in model
+    assert '"qualified_retained_rate_estimate"' in model
+    assert 'arm.selectedCostBasis === "provider_billed"' in model
+    assert "arm.selectedCostPerAttemptUsd" in model
+    assert "arm.selectedCostPerCleanSuccessUsd" in model
+    assert "getCurrentSelectedOutcomeCostEvidence" in model
+    assert "getCurrentSelectedOutcomeCostEvidence(arm)" in model
+    assert '"unavailable_provider_aggregate"' in model
+    assert "arm.providerSelectedRunLabel" in model
+    assert "historical adjusted outcome spend is not reallocated" in model
+    assert "not adjusted-known or provider-billed cost" in model
     assert 'export * from "./cost-performance-chart-view"' in model
     assert "PARETO_FLOAT_TOLERANCE = 1e-12" in view
     assert "candidate.xValue" in view
@@ -815,6 +863,7 @@ def test_cost_performance_chart_foundation_uses_only_reviewed_f1_g1_contracts() 
     assert 'from "../lib/cost-performance-chart"' not in table
     for forbidden_reference in (
         "phase3-reviewed-comparison",
+        "phase3-current-reviewed-comparison",
         "phase3-reviewed-run-selection",
         "overview-reviewed-comparison",
         "generated/",
@@ -874,7 +923,7 @@ def test_cost_performance_chart_h2_renders_h1_view_on_overview() -> None:
     assert "getCostPerformanceChartArms(chartScopeSelection.scopeId)" in overview
     assert "deriveProviderFilterOptions(chartArms)" in overview
     assert "key={chartScopeSelection.scopeId}" in overview
-    assert overview.index("Reviewed full-suite comparison") < overview.index(
+    assert overview.index("Current reviewed full-suite comparison") < overview.index(
         "<CostPerformanceChart"
     ) < overview.index("Different population below")
 
@@ -894,7 +943,7 @@ def test_cost_performance_chart_h2_renders_h1_view_on_overview() -> None:
     assert 'parameters.set("scope", nextScope)' not in chart
     assert "Reviewed chart scope" in chart
 
-    assert 'getReviewedPhase3Scope("phase3-extended")' in overview
+    assert 'getCurrentReviewedPhase3Scope("phase3-extended")' in overview
     assert 'getReviewedRunSelectionScope("phase3-extended")' in overview
     assert 'getReviewedSelectedRunLabels("phase3-extended")' in overview
 
@@ -950,10 +999,12 @@ def test_dr013_heatmap_headers_wrap_and_phase_summaries_are_structured() -> None
     assert '<section className="phase-summary-grid"' in cross_phase
     assert 'className="metric-card phase-summary-card"' in cross_phase
     assert '<dl className="phase-summary-details">' in cross_phase
-    for label in ("Population", "Results", "Reviewed cost", "Cost basis"):
+    for label in ("Population", "Results", "Comparison cost", "Cost basis"):
         assert f"<dt>{label}</dt>" in cross_phase
     assert "summary.success_count}/{summary.trial_count} successes" in cross_phase
-    assert "summary.adjusted_cost_usd" in cross_phase
+    assert "summary.comparison_cost_usd" in cross_phase
+    assert "summary.historical_reviewed_cost_usd" in cross_phase
+    assert "summary.historical_unclean_spend_share" in cross_phase
     assert "grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));" in css
 
 
@@ -1021,7 +1072,7 @@ def test_overview_has_population_specific_freshness_and_snapshot_provenance() ->
 
     assert "DataFreshnessNotice" in overview
     assert "buildReviewedSnapshotFreshness" in overview
-    assert "PHASE3_REVIEWED_COMPARISON" in overview
+    assert "PHASE3_CURRENT_REVIEWED_COMPARISON" in overview
     assert "PHASE3_REVIEWED_RUN_SELECTION" in overview
     assert "reviewedComparisonFreshness" in overview
     assert "reviewedRunSelectionFreshness" in overview
@@ -1049,10 +1100,11 @@ def test_overview_has_population_specific_freshness_and_snapshot_provenance() ->
         "benchmark.v_valid_eval_arm_comparison",
     ):
         assert relation in sources
-    assert "PHASE3_REVIEWED_COMPARISON.reviewedAt" in sources
+    assert "PHASE3_CURRENT_REVIEWED_COMPARISON.reviewedAt" in sources
     assert "PHASE3_REVIEWED_RUN_SELECTION.reviewedAt" in sources
-    assert "phase3-reviewed-comparison-v1" in Path(
-        "apps/dashboard/src/lib/phase3-reviewed-comparison.ts"
+    assert "phase3_current_reviewed_comparison_20260821.json" in sources
+    assert "phase3-current-reviewed-comparison-v2" in Path(
+        "apps/dashboard/src/lib/phase3-current-reviewed-comparison.ts"
     ).read_text()
     assert "phase3-reviewed-run-selection-v1" in Path(
         "apps/dashboard/src/lib/phase3-reviewed-run-selection.ts"
@@ -1809,3 +1861,58 @@ def test_j2c_frozen_classification_outputs_retain_accepted_hashes() -> None:
     }
     for name, digest in expected.items():
         assert hashlib.sha256((snapshot / name).read_bytes()).hexdigest() == digest
+
+def test_dr304_current_selected_outcome_cost_firewall() -> None:
+    current = Path(
+        "apps/dashboard/src/lib/phase3-current-reviewed-comparison.ts"
+    ).read_text()
+    chart = Path(
+        "apps/dashboard/src/lib/cost-performance-chart.ts"
+    ).read_text()
+    spend = Path(
+        "apps/dashboard/src/lib/spend-decomposition.ts"
+    ).read_text()
+
+    assert "getCurrentSelectedOutcomeCostEvidence" in current
+    assert "historical_reviewed_selected_cost" in current
+    assert (
+        'arm.selectedOutcomeCostAllocationStatus'
+        in current
+    )
+    assert (
+        'status !== "available"'
+        in current
+    )
+    assert (
+        "arm.selectedCostUsd"
+        in current
+        and "arm.historicalReviewedCostUsd"
+        in current
+    )
+    assert (
+        "arm.selectedCostBasis"
+        in current
+        and "arm.historicalReviewedCostBasis"
+        in current
+    )
+    assert (
+        "selected outcome allocation is not owned by the selected cost"
+        in current
+    )
+
+    assert "getCurrentSelectedOutcomeCostEvidence(arm)" in chart
+
+    start = chart.index("function failureIncompleteSpendForArm")
+    end = chart.index("function qualificationForArm", start)
+    failure_spend = chart[start:end]
+
+    assert "arm.adjustedFailureOrIncompleteCostUsd" not in failure_spend
+    assert "arm.failureOrIncompleteSpendShare" not in failure_spend
+    assert "arm.nonproductiveOrUncleanSpendShare" not in failure_spend
+
+    assert "phase3-current-reviewed-comparison" not in spend
+    assert "providerBilledCostUsd" not in spend
+    assert "selectedCostUsd" not in spend
+    assert "selectedOutcomeCostAllocationStatus" not in spend
+    assert "selectedTrialCostAllocationStatus" not in spend
+    assert "phase3-reviewed-comparison" in spend

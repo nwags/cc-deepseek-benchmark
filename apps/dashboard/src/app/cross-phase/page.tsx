@@ -11,7 +11,10 @@ import {
   getPhaseSummaries,
   getRouterComparisonRows,
 } from "../../lib/cross-phase-reporting";
-import { selectReviewedPhase3Scope } from "../../lib/phase3-reviewed-comparison";
+import {
+  PHASE3_CURRENT_REVIEWED_COMPARISON,
+  selectCurrentReviewedPhase3Scope,
+} from "../../lib/phase3-current-reviewed-comparison";
 import { getCostPerformanceChartArms } from "../../lib/cost-performance-chart";
 import {
   friendlyModelLabel,
@@ -56,14 +59,17 @@ type CrossPhasePageProps = {
   searchParams?: Promise<{ scope?: string | string[] }>;
 };
 
-function evidenceLabel(value: string | undefined): string {
+function evidenceLabel(
+  value: string | null | undefined,
+): string {
   if (!value) return "Not recorded";
   return value.split("_").join(" ");
 }
 
 export default async function CrossPhasePage({ searchParams }: CrossPhasePageProps) {
   const params = searchParams ? await searchParams : {};
-  const selection = selectReviewedPhase3Scope(params.scope);
+  const selection =
+    selectCurrentReviewedPhase3Scope(params.scope);
   const selectedScope = selection.scope;
   const rows = getCrossPhaseRows(selectedScope);
   const summaries = getPhaseSummaries(rows, selectedScope);
@@ -75,22 +81,49 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
     .sort((a, b) => b.pass_rate - a.pass_rate);
 
   const efficientPhase3Rows = [...phase3Rows]
-    .filter((row) => row.cost_per_clean_success_usd !== null)
-    .sort((a, b) => (a.cost_per_clean_success_usd ?? Infinity) - (b.cost_per_clean_success_usd ?? Infinity))
+    .filter(
+      (row) =>
+        row.comparison_cost_per_clean_success_usd
+          !== null,
+    )
+    .sort(
+      (left, right) =>
+        (
+          left.comparison_cost_per_clean_success_usd
+            ?? Infinity
+        )
+        - (
+          right.comparison_cost_per_clean_success_usd
+            ?? Infinity
+        ),
+    )
     .slice(0, 8);
 
   const behaviorByArm = new Map(behaviorRows.map((row) => [row.arm_id, row]));
   const phase3Summary = summaries.find((summary) => summary.phase === "phase3");
   const chartArms = getCostPerformanceChartArms(selection.scopeId);
   const chartArmById = new Map(chartArms.map((arm) => [arm.armId, arm]));
-  if (phase3Rows.some((row) => !chartArmById.has(row.arm_id))) {
-    throw new Error("Cross-phase Phase 3 rows and frozen selected-run membership disagree");
+  if (
+    phase3Rows.some((row) => {
+      const chartArm =
+        chartArmById.get(row.arm_id);
+      if (!chartArm) return true;
+      return (
+        row.provider_selected_run_label !== null
+        && row.provider_selected_run_label
+          !== chartArm.selectedRunLabel
+      );
+    })
+  ) {
+    throw new Error(
+      "Cross-phase current-reviewed rows and frozen selected-run membership disagree",
+    );
   }
 
   return (
     <AppShell
       title={`Cross-phase: ${phaseDisplayLabel("phase3", selection.scopeId)}`}
-      description={`File-backed reporting view for frozen Phase 1/2 baselines and the ${selectedScope.displayName.toLowerCase()} from the reviewed 2026-08-05 comparison layer.`}
+      description={`File-backed reporting view for frozen Phase 1/2 baselines and the ${selectedScope.displayName.toLowerCase()} using the current-reviewed 2026-08-21 selected-cost layer with historical Phase 3 evidence retained separately.`}
     >
       <CorpusScopeSelector pathname="/cross-phase" selectedScopeId={selection.scopeId} />
       {selection.warningMessage ? (
@@ -100,6 +133,7 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
       ) : null}
       <CorpusScopeNotice
         scopeId={selection.scopeId}
+        costPresentation="current_and_historical"
         observedCounts={{
           armCount: phase3Summary?.arm_count ?? 0,
           trialCount: phase3Summary?.trial_count ?? 0,
@@ -107,11 +141,16 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
         }}
       />
       <section className="quality-context-panel">
-        <strong>Reviewed comparison provenance:</strong> The selected Phase 3 rows come from the reviewed 2026-08-05 layer.
-        Phase 3 core remains the historical alternate; Phase 1/2 aggregates and earlier Phase 3 source artifacts remain unchanged.
+        <strong>Current comparison provenance:</strong> Phase 3 decision-facing cost values come from the
+        {" "}{PHASE3_CURRENT_REVIEWED_COMPARISON.reviewedAt} current-reviewed selected-cost layer.
+        Frozen Phase 1/2 baselines remain unchanged. Historical Phase 3 reviewed costs, outcome-cost shares,
+        router-associated comparisons, and behavior tags remain separate historical evidence from the
+        {" "}{PHASE3_CURRENT_REVIEWED_COMPARISON.historicalReviewedAt} layer. Provider-billed aggregate totals
+        are not redistributed across trials or outcomes.
         {" "}<Link href={`/cost-coverage?scope=${selection.scopeId}`}>Open Cost Coverage with this scope</Link>.
         <details>
-          <summary>Traceable reviewed source</summary>
+          <summary>Traceable current and historical sources</summary>
+          <p className="mono">results/phase3/reporting/phase3_current_reviewed_comparison_20260821.json</p>
           <p className="mono">results/phase3/reporting/phase3_extended_reviewed_comparison_20260805.json</p>
         </details>
       </section>
@@ -134,12 +173,12 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
                 <dd>{summary.success_count}/{summary.trial_count} successes</dd>
               </div>
               <div>
-                <dt>Reviewed cost</dt>
-                <dd>{formatMoney(summary.adjusted_cost_usd, 6)}</dd>
+                <dt>Comparison cost</dt>
+                <dd>{formatMoney(summary.comparison_cost_usd, 6)}</dd>
               </div>
               <div>
                 <dt>Cost basis</dt>
-                <dd>{summary.cost_label}</dd>
+                <dd>{summary.comparison_cost_label}</dd>
               </div>
             </dl>
           </article>
@@ -162,10 +201,11 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
                 <th>Trials</th>
                 <th>Successes</th>
                 <th>Pass rate</th>
-                <th>Reviewed cost</th>
+                <th>Comparison cost</th>
                 <th>Cost basis</th>
-                <th>Cost / clean success</th>
-                <th>Unclean spend share</th>
+                <th>Comparison cost / clean success</th>
+                <th>Historical Phase 3 reviewed cost</th>
+                <th>Historical unclean spend share</th>
               </tr>
             </thead>
             <tbody>
@@ -176,10 +216,11 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
                   <td>{summary.trial_count}</td>
                   <td>{summary.success_count}</td>
                   <td>{formatPercent(summary.pass_rate)}</td>
-                  <td>{formatMoney(summary.adjusted_cost_usd, 6)}</td>
-                  <td>{summary.cost_label}</td>
-                  <td>{formatMoney(summary.cost_per_clean_success_usd)}</td>
-                  <td>{formatPercent(summary.unclean_spend_share)}</td>
+                  <td>{formatMoney(summary.comparison_cost_usd, 6)}</td>
+                  <td>{summary.comparison_cost_label}</td>
+                  <td>{formatMoney(summary.comparison_cost_per_clean_success_usd)}</td>
+                  <td>{formatMoney(summary.historical_reviewed_cost_usd, 6)}</td>
+                  <td>{formatPercent(summary.historical_unclean_spend_share)}</td>
                 </tr>
               ))}
             </tbody>
@@ -206,10 +247,11 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
                 <th>Successes</th>
                 <th>Pass rate</th>
                 <th>Recorded cost</th>
-                <th>Reviewed cost</th>
+                <th>Comparison cost</th>
                 <th>Cost basis</th>
-                <th>Cost / clean success</th>
-                <th>Unclean spend</th>
+                <th>Comparison cost / clean success</th>
+                <th>Historical Phase 3 reviewed cost</th>
+                <th>Historical unclean spend share</th>
                 <th>Evidence status</th>
               </tr>
             </thead>
@@ -260,16 +302,27 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
                   <td>{row.success_count}/{row.trial_count}</td>
                   <td>{formatPercent(row.pass_rate)}</td>
                   <td>{chartArm ? linkedMoney(row.recorded_cost_usd, chartArm.costProvenanceHref, 6) : formatMoney(row.recorded_cost_usd, 6)}</td>
-                  <td>{chartArm ? linkedMoney(row.adjusted_cost_usd, chartArm.costProvenanceHref, 7) : formatMoney(row.adjusted_cost_usd, 7)}</td>
-                  <td>{row.reviewed_cost_label ?? "Adjusted known cost"}</td>
-                  <td>{chartArm ? linkedMoney(row.cost_per_clean_success_usd, chartArm.costProvenanceHref) : formatMoney(row.cost_per_clean_success_usd)}</td>
-                  <td>{formatPercent(row.unclean_spend_share)}</td>
+                  <td>{formatMoney(row.comparison_cost_usd, 7)}</td>
+                  <td>{row.comparison_cost_label}</td>
+                  <td>{formatMoney(row.comparison_cost_per_clean_success_usd)}</td>
+                  <td>{chartArm ? linkedMoney(row.historical_reviewed_cost_usd, chartArm.costProvenanceHref, 7) : formatMoney(row.historical_reviewed_cost_usd, 7)}</td>
+                  <td>{formatPercent(row.historical_unclean_spend_share)}</td>
                   <td className="table-cell-wrap">
-                    <div>{row.cost_confidence} confidence</div>
+                    <div>{row.comparison_cost_confidence} comparison-cost confidence</div>
                     {row.phase === "phase3" ? (
-                      <div className="muted">
-                        Pricing provenance: {evidenceLabel(row.pricing_provenance_status)} · allocation: {evidenceLabel(row.arm_run_allocation_confidence)} · trial allocation: {evidenceLabel(row.trial_allocation_status)} · billing: {evidenceLabel(row.billing_reconciliation_status)}
-                      </div>
+                      <>
+                        <div className="muted">
+                          Selected trial allocation: {evidenceLabel(row.selected_trial_allocation_status)} · selected outcome allocation: {evidenceLabel(row.selected_outcome_allocation_status)} · provider billing: {evidenceLabel(row.provider_billing_reconciliation_status)}
+                        </div>
+                        <div className="muted">
+                          Historical pricing provenance: {evidenceLabel(row.pricing_provenance_status)} · historical arm-run allocation: {evidenceLabel(row.arm_run_allocation_confidence)}
+                        </div>
+                        {row.provider_selected_run_label ? (
+                          <div className="muted mono">
+                            Provider-selected run: {row.provider_selected_run_label}
+                          </div>
+                        ) : null}
+                      </>
                     ) : null}
                   </td>
                 </tr>;
@@ -283,7 +336,7 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
         <div className="panel-heading">
           <div>
             <h2>{selectedScope.displayName} cost-efficient clean successes</h2>
-            <p>Lowest available adjusted cost per clean success. Arms without outcome-level allocation, including Kimi K3, are not assigned a fabricated value. Behavior tags remain tied to the retained historical Phase 3 core source.</p>
+            <p>Lowest current selected cost per clean success. These are aggregate selected-cost efficiency ratios and do not require trial-level or outcome-level cost allocation. Historical unclean-spend shares are shown separately and are never applied to provider-billed selected totals. Behavior tags remain tied to the retained historical Phase 3 core source and may reflect the older historical cost layer.</p>
           </div>
         </div>
         <div className="table-wrap">
@@ -293,10 +346,10 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
                 <th className="sticky-id-column">Arm</th>
                 <th>Model</th>
                 <th>Pass rate</th>
-                <th>Reviewed cost</th>
-                <th>Cost / clean success</th>
-                <th>Unclean spend</th>
-                <th>Behavior tags</th>
+                <th>Current selected cost</th>
+                <th>Selected cost / clean success</th>
+                <th>Historical unclean spend share</th>
+                <th>Historical behavior tags</th>
               </tr>
             </thead>
             <tbody>
@@ -320,9 +373,9 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
                         : null}
                     </td>
                     <td>{formatPercent(row.pass_rate)}</td>
-                    <td>{linkedMoney(row.adjusted_cost_usd, chartArm.costProvenanceHref, 7)}</td>
-                    <td>{linkedMoney(row.cost_per_clean_success_usd, chartArm.costProvenanceHref)}</td>
-                    <td>{formatPercent(row.unclean_spend_share)}</td>
+                    <td>{formatMoney(row.comparison_cost_usd, 7)}</td>
+                    <td>{formatMoney(row.comparison_cost_per_clean_success_usd)}</td>
+                    <td>{formatPercent(row.historical_unclean_spend_share)}</td>
                     <td>{behavior?.behavior_tags ?? ""}</td>
                   </tr>
                 );
@@ -338,6 +391,7 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
             <h2>Router-associated comparisons</h2>
             <p>Historical source population: the retained 15-arm Phase 3 core comparison. This section does not include Kimi K3 or inherit the selected extended denominator.</p>
             <p>Observational comparison only: routing path changed along with date, provider-side model revisions, runner setup, invalid-run handling, and accounting policy.</p>
+            <p>Cost and clean-success ratios in this section are frozen historical adjusted-cost ratios. They are not recomputed from the current provider-billed corrections.</p>
           </div>
         </div>
         <div className="table-wrap">

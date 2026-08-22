@@ -75,6 +75,7 @@ Migration 009 must not be rerun. No paid benchmark runs, provider probes, Supaba
 - [x] DR-203 friendly labels — P2-C complete with canonical identity retained
 - [x] DR-302 failure composition by arm — frozen Phase 3 extended 370-failure partition implemented and production-mode manually/visually accepted 2026-08-19
 - [x] DR-303 spend decomposition by arm — exact reviewed five-part dollar decomposition implemented and production-mode manually/visually accepted 2026-08-20
+- [x] DR-304 provider-billed cost reconciliation — current provider-aware cost reporting, allocation firewall, and runtime-provenance prevention implemented and production-mode manually/visually accepted 2026-08-22; merge to `main` remains the final plan action
 
 ## Observations versus confirmed defects
 
@@ -130,6 +131,7 @@ The Implementation log below preserves the status recorded when each earlier gro
 
 | 2026-08-19 | DR-302 — failure composition by arm | Added a fail-closed display-only partition over the 370 raw failures in the frozen Phase 3 extended 16-arm / 960-trial population, a validated reviewed-source accessor, horizontal stacked count bars, an exact accessible table, explicit denominator/exclusion and unknown-residual semantics, local navigation, and responsive presentation. | `/trial-quality`; DR-302 model and tests; `FailureCompositionPanel` and tests; reviewed-source accessor; scoped CSS; dashboard test wiring; source-contract test | Focused DR-302 tests; typecheck; production build; final `make check` with 227 dashboard Node tests and 429 Python tests; strict output scan; secret scan; diff/protected-boundary checks; production visual review at 1920px, 1440px, and 1280px | Accepted; DR-302 complete. Frozen evidence remained authoritative and DR-303 remained untouched. |
 | 2026-08-20 | DR-303 — spend decomposition by arm | Added a hash-bound reviewed spend source, pure exact-decimal reconciliation model, and Cost Coverage presentation of four mutually exclusive recorded-outcome dollar buckets plus one known non-outcome accounting gap. Missing/unresolved rows remain counts; Kimi provider-log remainder remains unallocated by outcome. | `/cost-coverage`; DR-303 source/model and focused tests; `SpendDecompositionPanel` and test; scoped responsive CSS; dedicated DR-303 plan | Focused source/model/presentation contracts; typecheck during implementation; production build; final `make check` with 255 dashboard Node tests and 429 Python tests; strict output scan; secret scan; diff/protected-boundary checks; rendered-text checks for extended/core; production visual review at 1920px, 1440px, and 1280px; local table-overflow interaction check | Accepted; DR-303 complete. Exact F1 cost semantics, Kimi qualification, accessibility, and frozen/protected boundaries were retained. |
+| 2026-08-22 | DR-304 — provider-billed cost reconciliation | Reconciled exact OpenAI provider-billed full-sweep totals into a new current-reviewed cost layer; migrated decision-facing Phase 3 cost surfaces while preserving historical harness/reviewed evidence; added the selected-cost allocation firewall; and added prospective Harbor, isolated LiteLLM proxy, runner Claude Code, and observed Claude Code runtime provenance without altering canonical publication fingerprints. | Overview; Cost Coverage; Cross-phase; current reviewed comparison model/generator/loader; cost-performance model; corpus scope presentation; runtime provenance helper; Phase 3 V2 workflow/final publisher; focused and repository contract tests | 270/270 dashboard Node tests; 450/450 Python tests; strict review-output scan; secret scan; diff/protected-path checks; production build; five production semantic routes HTTP 200; rendered-value/current-vs-historical checks; production visual review at 1920px, 1440px, and 1280px | Branch acceptance PASS. Frozen historical results, DR-303 implementation, and publication-fingerprint semantics remain unchanged; merge to `main` is the final DR-304 plan action. |
 
 Commit Group C used source inspection only. No provider, LiteLLM, Claude Code, Harbor, router, runner, or infrastructure probes were run, and no external operational service was queried.
 
@@ -552,3 +554,94 @@ change, DR-302 semantic change, or canonical identity rewrite was performed.
 
 **Outcome:** PASS. DR-303 is complete and production-mode manually/visually
 accepted 2026-08-20.
+
+## DR-304 provider-billed cost reconciliation production acceptance — 2026-08-22
+
+DR-304 was reviewed in production mode after the bounded provider-billed cost
+reconciliation sequence on `dashboard-dr304-provider-billed-cost`. The accepted
+current reporting layer selects exact reconciled provider-billed cost for the
+two OpenAI full sweeps while preserving the historical benchmark-side estimates
+as separate provenance.
+
+The accepted OpenAI current values are:
+
+- GPT-5.4: `$29.7919335`;
+- GPT-5.5: `$48.604914`;
+- combined: `$78.3968475`.
+
+Historical harness-recorded and historical reviewed-adjusted values remain
+visible where relevant but do not drive the current cost/performance comparison.
+The correction changes no task result, reward, pass/fail outcome, token count,
+or quality result.
+
+Cost Coverage preserves the DR-303 spend decomposition as an explicitly
+historical benchmark-cost layer. The production review confirmed that those
+historical recorded/outcome buckets are not presented as a decomposition of
+the provider-billed OpenAI totals. OpenAI provider-billed trial-level and
+outcome-level allocation remain unavailable rather than being proportionally
+fabricated. The selected-cost allocation firewall enforces this boundary for
+current-selected outcome consumers while leaving the DR-303 source/model
+unchanged.
+
+Kimi K3 remains visibly qualified as a retained-rate estimate rather than
+provider-billed spend. Its aggregate selected-cost efficiency remains usable
+where the reviewed contract supports it, while unresolved trial allocation and
+unavailable outcome allocation remain explicit.
+
+Manual visual review covered 1920px, 1440px, and 1280px desktop widths for:
+
+- Overview;
+- Cost Coverage — Phase 3 extended;
+- Cost Coverage — Phase 3 core;
+- Cross-phase — Phase 3 extended;
+- Cross-phase — Phase 3 core.
+
+The current-versus-historical cost distinctions remained clear at all three
+widths. The Overview cost/performance material remained readable and contained.
+Cost Coverage retained clear historical DR-303 labeling and qualification text.
+Cross-phase kept current selected-cost efficiency separate from historical
+reviewed cost, historical unclean-spend evidence, and historical router
+evidence. Dense tables remained contained without page-wide horizontal-overflow
+regression; wide table content remained handled by local table containment.
+
+A production Next.js build passed before the review. Production HTTP checks
+returned 200 for all five reviewed routes. Rendered-output checks found the
+authoritative OpenAI values and the required current/historical boundary text.
+
+Final repository validation after the runtime-provenance safeguard passed:
+
+- 270/270 dashboard Node tests;
+- 450/450 Python tests;
+- strict review-output scan clean;
+- secret scan passed;
+- `git diff --check` clean;
+- protected historical/result boundaries unchanged.
+
+DR-304E also closes the prospective runtime-version provenance gap without
+claiming a historical version that was not retained. Future V2 workflow runs
+record control-plane runtime evidence for Harbor, the actual isolated
+`.tools/litellm-proxy` LiteLLM distribution, and runner-side Claude Code.
+Final publication additionally derives observed Claude Code version evidence
+from retained `system`/`init` agent records. Missing evidence is represented as
+unavailable rather than inferred.
+
+The runtime provenance is stored as run metadata and is deliberately excluded
+from the existing publication-fingerprint `RUN_FIELDS`. The publication
+fingerprint implementation itself was not changed, and regression coverage
+proves that differing runtime provenance does not silently redefine historical
+canonical publication identity.
+
+The historical LiteLLM proxy version remains unreconstructable for runs where
+the repository did not retain reliable version evidence. Versions observed in
+the 2026-08-22 closeout environment are current-environment observations only
+and are not retroactively attributed to earlier benchmark sweeps.
+
+No benchmark rerun, paid provider probe, migration execution, Supabase write,
+R2 write, frozen-result regeneration, reviewed historical-source rewrite,
+DR-303 semantic rewrite, or fabricated provider trial/outcome allocation was
+performed.
+
+**Outcome:** PASS. DR-304A–E are implementation-complete and production-mode
+manually/visually accepted on `dashboard-dr304-provider-billed-cost` as of
+2026-08-22. The DR-304 plan intentionally retains merge to `main` as its final
+completion action.

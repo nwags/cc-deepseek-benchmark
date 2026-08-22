@@ -1,9 +1,9 @@
 import type {
-  ReviewedPhase3Arm,
-  ReviewedPhase3Scope,
-} from "./phase3-reviewed-comparison";
+  CurrentReviewedPhase3Arm,
+  CurrentReviewedPhase3Scope,
+} from "./phase3-current-reviewed-comparison";
 
-export type CrossPhaseRow = {
+type HistoricalCrossPhaseRow = {
   phase: string;
   arm_id: string;
   backend_model: string;
@@ -21,12 +21,38 @@ export type CrossPhaseRow = {
   unclean_spend_share: number | null;
   median_wall_clock_seconds: number | null;
   cost_confidence: string;
-  reviewed_cost_basis?: "adjusted_known_cost" | "qualified_retained_rate_estimate";
+  reviewed_cost_basis?:
+    | "adjusted_known_cost"
+    | "qualified_retained_rate_estimate";
   reviewed_cost_label?: string;
   pricing_provenance_status?: string;
   arm_run_allocation_confidence?: string;
   trial_allocation_status?: string;
   billing_reconciliation_status?: string;
+};
+
+export type CrossPhaseRow = HistoricalCrossPhaseRow & {
+  comparison_cost_usd: number | null;
+  comparison_cost_per_attempt_usd: number | null;
+  comparison_cost_per_clean_success_usd: number | null;
+  comparison_cost_basis: string;
+  comparison_cost_label: string;
+  comparison_cost_confidence: string;
+  comparison_cost_layer:
+    | "frozen_historical_baseline"
+    | "current_selected_phase3";
+
+  historical_reviewed_cost_usd: number | null;
+  historical_reviewed_cost_basis: string | null;
+  historical_reviewed_cost_label: string | null;
+  historical_unclean_spend_share: number | null;
+
+  selected_trial_allocation_status: string | null;
+  selected_outcome_allocation_status: string | null;
+
+  provider_billed_cost_usd: number | null;
+  provider_billing_reconciliation_status: string | null;
+  provider_selected_run_label: string | null;
 };
 
 export type RouterComparisonRow = {
@@ -63,15 +89,17 @@ export type PhaseSummary = {
   success_count: number;
   clean_success_count: number;
   pass_rate: number;
-  adjusted_cost_usd: number | null;
-  cost_basis: string;
-  cost_label: string;
-  cost_per_clean_success_usd: number | null;
-  unclean_spend_usd: number | null;
-  unclean_spend_share: number | null;
+
+  comparison_cost_usd: number | null;
+  comparison_cost_basis: string;
+  comparison_cost_label: string;
+  comparison_cost_per_clean_success_usd: number | null;
+
+  historical_reviewed_cost_usd: number | null;
+  historical_unclean_spend_share: number | null;
 };
 
-const crossPhaseRows: CrossPhaseRow[] = [
+const crossPhaseRows: HistoricalCrossPhaseRow[] = [
   {
     "phase": "phase1",
     "arm_id": "arm-a-anthropic",
@@ -808,18 +836,46 @@ const behaviorRows: BehaviorRow[] = [
   }
 ];
 
-function reviewedDecimal(value: string | null): number | null {
+function reviewedDecimal(
+  value: string | null,
+): number | null {
   if (value === null) return null;
   const parsed = Number(value);
-  if (!Number.isFinite(parsed)) throw new Error("reviewed Phase 3 cost is not finite");
+  if (!Number.isFinite(parsed)) {
+    throw new Error(
+      "reviewed Phase 3 cost is not finite",
+    );
+  }
   return parsed;
 }
 
-function reviewedArmCost(arm: ReviewedPhase3Arm): number | null {
-  return reviewedDecimal(arm.adjustedKnownCostUsd ?? arm.qualifiedRetainedRateCostUsd);
+function historicalReviewedCostLabel(
+  arm: CurrentReviewedPhase3Arm,
+): string {
+  return arm.historicalReviewedCostBasis
+    === "qualified_retained_rate_estimate"
+    ? "Qualified retained-rate reconstruction"
+    : "Adjusted known cost";
 }
 
-export function getReviewedPhase3Rows(scope: ReviewedPhase3Scope): CrossPhaseRow[] {
+function selectedCostLabel(
+  arm: CurrentReviewedPhase3Arm,
+): string {
+  if (arm.selectedCostBasis === "provider_billed") {
+    return "Provider-billed arm total";
+  }
+  if (
+    arm.selectedCostBasis
+      === "qualified_retained_rate_estimate"
+  ) {
+    return "Qualified retained-rate estimate";
+  }
+  return "Adjusted known cost";
+}
+
+export function getCurrentReviewedPhase3Rows(
+  scope: CurrentReviewedPhase3Scope,
+): CrossPhaseRow[] {
   return scope.arms.map((arm) => ({
     phase: "phase3",
     arm_id: arm.armId,
@@ -830,39 +886,144 @@ export function getReviewedPhase3Rows(scope: ReviewedPhase3Scope): CrossPhaseRow
     clean_success_count: arm.cleanSuccessCount,
     trial_count: arm.trialCount,
     pass_rate: arm.passRate,
-    recorded_cost_usd: reviewedDecimal(arm.recordedCostUsd) as number,
-    adjusted_cost_usd: reviewedArmCost(arm),
-    known_accounting_gap_usd: reviewedDecimal(arm.accountingGapUsd) as number,
-    cost_per_clean_success_usd: reviewedDecimal(arm.adjustedCostPerCleanSuccessUsd),
-    failure_incomplete_spend_share: arm.failureOrIncompleteSpendShare,
-    unclean_spend_share: arm.nonproductiveOrUncleanSpendShare,
-    median_wall_clock_seconds: arm.medianWallClockSeconds,
+
+    // Historical compatibility fields remain benchmark-side
+    // evidence. They are never overwritten with provider totals.
+    recorded_cost_usd: reviewedDecimal(
+      arm.historicalHarnessRecordedCostUsd,
+    ) as number,
+    adjusted_cost_usd: reviewedDecimal(
+      arm.historicalReviewedCostUsd,
+    ),
+    known_accounting_gap_usd: reviewedDecimal(
+      arm.accountingGapUsd,
+    ) as number,
+    cost_per_clean_success_usd: reviewedDecimal(
+      arm.adjustedCostPerCleanSuccessUsd,
+    ),
+    failure_incomplete_spend_share:
+      arm.failureOrIncompleteSpendShare,
+    unclean_spend_share:
+      arm.nonproductiveOrUncleanSpendShare,
+    median_wall_clock_seconds:
+      arm.medianWallClockSeconds,
     cost_confidence: arm.costConfidence,
-    reviewed_cost_basis: arm.costBasis,
-    reviewed_cost_label: arm.costBasis === "qualified_retained_rate_estimate"
-      ? "Qualified retained-rate reconstruction"
-      : "Adjusted known cost",
-    pricing_provenance_status: arm.pricingProvenanceStatus,
-    arm_run_allocation_confidence: arm.armRunAllocationConfidence,
-    trial_allocation_status: arm.trialAllocationStatus,
-    billing_reconciliation_status: arm.billingReconciliationStatus,
+    reviewed_cost_basis:
+      arm.historicalReviewedCostBasis,
+    reviewed_cost_label:
+      historicalReviewedCostLabel(arm),
+    pricing_provenance_status:
+      arm.pricingProvenanceStatus,
+    arm_run_allocation_confidence:
+      arm.armRunAllocationConfidence,
+    trial_allocation_status:
+      arm.trialAllocationStatus,
+    billing_reconciliation_status:
+      arm.billingReconciliationStatus,
+
+    // Decision-facing comparison fields use the current v2
+    // selected-cost contract.
+    comparison_cost_usd: reviewedDecimal(
+      arm.selectedCostUsd,
+    ),
+    comparison_cost_per_attempt_usd:
+      reviewedDecimal(
+        arm.selectedCostPerAttemptUsd,
+      ),
+    comparison_cost_per_clean_success_usd:
+      reviewedDecimal(
+        arm.selectedCostPerCleanSuccessUsd,
+      ),
+    comparison_cost_basis: arm.selectedCostBasis,
+    comparison_cost_label: selectedCostLabel(arm),
+    comparison_cost_confidence:
+      arm.selectedCostConfidence,
+    comparison_cost_layer:
+      "current_selected_phase3",
+
+    // Historical outcome/cost facts stay explicitly historical.
+    historical_reviewed_cost_usd:
+      reviewedDecimal(
+        arm.historicalReviewedCostUsd,
+      ),
+    historical_reviewed_cost_basis:
+      arm.historicalReviewedCostBasis,
+    historical_reviewed_cost_label:
+      historicalReviewedCostLabel(arm),
+    historical_unclean_spend_share:
+      arm.nonproductiveOrUncleanSpendShare,
+
+    selected_trial_allocation_status:
+      arm.selectedTrialCostAllocationStatus,
+    selected_outcome_allocation_status:
+      arm.selectedOutcomeCostAllocationStatus,
+
+    provider_billed_cost_usd:
+      reviewedDecimal(arm.providerBilledCostUsd),
+    provider_billing_reconciliation_status:
+      arm.providerBillingReconciliationStatus,
+    provider_selected_run_label:
+      arm.providerSelectedRunLabel,
   }));
 }
 
+function historicalBaselineRow(
+  row: HistoricalCrossPhaseRow,
+): CrossPhaseRow {
+  const comparisonCost = row.adjusted_cost_usd;
+
+  return {
+    ...row,
+    reviewed_cost_basis: "adjusted_known_cost",
+    reviewed_cost_label: "Adjusted known cost",
+
+    comparison_cost_usd: comparisonCost,
+    comparison_cost_per_attempt_usd:
+      comparisonCost === null
+        ? null
+        : comparisonCost / row.trial_count,
+    comparison_cost_per_clean_success_usd:
+      row.cost_per_clean_success_usd,
+    comparison_cost_basis: "adjusted_known_cost",
+    comparison_cost_label: "Adjusted known cost",
+    comparison_cost_confidence:
+      row.cost_confidence,
+    comparison_cost_layer:
+      "frozen_historical_baseline",
+
+    // Phase 1/2 comparison costs are already the frozen
+    // historical baselines. The separate historical Phase 3
+    // bridge is therefore not applicable to these rows.
+    historical_reviewed_cost_usd: null,
+    historical_reviewed_cost_basis: null,
+    historical_reviewed_cost_label: null,
+    historical_unclean_spend_share:
+      row.unclean_spend_share,
+
+    selected_trial_allocation_status: null,
+    selected_outcome_allocation_status: null,
+
+    provider_billed_cost_usd: null,
+    provider_billing_reconciliation_status: null,
+    provider_selected_run_label: null,
+  };
+}
+
 export function getCrossPhaseRows(
-  phase3Scope: ReviewedPhase3Scope,
+  phase3Scope: CurrentReviewedPhase3Scope,
 ): CrossPhaseRow[] {
   const historicalBaselines = crossPhaseRows
     .filter((row) => row.phase !== "phase3")
-    .map((row) => ({
-      ...row,
-      reviewed_cost_basis: "adjusted_known_cost" as const,
-      reviewed_cost_label: "Adjusted known cost",
-    }));
-  return [...historicalBaselines, ...getReviewedPhase3Rows(phase3Scope)];
+    .map(historicalBaselineRow);
+
+  return [
+    ...historicalBaselines,
+    ...getCurrentReviewedPhase3Rows(phase3Scope),
+  ];
 }
 
-export function getRouterComparisonRows(): RouterComparisonRow[] {
+export function getRouterComparisonRows():
+  RouterComparisonRow[] {
   return routerComparisonRows;
 }
 
@@ -872,9 +1033,10 @@ export function getBehaviorRows(): BehaviorRow[] {
 
 export function getPhaseSummaries(
   rows: CrossPhaseRow[],
-  phase3Scope?: ReviewedPhase3Scope,
+  phase3Scope?: CurrentReviewedPhase3Scope,
 ): PhaseSummary[] {
-  const byPhase = new Map<string, CrossPhaseRow[]>();
+  const byPhase =
+    new Map<string, CrossPhaseRow[]>();
 
   for (const row of rows) {
     const phaseRows = byPhase.get(row.phase) ?? [];
@@ -882,63 +1044,136 @@ export function getPhaseSummaries(
     byPhase.set(row.phase, phaseRows);
   }
 
-  return Array.from(byPhase.entries()).map(([phase, phaseRows]) => {
-    const trialCount = phaseRows.reduce((sum, row) => sum + row.trial_count, 0);
-    const successCount = phaseRows.reduce((sum, row) => sum + row.success_count, 0);
-    const cleanSuccessCount = phaseRows.reduce((sum, row) => sum + row.clean_success_count, 0);
-    const completeReviewedCosts = phaseRows.every((row) => row.adjusted_cost_usd !== null);
-    const rowReviewedCost = completeReviewedCosts
-      ? phaseRows.reduce((sum, row) => sum + (row.adjusted_cost_usd as number), 0)
-      : null;
-    const hasCompleteUncleanSpend = phaseRows.every(
-      (row) => row.adjusted_cost_usd !== null && row.unclean_spend_share !== null,
-    );
-    const rowUncleanSpend = hasCompleteUncleanSpend
-      ? phaseRows.reduce(
-        (sum, row) => sum + (row.adjusted_cost_usd as number) * (row.unclean_spend_share as number),
+  return Array.from(byPhase.entries())
+    .map(([phase, phaseRows]) => {
+      const trialCount = phaseRows.reduce(
+        (sum, row) => sum + row.trial_count,
         0,
-      )
-      : null;
-    const isSelectedPhase3 = phase === "phase3" && phase3Scope;
-    const reviewedCost = isSelectedPhase3
-      ? reviewedDecimal(
-        phase3Scope.costEvidence.adjustedKnownCostUsd
-          ?? phase3Scope.costEvidence.qualifiedAdjustedCostEstimateUsd,
-      )
-      : rowReviewedCost;
-    const costPerCleanSuccess = isSelectedPhase3
-      ? reviewedDecimal(phase3Scope.costEvidence.adjustedCostPerCleanSuccessUsd)
-      : reviewedCost !== null && cleanSuccessCount > 0
-        ? reviewedCost / cleanSuccessCount
-        : null;
-    const uncleanSpend = isSelectedPhase3
-      ? phase3Scope.costEvidence.nonproductiveOrUncleanSpendShare !== null && reviewedCost !== null
-        ? reviewedCost * phase3Scope.costEvidence.nonproductiveOrUncleanSpendShare
-        : null
-      : rowUncleanSpend;
-    const uncleanSpendShare = isSelectedPhase3
-      ? phase3Scope.costEvidence.nonproductiveOrUncleanSpendShare
-      : reviewedCost !== null && reviewedCost > 0 && uncleanSpend !== null
-        ? uncleanSpend / reviewedCost
-        : null;
+      );
+      const successCount = phaseRows.reduce(
+        (sum, row) => sum + row.success_count,
+        0,
+      );
+      const cleanSuccessCount = phaseRows.reduce(
+        (sum, row) =>
+          sum + row.clean_success_count,
+        0,
+      );
 
-    return {
-      phase,
-      arm_count: phaseRows.length,
-      trial_count: trialCount,
-      success_count: successCount,
-      clean_success_count: cleanSuccessCount,
-      pass_rate: trialCount > 0 ? successCount / trialCount : 0,
-      adjusted_cost_usd: reviewedCost,
-      cost_basis: isSelectedPhase3
-        ? phase3Scope.costEvidence.costBasis
-        : "adjusted_known_cost",
-      cost_label: isSelectedPhase3
-        ? phase3Scope.costEvidence.costLabel
-        : "Adjusted known cost",
-      cost_per_clean_success_usd: costPerCleanSuccess,
-      unclean_spend_usd: uncleanSpend,
-      unclean_spend_share: uncleanSpendShare,
-    };
-  }).sort((a, b) => a.phase.localeCompare(b.phase));
+      const completeComparisonCosts =
+        phaseRows.every(
+          (row) =>
+            row.comparison_cost_usd !== null,
+        );
+      const rowComparisonCost =
+        completeComparisonCosts
+          ? phaseRows.reduce(
+              (sum, row) =>
+                sum
+                + row.comparison_cost_usd!,
+              0,
+            )
+          : null;
+
+      const isSelectedPhase3 =
+        phase === "phase3"
+        && phase3Scope !== undefined;
+
+      const comparisonCost =
+        isSelectedPhase3
+          ? reviewedDecimal(
+              phase3Scope.selectedCostEvidence
+                .selectedCostUsd,
+            )
+          : rowComparisonCost;
+
+      const comparisonCostPerCleanSuccess =
+        comparisonCost !== null
+        && cleanSuccessCount > 0
+          ? comparisonCost / cleanSuccessCount
+          : null;
+
+      const historicalReviewedCost =
+        isSelectedPhase3
+          ? reviewedDecimal(
+              phase3Scope.selectedCostEvidence
+                .historicalReviewedArmSumCostUsd,
+            )
+          : null;
+
+      let historicalUncleanSpendShare:
+        number | null;
+
+      if (isSelectedPhase3) {
+        // This remains the frozen historical outcome-cost
+        // share. It is never multiplied by current selected
+        // provider-billed totals.
+        historicalUncleanSpendShare =
+          phase3Scope.historicalCostEvidence
+            .nonproductiveOrUncleanSpendShare;
+      } else {
+        const completeHistoricalAllocation =
+          phaseRows.every(
+            (row) =>
+              row.adjusted_cost_usd !== null
+              && row.unclean_spend_share
+                !== null,
+          );
+
+        if (
+          !completeHistoricalAllocation
+          || comparisonCost === null
+          || comparisonCost <= 0
+        ) {
+          historicalUncleanSpendShare = null;
+        } else {
+          const historicalUncleanSpend =
+            phaseRows.reduce(
+              (sum, row) =>
+                sum
+                + row.adjusted_cost_usd!
+                * row.unclean_spend_share!,
+              0,
+            );
+
+          historicalUncleanSpendShare =
+            historicalUncleanSpend
+            / comparisonCost;
+        }
+      }
+
+      return {
+        phase,
+        arm_count: phaseRows.length,
+        trial_count: trialCount,
+        success_count: successCount,
+        clean_success_count: cleanSuccessCount,
+        pass_rate:
+          trialCount > 0
+            ? successCount / trialCount
+            : 0,
+
+        comparison_cost_usd: comparisonCost,
+        comparison_cost_basis:
+          isSelectedPhase3
+            ? phase3Scope.selectedCostEvidence
+                .selectedCostBasis
+            : "adjusted_known_cost",
+        comparison_cost_label:
+          isSelectedPhase3
+            ? "Current selected cost"
+            : "Adjusted known cost",
+        comparison_cost_per_clean_success_usd:
+          comparisonCostPerCleanSuccess,
+
+        historical_reviewed_cost_usd:
+          historicalReviewedCost,
+        historical_unclean_spend_share:
+          historicalUncleanSpendShare,
+      };
+    })
+    .sort(
+      (left, right) =>
+        left.phase.localeCompare(right.phase),
+    );
 }

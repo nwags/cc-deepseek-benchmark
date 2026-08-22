@@ -6,87 +6,356 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 
-const here = dirname(fileURLToPath(import.meta.url));
-const snapshot = JSON.parse(await readFile(
-  resolve(here, "../../../../results/phase3/reporting/phase3_extended_reviewed_comparison_20260805.json"),
+const here =
+  dirname(fileURLToPath(import.meta.url));
+
+const snapshot = JSON.parse(
+  await readFile(
+    resolve(
+      here,
+      "../../../../results/phase3/reporting/phase3_current_reviewed_comparison_20260821.json",
+    ),
+    "utf8",
+  ),
+);
+
+const source = await readFile(
+  join(here, "cross-phase-reporting.ts"),
   "utf8",
-));
-const source = await readFile(join(here, "cross-phase-reporting.ts"), "utf8");
+);
+
 const compiled = ts.transpileModule(source, {
-  compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
+  compilerOptions: {
+    module: ts.ModuleKind.ES2022,
+    target: ts.ScriptTarget.ES2022,
+  },
 }).outputText;
-const moduleUrl = `data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`;
+
+const moduleUrl =
+  `data:text/javascript;base64,${
+    Buffer.from(compiled).toString("base64")
+  }`;
+
 const {
   getBehaviorRows,
   getCrossPhaseRows,
+  getCurrentReviewedPhase3Rows,
   getPhaseSummaries,
-  getReviewedPhase3Rows,
   getRouterComparisonRows,
 } = await import(moduleUrl);
 
 const core = snapshot.scopes["phase3-core"];
-const extended = snapshot.scopes["phase3-extended"];
+const extended =
+  snapshot.scopes["phase3-extended"];
 
-test("selected reviewed scope replaces only Phase 3 cross-phase rows", () => {
-  const coreRows = getCrossPhaseRows(core);
-  const extendedRows = getCrossPhaseRows(extended);
+test(
+  "current-reviewed scope replaces only Phase 3 cross-phase rows",
+  () => {
+    const coreRows = getCrossPhaseRows(core);
+    const extendedRows =
+      getCrossPhaseRows(extended);
 
-  assert.equal(coreRows.filter((row) => row.phase === "phase1").length, 3);
-  assert.equal(coreRows.filter((row) => row.phase === "phase2").length, 5);
-  assert.equal(coreRows.filter((row) => row.phase === "phase3").length, 15);
-  assert.equal(extendedRows.filter((row) => row.phase === "phase3").length, 16);
-  assert.equal(coreRows.some((row) => row.arm_id === "router-kimi-k3"), false);
-  assert.equal(extendedRows.some((row) => row.arm_id === "router-kimi-k3"), true);
-});
+    assert.equal(
+      coreRows.filter(
+        (row) => row.phase === "phase1",
+      ).length,
+      3,
+    );
+    assert.equal(
+      coreRows.filter(
+        (row) => row.phase === "phase2",
+      ).length,
+      5,
+    );
+    assert.equal(
+      coreRows.filter(
+        (row) => row.phase === "phase3",
+      ).length,
+      15,
+    );
+    assert.equal(
+      extendedRows.filter(
+        (row) => row.phase === "phase3",
+      ).length,
+      16,
+    );
 
-test("Kimi row preserves qualified cost evidence and unavailable outcome fields", () => {
-  const kimi = getReviewedPhase3Rows(extended).find((row) => row.arm_id === "router-kimi-k3");
-  assert.ok(kimi);
-  assert.equal(kimi.trial_count, 60);
-  assert.equal(kimi.success_count, 47);
-  assert.equal(kimi.pass_rate, 47 / 60);
-  assert.equal(kimi.recorded_cost_usd, 25.207213);
-  assert.equal(kimi.adjusted_cost_usd, 30.8143194);
-  assert.equal(kimi.known_accounting_gap_usd, 5.6071064);
-  assert.equal(kimi.reviewed_cost_basis, "qualified_retained_rate_estimate");
-  assert.equal(kimi.reviewed_cost_label, "Qualified retained-rate reconstruction");
-  assert.equal(kimi.cost_per_clean_success_usd, null);
-  assert.equal(kimi.failure_incomplete_spend_share, null);
-  assert.equal(kimi.unclean_spend_share, null);
-  assert.equal(kimi.median_wall_clock_seconds, null);
-  assert.equal(kimi.pricing_provenance_status, "incomplete");
-  assert.equal(kimi.arm_run_allocation_confidence, "low");
-  assert.equal(kimi.trial_allocation_status, "unresolved");
-  assert.equal(kimi.billing_reconciliation_status, "not_invoice_level_or_provider_billed");
-});
+    assert.equal(
+      coreRows.some(
+        (row) =>
+          row.arm_id === "router-kimi-k3",
+      ),
+      false,
+    );
+    assert.equal(
+      extendedRows.some(
+        (row) =>
+          row.arm_id === "router-kimi-k3",
+      ),
+      true,
+    );
 
-test("Phase 3 summary uses selected reviewed scope headline values", () => {
-  const extendedSummary = getPhaseSummaries(
-    getCrossPhaseRows(extended),
-    extended,
-  ).find((row) => row.phase === "phase3");
-  assert.deepEqual(
-    [extendedSummary.arm_count, extendedSummary.trial_count, extendedSummary.success_count],
-    [16, 960, 562],
-  );
-  assert.equal(extendedSummary.adjusted_cost_usd, 1002.9841648891979);
-  assert.equal(extendedSummary.cost_basis, "qualified_adjusted_cost_estimate");
-  assert.equal(extendedSummary.cost_per_clean_success_usd, null);
-  assert.equal(extendedSummary.unclean_spend_share, null);
+    const phase1 = coreRows.find(
+      (row) => row.arm_id === "arm-a-anthropic",
+    );
+    assert.ok(phase1);
+    assert.equal(
+      phase1.comparison_cost_usd,
+      37.29553755,
+    );
+    assert.equal(
+      phase1.comparison_cost_layer,
+      "frozen_historical_baseline",
+    );
+  },
+);
 
-  const coreSummary = getPhaseSummaries(
-    getCrossPhaseRows(core),
-    core,
-  ).find((row) => row.phase === "phase3");
-  assert.deepEqual(
-    [coreSummary.arm_count, coreSummary.trial_count, coreSummary.success_count],
-    [15, 900, 515],
-  );
-  assert.equal(coreSummary.adjusted_cost_usd, 972.169845489198);
-  assert.equal(coreSummary.cost_basis, "adjusted_known_cost");
-});
+test(
+  "OpenAI rows use exact provider-selected cost while historical allocation stays separate",
+  () => {
+    const rows =
+      getCurrentReviewedPhase3Rows(extended);
 
-test("historical router and behavior artifacts remain core-only", () => {
-  assert.equal(getBehaviorRows().some((row) => row.arm_id === "router-kimi-k3"), false);
-  assert.equal(getRouterComparisonRows().some((row) => row.router_arm_id === "router-kimi-k3"), false);
-});
+    const gpt54 = rows.find(
+      (row) =>
+        row.arm_id === "router-gpt-5.4",
+    );
+    const gpt55 = rows.find(
+      (row) =>
+        row.arm_id === "router-gpt-5.5",
+    );
+
+    assert.ok(gpt54);
+    assert.ok(gpt55);
+
+    assert.equal(
+      gpt54.comparison_cost_usd,
+      29.7919335,
+    );
+    assert.equal(
+      gpt54.comparison_cost_per_clean_success_usd,
+      0.78399825,
+    );
+    assert.equal(
+      gpt54.historical_reviewed_cost_usd,
+      183.646689146806,
+    );
+    assert.equal(
+      gpt54.historical_unclean_spend_share,
+      0.215650439062,
+    );
+    assert.equal(
+      gpt54.comparison_cost_basis,
+      "provider_billed",
+    );
+    assert.equal(
+      gpt54.provider_billing_reconciliation_status,
+      "exact_arm_total",
+    );
+    assert.equal(
+      gpt54.selected_trial_allocation_status,
+      "unavailable_provider_aggregate",
+    );
+    assert.equal(
+      gpt54.selected_outcome_allocation_status,
+      "unavailable_provider_aggregate",
+    );
+
+    assert.equal(
+      gpt55.comparison_cost_usd,
+      48.604914,
+    );
+    assert.equal(
+      gpt55.comparison_cost_per_clean_success_usd,
+      Number(
+        "1.157259857142857142857142857",
+      ),
+    );
+    assert.equal(
+      gpt55.historical_reviewed_cost_usd,
+      183.958832348525,
+    );
+    assert.equal(
+      gpt55.provider_billing_reconciliation_status,
+      "exact_arm_total",
+    );
+  },
+);
+
+test(
+  "Kimi selected aggregate efficiency is available without outcome allocation",
+  () => {
+    const kimi =
+      getCurrentReviewedPhase3Rows(extended)
+        .find(
+          (row) =>
+            row.arm_id === "router-kimi-k3",
+        );
+
+    assert.ok(kimi);
+    assert.equal(kimi.trial_count, 60);
+    assert.equal(kimi.success_count, 47);
+    assert.equal(kimi.pass_rate, 47 / 60);
+
+    assert.equal(
+      kimi.comparison_cost_usd,
+      30.8143194,
+    );
+    assert.equal(
+      kimi.comparison_cost_per_clean_success_usd,
+      Number(
+        "0.7003254409090909090909090909",
+      ),
+    );
+    assert.equal(
+      kimi.comparison_cost_basis,
+      "qualified_retained_rate_estimate",
+    );
+
+    assert.equal(
+      kimi.historical_reviewed_cost_usd,
+      30.8143194,
+    );
+    assert.equal(
+      kimi.historical_unclean_spend_share,
+      null,
+    );
+
+    assert.equal(
+      kimi.selected_trial_allocation_status,
+      "unresolved",
+    );
+    assert.equal(
+      kimi.selected_outcome_allocation_status,
+      "unavailable",
+    );
+    assert.equal(
+      kimi.provider_billed_cost_usd,
+      null,
+    );
+  },
+);
+
+test(
+  "Phase 3 summary uses current selected total and preserves historical total separately",
+  () => {
+    const extendedSummary =
+      getPhaseSummaries(
+        getCrossPhaseRows(extended),
+        extended,
+      ).find(
+        (row) => row.phase === "phase3",
+      );
+
+    assert.ok(extendedSummary);
+
+    assert.deepEqual(
+      [
+        extendedSummary.arm_count,
+        extendedSummary.trial_count,
+        extendedSummary.success_count,
+      ],
+      [16, 960, 562],
+    );
+
+    assert.equal(
+      extendedSummary.comparison_cost_usd,
+      713.775490893867,
+    );
+    assert.equal(
+      extendedSummary.historical_reviewed_cost_usd,
+      1002.984164889198,
+    );
+    assert.equal(
+      extendedSummary.comparison_cost_basis,
+      "mixed_best_available_arm_evidence",
+    );
+
+    const extendedCleanSuccesses =
+      extended.arms.reduce(
+        (sum, arm) =>
+          sum + arm.cleanSuccessCount,
+        0,
+      );
+
+    assert.equal(
+      extendedSummary
+        .comparison_cost_per_clean_success_usd,
+      713.775490893867
+        / extendedCleanSuccesses,
+    );
+
+    assert.equal(
+      extendedSummary
+        .historical_unclean_spend_share,
+      null,
+    );
+
+    const coreSummary =
+      getPhaseSummaries(
+        getCrossPhaseRows(core),
+        core,
+      ).find(
+        (row) => row.phase === "phase3",
+      );
+
+    assert.ok(coreSummary);
+    assert.deepEqual(
+      [
+        coreSummary.arm_count,
+        coreSummary.trial_count,
+        coreSummary.success_count,
+      ],
+      [15, 900, 515],
+    );
+
+    assert.equal(
+      coreSummary.comparison_cost_usd,
+      682.961171493867,
+    );
+    assert.equal(
+      coreSummary.historical_reviewed_cost_usd,
+      972.169845489198,
+    );
+    assert.equal(
+      coreSummary.historical_unclean_spend_share,
+      core.historicalCostEvidence
+        .nonproductiveOrUncleanSpendShare,
+    );
+  },
+);
+
+test(
+  "current selected totals are never multiplied by historical outcome shares",
+  () => {
+    assert.doesNotMatch(
+      source,
+      /comparison_cost_usd[^\n;]*\*[^\n;]*historical_unclean_spend_share/,
+    );
+    assert.doesNotMatch(
+      source,
+      /selectedCostUsd[^\n;]*\*[^\n;]*nonproductiveOrUncleanSpendShare/,
+    );
+  },
+);
+
+test(
+  "historical router and behavior artifacts remain core-only",
+  () => {
+    assert.equal(
+      getBehaviorRows().some(
+        (row) =>
+          row.arm_id === "router-kimi-k3",
+      ),
+      false,
+    );
+    assert.equal(
+      getRouterComparisonRows().some(
+        (row) =>
+          row.router_arm_id
+            === "router-kimi-k3",
+      ),
+      false,
+    );
+  },
+);

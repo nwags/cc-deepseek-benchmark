@@ -402,7 +402,11 @@ jobs:
             uv pip install --python .tools/litellm-proxy/bin/python 'litellm[proxy]'
           fi
 
-          .tools/litellm-proxy/bin/litellm --version || true
+          .tools/litellm-proxy/bin/python - <<'PY_LITELLM_VERSION'
+          from importlib.metadata import version
+
+          print(f"litellm {version('litellm')}")
+          PY_LITELLM_VERSION
 
       - name: Ensure LiteLLM proxy
         if: ${{ inputs.dry_run == false }}
@@ -479,6 +483,9 @@ jobs:
 
           from scripts.lib.live_artifacts import normalize_watch_roots, snapshot_run_dirs
           from scripts.lib.live_events import workspace_metadata
+          from scripts.lib.runtime_versions import (
+              capture_control_plane_runtime_versions,
+          )
           from scripts.lib.path_safety import (
               ensure_workspace_directory,
               ensure_workspace_output_path,
@@ -512,6 +519,9 @@ jobs:
               "github_run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
               "github_job": os.environ["GITHUB_JOB"],
               "runner_name": os.environ["RUNNER_NAME"],
+              "runtime_versions": capture_control_plane_runtime_versions(
+                  workspace
+              ),
               **workspace_metadata(workspace),
               "watch_roots": [path.relative_to(workspace).as_posix() for path in roots],
               "baseline_run_dirs": list(snapshot_run_dirs(roots, workspace=workspace)),

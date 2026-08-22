@@ -29,8 +29,12 @@ import {
 } from "../../lib/presentation-labels";
 import {
   selectReviewedPhase3Scope,
-  type ReviewedPhase3Arm,
 } from "../../lib/phase3-reviewed-comparison";
+import {
+  PHASE3_CURRENT_REVIEWED_COMPARISON,
+  getCurrentReviewedPhase3Scope,
+  type CurrentReviewedPhase3Arm,
+} from "../../lib/phase3-current-reviewed-comparison";
 import {
   buildSpendDecompositionModel,
 } from "../../lib/spend-decomposition";
@@ -104,12 +108,11 @@ function outcomeLabel(value: string): string {
     .join(" ");
 }
 
-function reviewedArmCost(arm: ReviewedPhase3Arm): string | null {
-  return arm.adjustedKnownCostUsd ?? arm.qualifiedRetainedRateCostUsd;
-}
-
-function reviewedArmCostLabel(arm: ReviewedPhase3Arm): string {
-  return arm.costBasis === "qualified_retained_rate_estimate"
+function historicalReviewedArmCostLabel(
+  arm: CurrentReviewedPhase3Arm,
+): string {
+  return arm.historicalReviewedCostBasis
+    === "qualified_retained_rate_estimate"
     ? "Qualified retained-rate reconstruction"
     : "Adjusted known cost";
 }
@@ -138,15 +141,31 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
     }
   }
   const scope = selection.scope;
+  const currentScope =
+    getCurrentReviewedPhase3Scope(selection.scopeId);
   const cost = scope.costEvidence;
   const outcomes = scope.outcomeCostCoverage;
-  const selectedReviewedCost = cost.adjustedKnownCostUsd ?? cost.qualifiedAdjustedCostEstimateUsd;
-  const arms = [...scope.arms].sort((left, right) => right.passRate - left.passRate);
-  const kimi = scope.arms.find((arm) => arm.armId === "router-kimi-k3") ?? null;
+  const arms = [...currentScope.arms].sort(
+    (left, right) => right.passRate - left.passRate,
+  );
+  const kimi =
+    currentScope.arms.find(
+      (arm) => arm.armId === "router-kimi-k3",
+    ) ?? null;
   const chartArms = getCostPerformanceChartArms(selection.scopeId);
-  const chartArmById = new Map(chartArms.map((arm) => [arm.armId, arm]));
-  if (chartArms.length !== scope.armCount || arms.some((arm) => !chartArmById.has(arm.armId))) {
-    throw new Error("Reviewed Cost Coverage and frozen selected-run membership disagree");
+  const chartArmById = new Map(
+    chartArms.map((arm) => [arm.armId, arm]),
+  );
+  if (
+    currentScope.armCount !== scope.armCount
+    || currentScope.trialCount !== scope.trialCount
+    || currentScope.successCount !== scope.successCount
+    || chartArms.length !== currentScope.armCount
+    || arms.some((arm) => !chartArmById.has(arm.armId))
+  ) {
+    throw new Error(
+      "Current Cost Coverage, historical DR-303 scope, and frozen selected-run membership disagree",
+    );
   }
   const kimiChartArm = kimi ? chartArmById.get(kimi.armId) ?? null : null;
 
@@ -213,7 +232,7 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
   return (
     <AppShell
       title={`Cost Coverage: ${scope.displayName}`}
-      description={`Recorded cost, reviewed cost evidence, accounting gaps, and allocation limits for the ${scope.displayName.toLowerCase()} from the reviewed 2026-08-05 layer.`}
+      description={`Current selected cost plus preserved historical benchmark-side cost coverage, accounting gaps, and allocation limits for the ${scope.displayName.toLowerCase()}.`}
     >
       <CorpusScopeSelector
         pathname="/cost-coverage"
@@ -228,6 +247,7 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
       <EvidenceSourceContextNotice value={params.source_scope} />
       <CorpusScopeNotice
         scopeId={selection.scopeId}
+        costPresentation="current_and_historical"
         observedCounts={{
           armCount: scope.armCount,
           trialCount: scope.trialCount,
@@ -236,62 +256,93 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
       />
 
       <section className="quality-context-panel">
-        <strong>Reviewed fixed-comparison source:</strong> Both this page and Cross-phase use the same validated 2026-08-05 reviewed layer.
-        The historical core remains selectable without rewriting its source artifacts.
+        <strong>Current selected-cost source:</strong> Decision-facing selected costs come from the
+        {" "}{PHASE3_CURRENT_REVIEWED_COMPARISON.reviewedAt} current-reviewed layer. It preserves the
+        {" "}{PHASE3_CURRENT_REVIEWED_COMPARISON.historicalReviewedAt} benchmark-side cost evidence used by
+        DR-303 as a separate historical layer. Provider-billed arm totals are used only where exact provider
+        reconciliation exists and are not redistributed across trials or outcomes.
         {" "}<Link href={`/cross-phase?scope=${selection.scopeId}`}>Open Cross-phase with this scope</Link>.
         <details>
-          <summary>Traceable reviewed source</summary>
+          <summary>Traceable current and historical sources</summary>
+          <p className="mono">results/phase3/reporting/phase3_current_reviewed_comparison_20260821.json</p>
           <p className="mono">results/phase3/reporting/phase3_extended_reviewed_comparison_20260805.json</p>
         </details>
+        <p className="muted">
+          The corpus-scope notice identifies the retained corpus and separates current selected cost from
+          preserved historical reviewed cost metadata. Detailed arm-level evidence remains below.
+        </p>
       </section>
 
       {kimi ? (
-        <section className="quality-context-panel" aria-label="Kimi K3 qualified cost evidence">
-          <p><strong>Kimi K3 qualified cost evidence</strong></p>
+        <section className="quality-context-panel" aria-label="Kimi K3 current selected and historical cost evidence">
+          <p><strong>Kimi K3 current selected and historical cost evidence</strong></p>
           <p>
-            Recorded trial cost: {kimiChartArm ? linkedCost(kimi.recordedCostUsd, buildCostCoverageHref(selection.scopeId, { armId: kimi.armId, runLabel: kimiChartArm.selectedRunLabel }, onwardSourceScope), 6) : formatCost(kimi.recordedCostUsd, 6)} · qualified retained-rate reconstruction: {kimiChartArm ? linkedCost(kimi.qualifiedRetainedRateCostUsd, buildCostCoverageHref(selection.scopeId, { armId: kimi.armId, runLabel: kimiChartArm.selectedRunLabel }, onwardSourceScope), 7) : formatCost(kimi.qualifiedRetainedRateCostUsd, 7)} · accounting gap: {kimiChartArm ? linkedCost(kimi.accountingGapUsd, buildCostCoverageHref(selection.scopeId, { armId: kimi.armId, runLabel: kimiChartArm.selectedRunLabel }, onwardSourceScope), 7) : formatCost(kimi.accountingGapUsd, 7)}.
+            Current selected cost: {formatCost(kimi.selectedCostUsd, 7)} · selected cost / attempt: {formatCost(kimi.selectedCostPerAttemptUsd, 7)} · selected cost / clean success: {formatCost(kimi.selectedCostPerCleanSuccessUsd, 7)}.
           </p>
           <p>
-            Pricing-source provenance incomplete · arm-run/provider-log allocation confidence low · trial-level allocation unresolved · not invoice-level or provider-billed spend.
+            Selected basis: {evidenceLabel(kimi.selectedCostBasis)} · selected confidence: {kimi.selectedCostConfidence} · selected trial allocation: {evidenceLabel(kimi.selectedTrialCostAllocationStatus)} · selected outcome allocation: {evidenceLabel(kimi.selectedOutcomeCostAllocationStatus)} · provider-billed total: {formatCost(kimi.providerBilledCostUsd, 7)}.
+          </p>
+          <p>
+            Historical harness recorded: {kimiChartArm ? linkedCost(kimi.historicalHarnessRecordedCostUsd, buildCostCoverageHref(selection.scopeId, { armId: kimi.armId, runLabel: kimiChartArm.selectedRunLabel }, onwardSourceScope), 6) : formatCost(kimi.historicalHarnessRecordedCostUsd, 6)} · historical qualified retained-rate reconstruction: {kimiChartArm ? linkedCost(kimi.historicalReviewedCostUsd, buildCostCoverageHref(selection.scopeId, { armId: kimi.armId, runLabel: kimiChartArm.selectedRunLabel }, onwardSourceScope), 7) : formatCost(kimi.historicalReviewedCostUsd, 7)} · historical accounting gap: {kimiChartArm ? linkedCost(kimi.accountingGapUsd, buildCostCoverageHref(selection.scopeId, { armId: kimi.armId, runLabel: kimiChartArm.selectedRunLabel }, onwardSourceScope), 7) : formatCost(kimi.accountingGapUsd, 7)}.
+          </p>
+          <p>
+            Pricing-source provenance incomplete · arm-run/provider-log allocation confidence low · trial-level allocation unresolved · not invoice-level or provider-billed spend. The selected aggregate efficiency ratios do not imply trial-level or outcome-level allocation.
           </p>
         </section>
       ) : null}
 
       <section className="metric-grid">
         <MetricCard
-          label="Recorded cost"
+          label="Current selected cost"
+          value={formatCost(
+            currentScope.selectedCostEvidence.selectedCostUsd,
+            13,
+          )}
+          detail={`Basis: ${evidenceLabel(currentScope.selectedCostEvidence.selectedCostBasis)}.`}
+        />
+        <MetricCard
+          label="Historical reviewed arm-sum cost"
+          value={formatCost(
+            currentScope.selectedCostEvidence.historicalReviewedArmSumCostUsd,
+            13,
+          )}
+          detail={`Preserved ${PHASE3_CURRENT_REVIEWED_COMPARISON.historicalReviewedAt} benchmark-side reviewed evidence.`}
+        />
+        <MetricCard
+          label="Provider-reconciled selected cost"
+          value={formatCost(
+            currentScope.selectedCostEvidence.providerReconciledCostUsd,
+            8,
+          )}
+          detail={`${formatNumber(currentScope.selectedCostEvidence.providerReconciledArmCount)}/${formatNumber(currentScope.armCount)} arms have exact provider-billed reconciliation.`}
+        />
+        <MetricCard
+          label="Historical recorded cost"
           value={formatCost(cost.recordedCostUsd, 8)}
-          detail={`${formatNumber(cost.missingRecordedCostCount)} trials have missing recorded cost.`}
+          detail={`${formatNumber(cost.missingRecordedCostCount)} trials have missing historical recorded cost.`}
         />
         <MetricCard
-          label={cost.costLabel}
-          value={formatCost(selectedReviewedCost, 13)}
-          detail={`Basis: ${evidenceLabel(cost.costBasis)}.`}
-        />
-        <MetricCard
-          label="Accounting gap"
+          label="Historical accounting gap"
           value={formatCost(cost.accountingGapUsd, 13)}
-          detail="Selected reviewed cost measure minus recorded cost."
+          detail="Historical reviewed cost measure minus historical recorded cost."
         />
         <MetricCard
-          label="Unresolved cost rows"
-          value={formatNumber(cost.unresolvedCostCount)}
-          detail={`Trial allocation: ${evidenceLabel(cost.trialAllocationStatus)}.`}
+          label="Selected allocation status"
+          value={evidenceLabel(
+            currentScope.selectedCostEvidence.trialAllocationStatus,
+          )}
+          detail={`Outcome allocation: ${evidenceLabel(currentScope.selectedCostEvidence.outcomeAllocationStatus)}.`}
         />
-        <MetricCard
-          label="Failure/incomplete spend"
-          value={formatCost(cost.adjustedFailureOrIncompleteCostUsd, 6)}
-          detail={cost.adjustedFailureOrIncompleteCostUsd === null
-            ? "Unavailable because the selected scope lacks complete outcome allocation."
-            : availablePercent(cost.failureOrIncompleteSpendShare)}
-        />
-        <MetricCard
-          label="Cost / clean success"
-          value={formatCost(cost.adjustedCostPerCleanSuccessUsd, 6)}
-          detail={cost.adjustedCostPerCleanSuccessUsd === null
-            ? "Unavailable; no Kimi outcome cost was fabricated."
-            : `${formatNumber(scope.arms.reduce((sum, arm) => sum + arm.cleanSuccessCount, 0))} clean successes.`}
-        />
+      </section>
+
+      <section
+        className="quality-context-panel"
+        aria-label="Historical DR-303 spend decomposition boundary"
+      >
+        <strong>Historical DR-303 spend decomposition:</strong> The outcome buckets and accounting gaps below
+        reproduce the frozen benchmark-side DR-303 evidence. Current provider-billed aggregate corrections are
+        not redistributed into these trial or outcome buckets, so the historical bars are not components of the
+        current selected total above.
       </section>
 
       <SpendDecompositionPanel
@@ -308,14 +359,16 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
         <div className="panel-heading">
           <div>
             <h2>Cost provenance focus</h2>
-            <p>Optional exact stored evidence is shown separately and never changes the reviewed scope totals above.</p>
+            <p>Optional exact stored historical benchmark-side evidence is shown separately and never changes either the current selected totals or preserved historical reviewed totals above.</p>
           </div>
         </div>
         <div className="quality-context-panel">
           <p>
-            <strong>Reviewed aggregate:</strong> the headline and arm totals remain the checked-in {scope.displayName} evidence.
+            <strong>Current selected aggregate:</strong> the current-selected totals come from the checked-in current-reviewed v2 layer.
             <br />
-            <strong>Stored focus:</strong> rows below, when requested, come from the valid-only <span className="mono">benchmark.v_trial_adjusted_cost_coverage</span> view.
+            <strong>Historical reviewed aggregate:</strong> DR-303 and historical benchmark-side totals remain the preserved {scope.displayName} evidence.
+            <br />
+            <strong>Stored historical focus:</strong> rows below, when requested, come from the valid-only <span className="mono">benchmark.v_trial_adjusted_cost_coverage</span> view and do not reconcile against provider-billed selected totals.
           </p>
           {focusSelection.focus?.armId && !focusSelection.focus.runLabel && !focusSelection.focus.trialId ? (
             <p>An arm-only focus may span multiple valid runs. It does not identify or select a latest run.</p>
@@ -375,8 +428,8 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <h2>Reviewed arm cost evidence</h2>
-            <p>Recorded cost and the applicable reviewed cost measure remain separate. Unavailable outcome allocations are shown explicitly.</p>
+            <h2>Current selected and historical arm cost evidence</h2>
+            <p>Current selected cost is decision-facing. Historical benchmark-side recorded/reviewed costs and outcome allocations remain separate evidence and retain their provenance links.</p>
           </div>
         </div>
         <div className="table-wrap">
@@ -385,15 +438,16 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
               <tr>
                 <th className="sticky-id-column">Arm</th>
                 <th>Successes</th>
-                <th><span className="term-label">Recorded cost <TermInfo term="Recorded cost" /></span></th>
-                <th>Reviewed cost</th>
-                <th>Cost basis</th>
-                <th><span className="term-label">Gap <TermInfo term="Accounting gap" /></span></th>
-                <th>Failure spend</th>
-                <th>Failure share</th>
-                <th>Cost / clean success</th>
-                <th><span className="term-label">Missing / unresolved <TermInfo term="Unresolved" /></span></th>
-                <th>Evidence status</th>
+                <th>Current selected cost</th>
+                <th>Selected basis / confidence</th>
+                <th>Selected efficiency ratios</th>
+                <th>Provider billing</th>
+                <th>Selected allocation</th>
+                <th><span className="term-label">Historical recorded cost <TermInfo term="Recorded cost" /></span></th>
+                <th>Historical reviewed cost</th>
+                <th><span className="term-label">Historical gap <TermInfo term="Accounting gap" /></span></th>
+                <th>Historical failure spend</th>
+                <th>Historical evidence status</th>
               </tr>
             </thead>
             <tbody>
@@ -427,16 +481,47 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
                       {formatNumber(arm.successCount)}/{formatNumber(arm.trialCount)}
                       <div className="muted">{formatPercent(arm.passRate)}</div>
                     </td>
-                    <td>{linkedCost(arm.recordedCostUsd, costHref, 7)}</td>
-                    <td>{linkedCost(reviewedArmCost(arm), costHref, 7)}</td>
-                    <td>{reviewedArmCostLabel(arm)}</td>
+                    <td>
+                      <strong>{formatCost(arm.selectedCostUsd, 7)}</strong>
+                    </td>
+                    <td>
+                      <div>{evidenceLabel(arm.selectedCostBasis)}</div>
+                      <div className="muted">{arm.selectedCostConfidence}</div>
+                    </td>
+                    <td>
+                      <div>Per attempt: {formatCost(arm.selectedCostPerAttemptUsd, 7)}</div>
+                      <div>Per clean success: {formatCost(arm.selectedCostPerCleanSuccessUsd, 7)}</div>
+                    </td>
+                    <td>
+                      <div>Provider-billed total: {formatCost(arm.providerBilledCostUsd, 7)}</div>
+                      <div className="muted">
+                        Reconciliation: {evidenceLabel(arm.providerBillingReconciliationStatus)}
+                      </div>
+                      {arm.providerSelectedRunLabel ? (
+                        <div className="muted mono">{arm.providerSelectedRunLabel}</div>
+                      ) : null}
+                    </td>
+                    <td>
+                      <div>Trial: {evidenceLabel(arm.selectedTrialCostAllocationStatus)}</div>
+                      <div>Outcome: {evidenceLabel(arm.selectedOutcomeCostAllocationStatus)}</div>
+                    </td>
+                    <td>{linkedCost(arm.historicalHarnessRecordedCostUsd, costHref, 7)}</td>
+                    <td>
+                      {linkedCost(arm.historicalReviewedCostUsd, costHref, 7)}
+                      <div className="muted">
+                        {historicalReviewedArmCostLabel(arm)}
+                      </div>
+                    </td>
                     <td>{linkedCost(arm.accountingGapUsd, costHref, 7)}</td>
-                    <td>{linkedCost(arm.adjustedFailureOrIncompleteCostUsd, costHref, 7)}</td>
-                    <td>{availablePercent(arm.failureOrIncompleteSpendShare)}</td>
-                    <td>{linkedCost(arm.adjustedCostPerCleanSuccessUsd, costHref, 7)}</td>
-                    <td>{formatNumber(arm.missingRecordedCostCount)} / {formatNumber(arm.unresolvedCostCount)}</td>
+                    <td>
+                      <div>{linkedCost(arm.adjustedFailureOrIncompleteCostUsd, costHref, 7)}</div>
+                      <div className="muted">{availablePercent(arm.failureOrIncompleteSpendShare)}</div>
+                    </td>
                     <td className="table-cell-wrap">
-                      <div>{arm.costConfidence} confidence</div>
+                      <div>
+                        Missing / unresolved: {formatNumber(arm.missingRecordedCostCount)} / {formatNumber(arm.unresolvedCostCount)}
+                      </div>
+                      <div>{arm.costConfidence} historical confidence</div>
                       <div className="muted">
                         Pricing provenance: {evidenceLabel(arm.pricingProvenanceStatus)} · allocation: {evidenceLabel(arm.armRunAllocationConfidence)} · trial allocation: {evidenceLabel(arm.trialAllocationStatus)} · billing: {evidenceLabel(arm.billingReconciliationStatus)}
                       </div>
@@ -452,8 +537,8 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <h2>Outcome-cost breakdown</h2>
-            <p>Historical source-derived outcome rows with explicit selected-scope coverage.</p>
+            <h2>Historical outcome-cost breakdown</h2>
+            <p>Frozen source-derived benchmark-side outcome rows with explicit selected-population coverage. These rows are not allocations of current provider-billed aggregate totals.</p>
           </div>
         </div>
         <div className="quality-context-panel">
