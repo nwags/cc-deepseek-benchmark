@@ -1,7 +1,7 @@
 # DR-304 — Provider-Billed Cost Reconciliation
 
 **Date:** 2026-08-21
-**Status:** DR-304A–E implemented and branch acceptance passed; merge to `main` pending
+**Status:** DR-304 complete — merged to `main` via PR #17 on 2026-08-22
 **Base:** `main` at `886e893167d1026b1033ec87c8133143928063d3`
 **Branch:** `dashboard-dr304-provider-billed-cost`
 
@@ -187,9 +187,10 @@ No private provider IDs or raw provider exports may enter the repository.
 
 ## Branch acceptance and closeout — 2026-08-22
 
-Implementation and production acceptance are complete on
-`dashboard-dr304-provider-billed-cost`. The plan's final merge criterion remains
-open until the accepted branch is merged to `main`.
+Implementation and production acceptance were completed on
+`dashboard-dr304-provider-billed-cost`. The accepted branch was merged to `main`
+via PR #17 as merge commit `dd318d7c` on 2026-08-22, satisfying the plan's
+final merge criterion.
 
 Implemented sequence:
 
@@ -273,6 +274,6 @@ No benchmark rerun, paid provider probe, migration execution, Supabase write,
 R2 write, frozen-result regeneration, historical-cost rewrite, or fabricated
 provider trial/outcome allocation was performed during branch acceptance.
 
-**Branch outcome:** PASS. DR-304A–E are implementation-complete and accepted on
-the branch. The remaining plan action is merge to `main`; only after that merge
-does the plan's final `main` acceptance criterion become satisfied.
+**Final outcome:** PASS. DR-304A–E are implementation-complete, accepted, and
+merged to `main` via PR #17 as `dd318d7c`. The plan's final `main` acceptance
+criterion is satisfied; DR-304 is complete as of 2026-08-22.
