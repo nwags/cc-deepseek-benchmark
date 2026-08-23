@@ -15,6 +15,14 @@ main
 Use short-lived feature branches for new work. Do not encode a temporary
 feature branch as the permanent active branch.
 
+Before using the individual guides below, every incoming contributor should
+start with `docs/guides/README.md` and complete its required hand-off/onboarding
+checklist. Reading `AGENTS.md` alone does not satisfy successor-team onboarding.
+
+The checklist requires review of the complete dashboard, all three primary
+handoff guides, the evidence-tracing exercises, and the current project-state
+and safety boundaries.
+
 For successor-team orientation, read in this order:
 
 ```text
