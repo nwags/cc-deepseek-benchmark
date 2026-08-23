@@ -1,5 +1,31 @@
 # Live Run Supervision
 
+## Current status — 2026-08-23
+
+Live supervision and final canonical publication are implemented capabilities.
+
+Migration:
+
+```text
+db/migrations/phase3/009_live_run_supervision.sql
+```
+
+was applied historically and **must not be rerun**.
+
+The migration preflight/application commands and deployment sequence retained
+later in this runbook document the original rollout procedure. They are
+historical operational provenance, not current instructions to apply migration
+009 again.
+
+For any future schema change, create a new migration.
+
+The six-runner topology remains operationally relevant. For successor-team
+priorities and future Phase 4/5 planning, see:
+
+```text
+docs/guides/PROJECT_HANDOFF_AND_FUTURE_ROADMAP.md
+```
+
 ## Scope
 
 The live supervision path observes benchmark execution without exposing Harbor,
@@ -26,8 +52,9 @@ All six slots have `self-hosted`, `Linux`, `X64`, and `cc-bench`.
 
 Display names are opaque. Do not parse them for routing. Use `runner_label` in
 `phase3-arm-dispatch-v2.yml`; choose `cc-bench` for the broad pool or pin a host
-or slot. The first later zero-cost deployment validation is intended for
-`cc-bench-slot-4`.
+or slot. Historical rollout planning designated `cc-bench-slot-4` for an
+initial zero-cost deployment validation; that note does not establish current
+runner health or reserve that slot for future work.
 
 Each runner registration owns an independent Actions workspace. Discovery is
 restricted to `GITHUB_WORKSPACE`, the current arm/mode output roots, and a
@@ -108,7 +135,7 @@ overwrite one another. The standalone historical ingester retains legacy
 arm/timestamp labels, and metadata-only re-ingestion reconciles legacy absolute
 and current relative artifact paths by run-relative path, SHA-256, and size.
 
-## Database migration
+## Historical database migration rollout
 
 `db/migrations/phase3/009_live_run_supervision.sql` adds:
 
@@ -305,7 +332,7 @@ GitHub artifacts retain redacted live NDJSON, `latest.json`, local database
 spools, final manifests, and publication logs for diagnosis. Context and
 manifest paths are workspace-relative; only a workspace fingerprint is shared.
 
-## Rollback-only PostgreSQL integration
+## Historical rollback-only PostgreSQL integration
 
 Before migration `009` is permanently applied, run the reviewed integration
 harness only with its mandatory rollback acknowledgement:
@@ -328,7 +355,7 @@ Failures report only a stable stage, exception type, SQLSTATE when available,
 and any zero-persistence counts already observed; exception text, connection
 details, SQL, and parameters are omitted.
 
-## Deployment sequence
+## Historical deployment sequence
 
 1. Review migration `009` and run the rollback-only PostgreSQL integration.
 2. Run the permanent migration utility with `--check-only` and review its safe

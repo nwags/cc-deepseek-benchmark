@@ -1,5 +1,11 @@
 # Phase 3 Dashboard Dispatch and Cost Reconciliation Plan
 
+> **Historical status — 2026-08-23:** Phase 3 cost reconciliation
+> is complete through DR-304. Protected server-side dashboard dispatch remains
+> deferred future platform work and is not a Phase 4 prerequisite. This plan is
+> preserved as historical design provenance; current guidance is
+> `docs/guides/PROJECT_HANDOFF_AND_FUTURE_ROADMAP.md`.
+
 ## Dashboard dispatch
 
 Current state: the dashboard/planner is review-first. Benchmark execution is still launched through reviewed GitHub Actions workflow dispatch commands.

@@ -1,5 +1,11 @@
 # Phase 3 Plan: Router-Mediated Claude Code Provider Expansion
 
+> **Historical status — 2026-08-23:** Phase 3 is complete and
+> closed. This file preserves the router-phase research plan as historical
+> methodological provenance. Do not interpret the body's active-Phase-3 wording
+> as authorization for new Phase 3 runs. Current successor guidance is
+> `docs/guides/PROJECT_HANDOFF_AND_FUTURE_ROADMAP.md`.
+
 ## Status
 
 Phase 3 is active.

@@ -4,15 +4,28 @@ This repository benchmarks Claude Code model/provider backends on Terminal-Bench
 
 The project is structured as a multi-phase benchmark repository. Contributors may be human or agentic. Treat this file as the top-level operating guide for automated coding agents and for contributors using tools such as Claude Code, Codex, or other agent harnesses.
 
-## Current branch
+## Current baseline and handoff guidance
 
-Current active branch:
+The accepted post-Phase-3 baseline is:
 
 ```text
-phase3
+main
 ```
 
-The `phase3` branch begins the router-mediated provider expansion and repository refactor after Phase 1 and Phase 2 were frozen.
+Use short-lived feature branches for new work. Do not encode a temporary
+feature branch as the permanent active branch.
+
+For successor-team orientation, read in this order:
+
+```text
+docs/guides/DASHBOARD_RESEARCH_GUIDE.md
+docs/guides/CODEBASE_GUIDE.md
+docs/guides/PROJECT_HANDOFF_AND_FUTURE_ROADMAP.md
+```
+
+The intended sequence is insight discovery first, targeted code comprehension
+second, and new experiments only when the existing corpus cannot answer the
+research question.
 
 ## Phase status
 
@@ -69,50 +82,61 @@ results/phase2/canary/
 
 Do not treat Phase 2 smoke/canary outputs as part of the scored 300-trial sweep.
 
-### Phase 3: active work
+### Phase 3: complete and closed
 
-Phase 3 is intended to test router-mediated Claude Code provider expansion.
+Phase 3 completed the router-mediated Claude Code provider expansion.
 
-Candidate work includes:
-
-* Gemini through a router/gateway
-* OpenAI through a router/gateway
-* xAI/Grok through a router/gateway
-* previously tested Anthropic/DeepSeek models through the same router/gateway for comparability
-* common config-driven run scripts and aggregation paths
-
-Phase 3 outputs should go under:
+The original reviewed core contains:
 
 ```text
-results/phase3/
-figures/phase3/
-docs/reports/phase3/
-docs/plans/phase3/
-artifacts/phase3/
+15 arms x 60 trials = 900 trials
+515 raw successes
 ```
+
+The reviewed extended comparison adds the Phase-3-compatible Kimi K3 addendum:
+
+```text
+16 arms x 60 trials = 960 trials
+562 raw successes
+```
+
+Kimi K3 is an extension of the Phase 3 comparison, not Phase 4.
+
+Primary starting points:
+
+```text
+docs/reports/phase3/PHASE3_CLOSEOUT_INDEX_20260714.md
+results/phase3/reporting/phase3_current_reviewed_comparison_20260821.json
+results/phase3/reporting/phase3_extended_reviewed_comparison_20260805.json
+results/phase3/reporting/phase3_reviewed_run_selection_20260809.json
+```
+
+Do not add ordinary new scored experiments to closed Phase 3. Future benchmark
+work should use a new phase/suite identity.
 
 ## Non-negotiable rules
 
 ### Protect frozen results
 
-Do not overwrite or delete:
+Do not overwrite or delete historical benchmark evidence under:
 
 ```text
 results/phase1/
 results/phase2/
+results/phase3/
 docs/reports/phase1/
 docs/reports/phase2/
+docs/reports/phase3/
 figures/phase1/
 figures/phase2/
+figures/phase3/
 ```
 
-unless the user explicitly asks.
+unless the user explicitly asks for a reviewed repair or additive historical
+analysis.
 
-When generating new Phase 3 outputs, use:
-
-```text
-results/phase3/
-```
+Do not reopen Phase 3 merely because its execution and publication machinery
+still exists. New scored experiments belong under a future phase identity.
 
 ### Protect secrets
 
@@ -157,7 +181,7 @@ Snapshot files are for chat/review context only unless explicitly requested.
 
 ### Prefer config-driven execution
 
-The Phase 3 direction is to migrate away from one-off run scripts and toward config-driven commands.
+Benchmark execution is config-driven; prefer the shared runner rather than one-off provider scripts.
 
 Preferred pattern:
 
@@ -245,7 +269,7 @@ docs/
 results/
   phase1/      # frozen Phase 1 results
   phase2/      # frozen Phase 2 results
-  phase3/      # active Phase 3 results
+  phase3/      # closed Phase 3 evidence and reviewed reporting
   phase4/      # future
   phase5/      # future
 
@@ -268,17 +292,25 @@ scripts/
   old-scripts/ # temporary migration backup only
 ```
 
-## Source-of-truth aggregates
+## Source-of-truth starting points
 
-Use these files as source of truth:
+Use:
 
 ```text
 results/phase1/combined.csv
 results/phase2/combined.csv
-results/phase3/combined.csv
+docs/reports/phase3/PHASE3_CLOSEOUT_INDEX_20260714.md
+results/phase3/reporting/phase3_current_reviewed_comparison_20260821.json
 ```
 
-Do not use smoke/canary aggregates as scored benchmark results.
+For historical Phase 3 reviewed accounting, also retain:
+
+```text
+results/phase3/reporting/phase3_extended_reviewed_comparison_20260805.json
+```
+
+Do not use smoke/canary aggregates as scored benchmark results, and do not
+substitute dynamic imported database inventory for a frozen reviewed scope.
 
 ## Checks before committing
 

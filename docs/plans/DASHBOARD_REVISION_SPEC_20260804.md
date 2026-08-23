@@ -1,7 +1,7 @@
 # Dashboard Revision Specification
 
 **Date:** 2026-08-04
-**Status:** P2 completion and DR-302 accepted 2026-08-19; DR-303 completed and production-mode accepted 2026-08-20
+**Status:** P2 completion, DR-302, and DR-303 accepted; DR-304 completed and production-mode accepted 2026-08-22
 **Target repository:** `cc-deepseek-bench`
 **Target branch:** `dashboard-revision-scope-and-stale-pages`
 **P2 closeout branch:** `dashboard-p2-completion`

@@ -3,7 +3,7 @@
 **Repository:** `cc-deepseek-bench`
 **Branch:** `dashboard-revision-scope-and-stale-pages`
 **P2 closeout branch:** `dashboard-p2-completion`
-**Status:** Acceptance current through DR-303; latest production manual/visual acceptance passed 2026-08-20
+**Status:** Acceptance current through DR-304; latest production manual/visual acceptance passed 2026-08-22
 **Review type:** Post-merge manual dashboard acceptance and revision tracking
 
 ## Source material
