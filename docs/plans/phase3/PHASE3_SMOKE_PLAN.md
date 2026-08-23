@@ -1,5 +1,11 @@
 # Phase 3 Smoke Plan
 
+> **Historical status — 2026-08-23:** The Phase 3 smoke program
+> is complete historical work. This file preserves the smoke-wave design and
+> provider/runner lessons; it is not current authorization to restart Phase 3
+> smoke or full-sweep execution. Current successor guidance is
+> `docs/guides/PROJECT_HANDOFF_AND_FUTURE_ROADMAP.md`.
+
 Status: planning document for the first Phase 3 smoke wave.
 
 This plan follows the Phase 3 parallelism architecture. Initial smoke runs are deliberately serial and conservative. The full sweep remains blocked until runner-slot parallelism has been implemented and validated.

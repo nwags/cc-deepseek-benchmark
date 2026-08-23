@@ -1,5 +1,10 @@
 # Phase 3 Completion and Operationalization Plan
 
+> **Historical status — 2026-08-23:** Phase 3 is complete and
+> closed. This plan is preserved as implementation/operational provenance and
+> does not describe unfinished current Phase 3 work. Current successor guidance
+> is `docs/guides/PROJECT_HANDOFF_AND_FUTURE_ROADMAP.md`.
+
 ## Purpose
 
 This plan defines the remaining work needed to complete Phase 3 as an auditable, reproducible router-mediated benchmark phase. The goal is to finish the validity/provenance layer, add enough drilldown to investigate anomalous trials from the dashboard, automate ingestion from completed workflow runs through artifact storage and reporting, and only then run the remaining Haiku and Fable arms as end-to-end proof of the operational path.

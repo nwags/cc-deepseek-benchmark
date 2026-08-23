@@ -2,13 +2,22 @@
 
 Command-focused operating guide for the Claude Code backend benchmark repository.
 
-Current active branch:
+Accepted baseline branch:
 
 ```text
-phase3
+main
 ```
 
-Phase 1 and Phase 2 are frozen. Phase 3 is active.
+Phase 1 and Phase 2 are frozen. Phase 3 is complete and closed. Phase 4 is
+planned future work and Phase 5 remains after Phase 4.
+
+Use short-lived feature branches for new work.
+
+Current successor-team guidance begins in:
+
+```text
+docs/guides/README.md
+```
 
 ## 0. Quick status
 
@@ -17,11 +26,14 @@ git branch --show-current
 git status --short
 ```
 
-Expected active branch for current work:
+When beginning new work from the accepted baseline, start from:
 
 ```text
-phase3
+main
 ```
+
+If already on a reviewed feature branch, confirm that the branch and HEAD match
+the intended work before making changes.
 
 ## 1. Install / setup
 
@@ -68,7 +80,7 @@ DEEPSEEK_API_KEY=sk-...
 EOF
 ```
 
-Future Phase 3 providers:
+Additional provider-specific local secret files may include:
 
 ```bash
 cat > .secrets/gemini.env <<'EOF'
@@ -128,10 +140,11 @@ docs/plans/               phase plans
 docs/reference/           glossary, model matrix, task selection
 docs/reports/             phase reports and analysis
 docs/runbooks/            repo operation docs
+docs/guides/              successor research/code/handoff guides
 
 results/phase1/           frozen Phase 1 outputs
 results/phase2/           frozen Phase 2 outputs
-results/phase3/           active Phase 3 outputs
+results/phase3/           closed Phase 3 evidence/reporting
 
 figures/phase1/           Phase 1 figures
 figures/phase2/           Phase 2 figures
@@ -141,6 +154,36 @@ scripts/                  current scripts
 scripts/lib/              shared Python helpers
 scripts/old-scripts/      temporary migration backup
 ```
+
+## 5. Current benchmark execution policy
+
+Phase 3 is closed. Do not use the retained Phase 3 canary, smoke, full-sweep,
+aggregation, publication, or branch commands below as current authorization for
+new benchmark work.
+
+Before any future benchmark execution:
+
+1. start from the accepted `main` baseline using a reviewed feature branch;
+2. define a new phase/suite identity;
+3. follow the research and activation criteria in
+   `docs/guides/PROJECT_HANDOFF_AND_FUTURE_ROADMAP.md`;
+4. use cheap/local integration checks where practical;
+5. use canary and smoke gates before any approved paid full sweep;
+6. preserve frozen Phase 1/2/3 evidence.
+
+For implementation details, use:
+
+    docs/guides/CODEBASE_GUIDE.md
+
+## Historical pre-closeout operating record
+
+> **Historical boundary — 2026-08-23:** Everything below this heading is
+> retained as pre-closeout operating provenance. It records commands, branch
+> practices, migration-era procedures, and Phase 3 execution guidance that were
+> useful while the benchmark phases were being built and run. It is not the
+> current operating contract. Do not execute a historical paid-run, publication,
+> migration, or branch command merely because it appears below. Check the
+> current guides and current implementation first.
 
 ## 5. Task lists
 
@@ -685,9 +728,15 @@ Before dispatching paid runs, check:
 Hosted NVIDIA NIM has been retired from the active Phase 3 plan. Self-hosted NIM and local open-weight model serving remain tabled.
 <!-- phase3-2026-06-12-alignment:end -->
 
-## Branch lifecycle note
+## Historical branch lifecycle context
 
-Phase 3 work lives on `phase3`. `main` is still the frozen Phase 1 baseline except for the narrow default-branch GitHub Actions dispatch wrapper that checks out `phase3`. See `docs/reference/BRANCH_LIFECYCLE.md`.
+During Phase 3 development, the `phase3` branch and `main` had roles that differ
+from the current repository state.
+
+That historical branch model is superseded. The current accepted baseline and
+feature-branch policy are documented above this historical boundary and in:
+
+    docs/guides/PROJECT_HANDOFF_AND_FUTURE_ROADMAP.md
 
 ## Phase 3 smoke run guardrails
 

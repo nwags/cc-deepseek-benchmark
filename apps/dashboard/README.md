@@ -39,8 +39,55 @@ The workstation-local `.run/live` reader is development-only. Set
 `DASHBOARD_LIVE_LOCAL_FALLBACK=true` to use it only when shared live state is
 unavailable.
 
+## Current dashboard role
+
+The dashboard is a read-only research and evidence interface. The primary
+navigation currently contains:
+
+- **Overview** — current reviewed Phase 3 comparison plus clearly separated
+  dynamic inventory evidence.
+- **Architecture** — execution, scoring, live observation, canonical
+  publication, and storage flow.
+- **Data Model** — live, canonical, derived, R2, reviewed-snapshot, and
+  dashboard-consumer layers.
+- **Glossary** — shared benchmark terminology.
+- **Trial Quality** — reviewed failure/trajectory analysis plus operational
+  quality evidence.
+- **Cross-phase** — Phase 1/2 historical comparison with the current reviewed
+  Phase 3 cost layer.
+- **Eval Suites** — suite-level evidence.
+- **Evals** — task/eval comparison with explicit inventory scope.
+- **Runs** — canonical imported run inventory and run detail.
+- **Live Runs** — mutable live execution observation; not canonical truth.
+- **Arms** — imported arm inventory.
+- **Artifacts** — retained artifact inventory and bounded evidence access.
+- **Evidence Review** — manifest-validated frozen comprehensive review.
+- **Planner** — review-first run-plan construction/validation; it does not
+  dispatch benchmark work.
+- **Cost Coverage** — current selected cost alongside historical reviewed
+  accounting/decomposition.
+
+Retired or contained historical routes may still exist for provenance, but they
+are not primary navigation.
+
+For research workflow guidance, use:
+
+```text
+docs/guides/DASHBOARD_RESEARCH_GUIDE.md
+```
+
+For protected server-side dispatch as possible future work, use:
+
+```text
+docs/guides/PROJECT_HANDOFF_AND_FUTURE_ROADMAP.md
+```
+
 <!-- phase3-2026-06-12-alignment:start -->
-## 2026-06-12 dashboard usage alignment
+## Historical 2026-06-12 dashboard usage alignment
+
+> The section below is preserved as historical dashboard/planner planning
+> context. Its navigation names and operating assumptions are not the current
+> primary dashboard contract.
 
 The dashboard should be used as the benchmark operating console:
 
