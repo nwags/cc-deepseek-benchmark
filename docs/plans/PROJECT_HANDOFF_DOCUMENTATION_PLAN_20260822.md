@@ -2,7 +2,7 @@
 
 ## Status
 
-Active documentation and handoff work.
+Complete. Final handoff documentation acceptance recorded 2026-08-23.
 
 This plan begins after completion of the Phase 3 benchmark, the Phase 3
 evidence/review program, the dashboard corrective program through DR-304, and
@@ -501,3 +501,37 @@ oral history:
 
 The documentation should leave the successor team with both confidence and
 productive unanswered research questions.
+
+## Final acceptance record — 2026-08-23
+
+Commit F acceptance reviewed the complete handoff documentation set for:
+
+- terminology and scope consistency;
+- repository references and examples;
+- successor-team usability;
+- current-versus-historical clarity;
+- future-work clarity;
+- frozen-result and reviewed-evidence boundaries.
+
+Acceptance result:
+
+- all 22 final acceptance questions have documentary answer locations;
+- the guide reference audit resolved 124 concrete repository references and
+  three intentional glob references;
+- six presently absent Phase 4/5 paths were confirmed as explicit future output
+  locations rather than broken current references;
+- current cost guidance preserves the DR-304 evidence hierarchy and allocation
+  firewall, with canonical current-reviewed selected totals remaining
+  `$682.961171493867` for Phase 3 core and `$713.775490893867` for Phase 3
+  extended;
+- current and historical operating instructions are explicitly separated;
+- the branch changes no benchmark results, reviewed evidence, figures,
+  configuration, scripts, database migrations, or workflow implementation;
+- acceptance review found and corrected one stale Codebase Guide reference from
+  `scripts/generate_phase3_failure_taxonomy.py` to the canonical
+  `scripts/generate_failure_taxonomy_snapshot.py`.
+
+No benchmark run, provider probe, migration application, Supabase/R2 benchmark
+write, or frozen-result regeneration was part of this documentation acceptance.
+
+The handoff documentation program defined by this plan is accepted as complete.

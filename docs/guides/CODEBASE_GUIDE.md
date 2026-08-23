@@ -172,7 +172,7 @@ changing raw outcomes.
 Primary locations include:
 
     scripts/generate_comprehensive_evidence_review.py
-    scripts/generate_phase3_failure_taxonomy.py
+    scripts/generate_failure_taxonomy_snapshot.py
     scripts/generate_phase3_current_reviewed_comparison.py
     results/manual_verification/
     results/phase3/reporting/
