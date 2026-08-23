@@ -50,6 +50,22 @@ Primary question:
 
 > What should the successor team do next?
 
+## Goal-based starting points
+
+| Goal | Start here |
+|---|---|
+| Discover insights | `docs/guides/DASHBOARD_RESEARCH_GUIDE.md` |
+| Understand the implementation | `docs/guides/CODEBASE_GUIDE.md` |
+| Operate the benchmark | `docs/runbooks/RUNBOOK.md`, then `docs/runbooks/EVAL_OPERATIONS.md` |
+| Inspect retained evidence and artifacts | `docs/guides/DASHBOARD_RESEARCH_GUIDE.md`, `docs/runbooks/ARTIFACT_POLICY.md` |
+| Observe live executions | `docs/runbooks/LIVE_RUN_SUPERVISION.md` |
+| Check contamination controls | `docs/runbooks/BENCHMARK_CONTAMINATION.md` |
+| Understand collaboration practices | `docs/runbooks/COLLABORATION.md` |
+| Understand future work | `docs/guides/PROJECT_HANDOFF_AND_FUTURE_ROADMAP.md` |
+
+Use the specialized runbooks for operational detail rather than treating the
+three broad handoff guides as replacements for those procedures.
+
 ## Current project state
 
 - Phase 1: complete and frozen.

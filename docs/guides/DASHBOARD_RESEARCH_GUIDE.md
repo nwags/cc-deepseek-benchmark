@@ -1811,8 +1811,8 @@ Read:
 - artifact provenance/content reader;
 - R2 bounded-preview logic.
 
-The future Codebase Guide expands this approach into a complete
-implementation map.
+The Codebase Guide expands this approach into a complete implementation
+map.
 
 ## Suggested first-week research program
 
@@ -2091,9 +2091,9 @@ For historical dashboard requirements and acceptance:
     docs/plans/DASHBOARD_REVISION_SPEC_20260804.md
     docs/reviews/DASHBOARD_MANUAL_REVIEW_20260804.md
 
-Some older operational documents still contain historical Phase 3 wording.
-The project-handoff documentation program will synchronize those current-status
-statements separately without rewriting their historical record.
+Some older operational documents retain historical Phase 3 wording.
+Current-facing status notices added by the handoff documentation program mark
+those sections historical without rewriting their historical record.
 
 ## Guide maintenance rules
 

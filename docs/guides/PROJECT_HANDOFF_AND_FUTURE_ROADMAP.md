@@ -382,7 +382,8 @@ Do not parse runner display names for routing logic.
 The current VPS arrangement is funded and expected to remain available through
 **December 2026**.
 
-There is no need to redesign the runner fleet during this handoff branch.
+There is no need to redesign the runner fleet solely because ownership is
+changing.
 
 Before that infrastructure horizon is reached, the successor team should
 decide whether to:
@@ -504,8 +505,8 @@ Treat those instructions as historical implementation provenance.
 Current-state documentation should not instruct a new operator to apply
 migration 009 again.
 
-The documentation synchronization stage of this handoff program should make
-that distinction explicit.
+The synchronized live-supervision runbook now makes that distinction
+explicit.
 
 ### Closed Phase 3 publication
 
@@ -702,7 +703,7 @@ Phase 4 is the next planned benchmark phase.
 It should begin **after** the successor team has completed initial handoff
 orientation and existing-corpus research.
 
-It should not begin on this documentation branch.
+This handoff does not activate Phase 4.
 
 ### Phase 4 research question
 
@@ -1667,7 +1668,7 @@ Current-state readers should prefer:
 
 plus later closeout/review documents.
 
-The handoff synchronization commit will add explicit historical/superseded
+The handoff synchronization work added explicit historical/superseded
 status notices where necessary.
 
 ## Infrastructure risk register

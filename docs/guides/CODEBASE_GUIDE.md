@@ -239,11 +239,11 @@ Important helpers include:
 
 Some checked-in Phase 3 configuration text still describes Phase 3 as active.
 
-That wording is historical/stale project-state documentation, not evidence that
+That wording is retained historical configuration context, not evidence that
 Phase 3 should now be reopened.
 
-The project-handoff documentation branch separately synchronizes those status
-statements.
+Current-facing guides and runbooks explicitly mark Phase 3 closed; the
+historical configuration itself is intentionally preserved.
 
 Do not infer current project phase from one old config description.
 
@@ -1986,7 +1986,8 @@ Future implementation should preserve:
 - publication/ingestion status;
 - no browser-side secret.
 
-This belongs to future platform work, not this documentation branch.
+This remains future platform work and is not part of the completed
+handoff.
 
 ## Debugging playbook
 
