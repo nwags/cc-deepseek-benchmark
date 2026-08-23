@@ -2,6 +2,20 @@
 
 Polished read-only dashboard for Claude Code backend benchmark results.
 
+## Required onboarding entry point
+
+If you are a new team member, do not use this dashboard README or the Overview
+page as a substitute for project onboarding.
+
+Start with the required hand-off/onboarding index:
+
+`docs/guides/README.md`
+
+That checklist requires review of all 15 principal dashboard surfaces, all
+three primary handoff guides, and the evidence-tracing exercises. If dashboard
+access or required credentials are unavailable, record and resolve that as an
+onboarding blocker rather than silently skipping dashboard review.
+
 ## Local setup
 
 Copy the example env file:

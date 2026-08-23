@@ -8,7 +8,99 @@ Current active branch:
 main
 ```
 
-`main` is active again after the Phase 3 closeout merge. Phase 1 and Phase 2 remain frozen benchmark baselines. Phase 3 and post-Phase-3 addendum outputs are preserved under phase-specific result and report paths.
+`main` is active again after the Phase 3 closeout and hand-off merges. Phase 1 and Phase 2 remain frozen benchmark baselines. Phase 3 and post-Phase-3 addendum outputs are preserved under phase-specific result and report paths.
+
+## New team members: REQUIRED hand-off onboarding
+
+> **If you are joining, taking over, supervising, or contributing to this
+> project for the first time, complete the hand-off onboarding before beginning
+> substantive project work.**
+
+**Reading this root README alone is not sufficient onboarding.**
+
+The required starting point is:
+
+**[`docs/guides/README.md`](docs/guides/README.md) - required hand-off and onboarding index**
+
+That index contains the required reading order, dashboard access instructions,
+complete dashboard walkthrough, evidence-tracing exercises, project-state
+boundaries, and completion criteria.
+
+Every incoming team member is expected to review the three primary guides in
+this order:
+
+1. **[Dashboard Research Guide](docs/guides/DASHBOARD_RESEARCH_GUIDE.md)**
+   Learn what evidence already exists, what every dashboard surface means, how
+   scopes differ, and how to investigate results before proposing new runs.
+
+2. **[Codebase Guide](docs/guides/CODEBASE_GUIDE.md)**
+   Learn how execution, publication, live supervision, reviewed snapshots,
+   Supabase/R2, dashboard loaders, validation, and provenance boundaries fit
+   together.
+
+3. **[Project Handoff and Future Roadmap](docs/guides/PROJECT_HANDOFF_AND_FUTURE_ROADMAP.md)**
+   Learn the current project state, successor-team priorities, infrastructure
+   horizon, deferred work, and the conditions for eventually activating
+   Phase 4 and Phase 5.
+
+PDF convenience snapshots are stored beside the authoritative Markdown:
+
+- [Dashboard Research Guide PDF](docs/guides/DASHBOARD_RESEARCH_GUIDE.pdf)
+- [Codebase Guide PDF](docs/guides/CODEBASE_GUIDE.pdf)
+- [Project Handoff and Future Roadmap PDF](docs/guides/PROJECT_HANDOFF_AND_FUTURE_ROADMAP.pdf)
+
+**The Markdown files are authoritative.** The PDFs are generated convenience
+snapshots for reading, sharing, or offline review. If a PDF and Markdown file
+ever disagree, use the Markdown file.
+
+### Dashboard review is REQUIRED
+
+A request to **"review the dashboard" means review the whole dashboard**, not
+only the Overview page or only the pages that initially appear relevant.
+
+Incoming team members are expected to open and inspect all 15 principal
+dashboard surfaces:
+
+`Overview`, `Architecture`, `Data Model`, `Glossary`, `Trial Quality`,
+`Cross-phase`, `Eval Suites`, `Evals`, `Runs`, `Live Runs`, `Arms`,
+`Artifacts`, `Evidence Review`, `Planner`, and `Cost Coverage`.
+
+The detailed required walkthrough and the minimum question each page should
+answer are in `docs/guides/README.md` and the Dashboard Research Guide.
+
+Dashboard access/setup instructions are in:
+
+- [`apps/dashboard/README.md`](apps/dashboard/README.md)
+- `docs/guides/README.md`
+
+If a shared dashboard URL has been provided to the team, use it. Otherwise,
+follow the documented local setup. If required dashboard access or
+`SUPABASE_DB_URL` is unavailable, request access rather than silently skipping
+the dashboard review.
+
+If a dashboard surface cannot be accessed, is unclear, or appears inconsistent
+with the guides, **record the problem and ask about it; do not silently skip
+the page and treat onboarding as complete.**
+
+### What onboarding does not authorize
+
+Completing onboarding does **not** authorize a new paid sweep, Phase 4,
+provider probes, protected dashboard dispatch, migration reapplication,
+Supabase/R2 benchmark writes, runner-topology redesign, or modification of
+frozen/reviewed benchmark evidence.
+
+The intended order is:
+
+    read the hand-off guides
+      -> obtain dashboard access
+      -> review the complete dashboard
+      -> inspect existing evidence
+      -> reproduce evidence traces
+      -> identify research questions
+      -> propose targeted work
+      -> activate new experiments only when justified
+
+Do not begin with a broad refactor or a new paid benchmark run.
 
 ## Project question
 
@@ -436,6 +528,7 @@ cc-deepseek-bench/
     tasks/
 
   docs/
+    guides/      # required hand-off and successor-team onboarding
     plans/
     reference/
     reports/
@@ -473,17 +566,34 @@ cc-deepseek-bench/
     phase5/
 ```
 
-## Collaboration docs
+## Collaboration and hand-off docs
 
-Start here:
+**New team members must start with the hand-off guide index before using the
+operational runbooks as their primary orientation:**
 
-```text
-AGENTS.md
-docs/runbooks/RUNBOOK.md
-docs/runbooks/COLLABORATION.md
-docs/runbooks/ARTIFACT_POLICY.md
-docs/runbooks/REPO_MAP.md
-```
+    docs/guides/README.md
+
+Required hand-off reading:
+
+    docs/guides/DASHBOARD_RESEARCH_GUIDE.md
+    docs/guides/CODEBASE_GUIDE.md
+    docs/guides/PROJECT_HANDOFF_AND_FUTURE_ROADMAP.md
+
+Then use the collaboration and operational references appropriate to the work:
+
+    AGENTS.md
+    apps/dashboard/README.md
+    docs/runbooks/RUNBOOK.md
+    docs/runbooks/COLLABORATION.md
+    docs/runbooks/ARTIFACT_POLICY.md
+    docs/runbooks/EVAL_OPERATIONS.md
+    docs/runbooks/LIVE_RUN_SUPERVISION.md
+    docs/runbooks/BENCHMARK_CONTAMINATION.md
+    docs/runbooks/REPO_MAP.md
+
+Do not substitute one old plan, one runbook, or one dashboard page for the
+required hand-off sequence. Historical documents are intentionally retained in
+the repository and may describe project state that has since changed.
 
 ## Notes for contributors
 
