@@ -151,15 +151,54 @@ function selectedMetricQualification(
       "historical adjusted-cost evidence retained separately",
     ].join("; ");
   }
+
+  if (
+    arm.selectedCostBasis
+      === "provider_rate_reconstructed_retained_usage"
+  ) {
+    return [
+      "Exact provider-rate reconstruction from verified retained usage",
+      "provider invoice unavailable",
+    ].join("; ");
+  }
+
+  if (
+    arm.selectedCostBasis
+      === "provider_rate_reconstructed_retained_usage_lower_bound"
+  ) {
+    return [
+      "Lower-bound provider-rate reconstruction from verified retained usage",
+      "possible additional exception-path spend is not quantified",
+    ].join("; ");
+  }
+
+  if (
+    arm.selectedCostBasis
+      === "provider_rate_reconstructed_selected_run"
+  ) {
+    return [
+      "Estimated selected-run provider-rate reconstruction",
+      "same-day provider aggregate cross-check is not run-isolated",
+    ].join("; ");
+  }
+
   if (
     arm.selectedCostBasis
       === "qualified_retained_rate_estimate"
   ) {
     return [
-      "Uses the current reviewed qualified retained-rate estimate",
+      "Historical reviewed fallback using the qualified retained-rate estimate",
       "not adjusted-known or provider-billed cost",
     ].join("; ");
   }
+
+  if (arm.selectedCostRelation === "historical_fallback") {
+    return [
+      "Historical reviewed adjusted-known fallback",
+      "current provider-family reconciliation is unavailable",
+    ].join("; ");
+  }
+
   return null;
 }
 
@@ -207,7 +246,10 @@ function failureIncompleteSpendForArm(
   const outcomeEvidence =
     getCurrentSelectedOutcomeCostEvidence(arm);
 
-  if (outcomeEvidence.status !== "available") {
+  if (
+    outcomeEvidence.status === "unavailable"
+    || outcomeEvidence.status === "unavailable_provider_aggregate"
+  ) {
     const reason =
       outcomeEvidence.status
         === "unavailable_provider_aggregate"
@@ -223,15 +265,27 @@ function failureIncompleteSpendForArm(
     });
   }
 
+  const failureOrIncompleteCostUsd =
+    outcomeEvidence.adjustedFailureOrIncompleteCostUsd;
+  const evidenceBasis = outcomeEvidence.evidenceBasis;
+
+  if (
+    failureOrIncompleteCostUsd === null
+    || evidenceBasis === null
+  ) {
+    throw new Error(
+      `${arm.armId} available current outcome evidence is incomplete`,
+    );
+  }
+
   return Object.freeze({
     status: "available",
-    decimalUsd:
-      outcomeEvidence.adjustedFailureOrIncompleteCostUsd,
+    decimalUsd: failureOrIncompleteCostUsd,
     value: decimalNumber(
-      outcomeEvidence.adjustedFailureOrIncompleteCostUsd,
+      failureOrIncompleteCostUsd,
       `${arm.armId} failure/incomplete spend`,
     ),
-    evidenceBasis: "reviewed_adjusted_outcome_cost",
+    evidenceBasis,
   });
 }
 
@@ -248,57 +302,147 @@ function qualificationForArm(
       "historical benchmark cost evidence retained separately",
     ].join("; ");
   }
+
   if (
     arm.selectedCostBasis
-      !== "qualified_retained_rate_estimate"
+      === "provider_rate_reconstructed_retained_usage"
   ) {
-    return null;
+    return [
+      "Exact provider-rate reconstruction from verified retained usage",
+      "provider invoice unavailable",
+      "current trial and outcome allocation available",
+    ].join("; ");
   }
-  const qualifications = [
-    "Qualified retained-rate estimate",
-    "pricing-source provenance incomplete",
-    "arm-run/provider-log allocation confidence low",
-    "trial allocation unresolved",
-    "not invoice-level or provider-billed spend",
-  ];
-  if (selection.providerLogAllocationQualification?.providerLogExclusivityStatus === "not_proven") {
-    qualifications.splice(4, 0, "provider-log exclusivity not proven");
+
+  if (
+    arm.selectedCostBasis
+      === "provider_rate_reconstructed_retained_usage_lower_bound"
+  ) {
+    return [
+      "Lower-bound provider-rate reconstruction from verified retained usage",
+      "known retained spend is allocated",
+      "possible additional exception-path spend remains unquantified",
+    ].join("; ");
   }
-  return qualifications.join("; ");
+
+  if (
+    arm.selectedCostBasis
+      === "provider_rate_reconstructed_selected_run"
+  ) {
+    return [
+      "Estimated selected-run provider-rate reconstruction",
+      "same-day provider aggregate cross-check is not run-isolated",
+      "same-day provider excess is context only and is not added to selected cost",
+    ].join("; ");
+  }
+
+  if (
+    arm.selectedCostBasis
+      === "qualified_retained_rate_estimate"
+  ) {
+    const qualifications = [
+      "Historical reviewed fallback",
+      "Qualified retained-rate estimate",
+      "pricing-source provenance incomplete",
+      "arm-run/provider-log allocation confidence low",
+      "trial allocation unresolved",
+      "not invoice-level or provider-billed spend",
+    ];
+
+    if (
+      selection.providerLogAllocationQualification
+        ?.providerLogExclusivityStatus === "not_proven"
+    ) {
+      qualifications.splice(
+        5,
+        0,
+        "provider-log exclusivity not proven",
+      );
+    }
+
+    return qualifications.join("; ");
+  }
+
+  if (arm.selectedCostRelation === "historical_fallback") {
+    return [
+      "Historical reviewed fallback",
+      "current provider-family reconciliation is unavailable",
+      "historical outcome allocation remains historical evidence",
+    ].join("; ");
+  }
+
+  return null;
 }
 
-function armDetailHref(armId: string): string {
-  const params = new URLSearchParams({ arm_id: armId });
+function armDetailHref(
+  armId: string,
+): string {
+  const params = new URLSearchParams({
+    arm_id: armId,
+  });
   return `/trial-quality?${params.toString()}`;
 }
 
 function assertMatchingReviewedInputs(
   scope: CurrentReviewedPhase3Scope,
   runSelectionScope: ReviewedRunSelectionScope,
-): Map<string, ReviewedRunSelectionScope["selections"][number]> {
+): Map<
+  string,
+  ReviewedRunSelectionScope["selections"][number]
+> {
   if (scope.scopeId !== runSelectionScope.scopeId) {
-    throw new Error("F1 chart scope and G1 run-selection scope do not match");
+    throw new Error(
+      "F1 chart scope and G1 run-selection scope do not match",
+    );
   }
-  const selections = new Map<string, ReviewedRunSelectionScope["selections"][number]>();
+
+  const selections = new Map<
+    string,
+    ReviewedRunSelectionScope["selections"][number]
+  >();
   const labels = new Set<string>();
+
   for (const selection of runSelectionScope.selections) {
     if (selections.has(selection.armId)) {
-      throw new Error(`G1 has more than one selected run for ${selection.armId}`);
+      throw new Error(
+        `G1 has more than one selected run for ${selection.armId}`,
+      );
     }
+
     if (labels.has(selection.selectedRunLabel)) {
-      throw new Error(`G1 selected run label is duplicated: ${selection.selectedRunLabel}`);
+      throw new Error(
+        `G1 selected run label is duplicated: ${selection.selectedRunLabel}`,
+      );
     }
-    selections.set(selection.armId, selection);
+
+    selections.set(
+      selection.armId,
+      selection,
+    );
     labels.add(selection.selectedRunLabel);
   }
-  const armIds = new Set(scope.arms.map((arm) => arm.armId));
-  if (scope.arms.length !== scope.armCount
-    || runSelectionScope.selections.length !== runSelectionScope.selectedRunCount
-    || scope.armCount !== runSelectionScope.selectedRunCount
-    || scope.trialCount !== runSelectionScope.trialCount
-    || [...selections].some(([armId]) => !armIds.has(armId))) {
-    throw new Error("F1 chart arms and G1 selected-run membership disagree");
+
+  const armIds = new Set(
+    scope.arms.map((arm) => arm.armId),
+  );
+
+  if (
+    scope.arms.length !== scope.armCount
+    || runSelectionScope.selections.length
+      !== runSelectionScope.selectedRunCount
+    || scope.armCount
+      !== runSelectionScope.selectedRunCount
+    || scope.trialCount
+      !== runSelectionScope.trialCount
+    || [...selections].some(
+      ([armId]) => !armIds.has(armId),
+    )
+  ) {
+    throw new Error(
+      "F1 chart arms and G1 selected-run membership disagree",
+    );
   }
+
   return selections;
 }
 
@@ -324,12 +468,12 @@ export function buildCostPerformanceChartArms(
       throw new Error(`F1/G1 trial counts disagree for ${arm.armId}`);
     }
     if (
-      arm.providerSelectedRunLabel !== null
-      && arm.providerSelectedRunLabel
+      arm.currentSelectedRunLabel !== null
+      && arm.currentSelectedRunLabel
         !== selection.selectedRunLabel
     ) {
       throw new Error(
-        `Provider billing run and G1 selected run disagree for ${arm.armId}`,
+        `Current reconciliation run and G1 selected run disagree for ${arm.armId}`,
       );
     }
 
@@ -366,6 +510,8 @@ export function buildCostPerformanceChartArms(
       cleanSuccessCount: arm.cleanSuccessCount,
       recordedCostUsd: arm.recordedCostUsd,
       selectedCostUsd: arm.selectedCostUsd,
+      selectedCostRelation: arm.selectedCostRelation,
+      selectedEfficiencyRelation: arm.selectedEfficiencyRelation,
       historicalReviewedCostUsd: arm.historicalReviewedCostUsd,
       providerBilledCostUsd: arm.providerBilledCostUsd,
       reviewedComparableCostUsd: reviewedComparableCost(arm),
@@ -379,7 +525,16 @@ export function buildCostPerformanceChartArms(
           : arm.selectedCostBasis
               === "qualified_retained_rate_estimate"
             ? "Qualified retained-rate estimate"
-            : "Adjusted known cost",
+            : arm.selectedCostBasis
+                === "provider_rate_reconstructed_retained_usage"
+              ? "Provider-rate reconstructed retained usage"
+              : arm.selectedCostBasis
+                  === "provider_rate_reconstructed_retained_usage_lower_bound"
+                ? "Provider-rate retained-usage lower bound"
+                : arm.selectedCostBasis
+                    === "provider_rate_reconstructed_selected_run"
+                  ? "Provider-rate reconstructed selected-run estimate"
+                  : "Adjusted known cost",
       costSources: Object.freeze(
         arm.selectedCostBasis === "provider_billed"
           ? ["sanitized_provider_billing_reconciliation"]
@@ -393,7 +548,7 @@ export function buildCostPerformanceChartArms(
         arm.selectedTrialCostAllocationStatus,
       billingReconciliationStatus:
         arm.providerBillingReconciliationStatus,
-      providerSelectedRunLabel: arm.providerSelectedRunLabel,
+      currentSelectedRunLabel: arm.currentSelectedRunLabel,
       providerLogExclusivityStatus:
         selection.providerLogAllocationQualification?.providerLogExclusivityStatus ?? null,
       accountingGapUsd: arm.accountingGapUsd,

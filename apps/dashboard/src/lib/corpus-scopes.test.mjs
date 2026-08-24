@@ -39,7 +39,7 @@ const { PHASE3_REVIEWED_COMPARISON } =
 const currentGeneratedSource = await readFile(
   resolve(
     here,
-    "../generated/phase3-current-reviewed-comparison-data.ts",
+    "../generated/phase3-current-reviewed-comparison-data-v3.ts",
   ),
   "utf8",
 );
@@ -53,7 +53,7 @@ const currentLoaderSource = (
   )
 )
   .replace(
-    '"../generated/phase3-current-reviewed-comparison-data"',
+    '"../generated/phase3-current-reviewed-comparison-data-v3"',
     `"${currentGeneratedModuleUrl}"`,
   )
   .replace(
@@ -113,18 +113,18 @@ test("fixed core and extended scopes retain reviewed counts and Kimi K3 boundari
   const extended = getCorpusScope("phase3-extended");
   assert.deepEqual(core.expectedCounts, { armCount: 15, trialCount: 900, successCount: 515 });
   assert.equal(Object.isFrozen(core.expectedCounts), true);
-  assert.equal(core.selectedCostUsd, 682.961171493867);
+  assert.equal(core.selectedCostUsd, 510.405678806867);
   assert.equal(core.historicalReviewedCostUsd, 972.169845489198);
   assert.equal(
     core.selectedCostBasis,
     "mixed_best_available_arm_evidence",
   );
-  assert.equal(core.providerReconciledArmCount, 2);
-  assert.equal(core.providerReconciledCostUsd, 78.3968475);
-  assert.equal(core.currentCostReviewedAt, "2026-08-21");
+  assert.equal(core.currentReconciledArmCount, 8);
+  assert.equal(core.currentReconciledCostUsd, 251.5579261372);
+  assert.equal(core.currentCostReviewedAt, "2026-08-24");
   assert.match(
     core.selectedCostDescription,
-    /provider-billed reconciliation/,
+    /current generalized reconciliation/,
   );
 
   assert.equal(core.adjustedKnownCostUsd, 972.169845489198);
@@ -137,7 +137,7 @@ test("fixed core and extended scopes retain reviewed counts and Kimi K3 boundari
   assert.deepEqual(extended.expectedCounts, { armCount: 16, trialCount: 960, successCount: 562 });
   assert.equal(Object.isFrozen(extended.expectedCounts), true);
   assert.equal(extended.comparisonValid, true);
-  assert.equal(extended.selectedCostUsd, 713.775490893867);
+  assert.equal(extended.selectedCostUsd, 541.219998206867);
   assert.equal(
     extended.historicalReviewedCostUsd,
     1002.984164889198,
@@ -146,12 +146,12 @@ test("fixed core and extended scopes retain reviewed counts and Kimi K3 boundari
     extended.selectedCostBasis,
     "mixed_best_available_arm_evidence",
   );
-  assert.equal(extended.providerReconciledArmCount, 2);
-  assert.equal(extended.providerReconciledCostUsd, 78.3968475);
-  assert.equal(extended.currentCostReviewedAt, "2026-08-21");
+  assert.equal(extended.currentReconciledArmCount, 8);
+  assert.equal(extended.currentReconciledCostUsd, 251.5579261372);
+  assert.equal(extended.currentCostReviewedAt, "2026-08-24");
   assert.match(
     extended.selectedCostDescription,
-    /provider aggregates are not redistributed/,
+    /Provider aggregates are not redistributed/,
   );
 
   assert.equal(extended.adjustedKnownCostUsd, null);
@@ -194,13 +194,13 @@ test("fixed registry facts must agree with the validated reviewed comparison", (
       current.selectedCostEvidence.selectedCostBasis,
     );
     assert.equal(
-      registry.providerReconciledArmCount,
-      current.selectedCostEvidence.providerReconciledArmCount,
+      registry.currentReconciledArmCount,
+      current.selectedCostEvidence.currentReconciledArmCount,
     );
     assert.equal(
-      registry.providerReconciledCostUsd,
+      registry.currentReconciledCostUsd,
       Number(
-        current.selectedCostEvidence.providerReconciledCostUsd,
+        current.selectedCostEvidence.currentReconciledCostUsd,
       ),
     );
     assert.equal(
@@ -231,8 +231,8 @@ test("dynamic imported scopes fabricate no fixed totals or comparison validity",
     assert.equal(scope.selectedCostUsd, null);
     assert.equal(scope.historicalReviewedCostUsd, null);
     assert.equal(scope.selectedCostBasis, null);
-    assert.equal(scope.providerReconciledArmCount, null);
-    assert.equal(scope.providerReconciledCostUsd, null);
+    assert.equal(scope.currentReconciledArmCount, null);
+    assert.equal(scope.currentReconciledCostUsd, null);
     assert.equal(scope.currentCostReviewedAt, null);
     assert.equal(scope.selectedCostDescription, null);
     assert.equal(scope.adjustedKnownCostUsd, null);

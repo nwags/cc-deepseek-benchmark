@@ -13,7 +13,7 @@ const snapshot = JSON.parse(
   await readFile(
     resolve(
       here,
-      "../../../../results/phase3/reporting/phase3_current_reviewed_comparison_20260821.json",
+      "../../../../results/phase3/reporting/phase3_current_reviewed_comparison_20260824.json",
     ),
     "utf8",
   ),
@@ -149,6 +149,14 @@ test(
       "provider_billed",
     );
     assert.equal(
+      gpt54.comparison_cost_relation,
+      "exact",
+    );
+    assert.equal(
+      gpt54.comparison_efficiency_relation,
+      "exact",
+    );
+    assert.equal(
       gpt54.provider_billing_reconciliation_status,
       "exact_arm_total",
     );
@@ -211,6 +219,14 @@ test(
       kimi.comparison_cost_basis,
       "qualified_retained_rate_estimate",
     );
+    assert.equal(
+      kimi.comparison_cost_relation,
+      "historical_fallback",
+    );
+    assert.equal(
+      kimi.comparison_efficiency_relation,
+      "historical_fallback",
+    );
 
     assert.equal(
       kimi.historical_reviewed_cost_usd,
@@ -260,7 +276,7 @@ test(
 
     assert.equal(
       extendedSummary.comparison_cost_usd,
-      713.775490893867,
+      541.219998206867,
     );
     assert.equal(
       extendedSummary.historical_reviewed_cost_usd,
@@ -269,6 +285,10 @@ test(
     assert.equal(
       extendedSummary.comparison_cost_basis,
       "mixed_best_available_arm_evidence",
+    );
+    assert.equal(
+      extendedSummary.comparison_cost_label,
+      "Mixed best-supported arm sum",
     );
 
     const extendedCleanSuccesses =
@@ -281,7 +301,7 @@ test(
     assert.equal(
       extendedSummary
         .comparison_cost_per_clean_success_usd,
-      713.775490893867
+      541.219998206867
         / extendedCleanSuccesses,
     );
 
@@ -311,7 +331,7 @@ test(
 
     assert.equal(
       coreSummary.comparison_cost_usd,
-      682.961171493867,
+      510.405678806867,
     );
     assert.equal(
       coreSummary.historical_reviewed_cost_usd,

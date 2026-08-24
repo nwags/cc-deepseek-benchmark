@@ -111,7 +111,10 @@ At handoff:
 - the J2 failure/trajectory taxonomy is frozen;
 - DR-302 failure composition is implemented;
 - DR-303 historical spend decomposition is implemented;
-- DR-304 provider-aware current selected cost is implemented;
+- DR-304's OpenAI-aware current selected-cost layer is implemented;
+- subsequent provider-evidence review identified broader Phase 3
+  provider-family reconciliation as incomplete, so non-OpenAI current costs
+  must not be assumed provider-reconciled solely because DR-304 exists;
 - historical and current cost layers remain separately visible;
 - live supervision exists;
 - final canonical publication exists;
@@ -695,6 +698,116 @@ High-value examples might include:
 Do not add visualizations merely because another chart fits.
 
 Ask what decision or research question it improves.
+
+## Provider evidence and cost-reconciliation capability
+
+The Phase 3 cost review exposed an important reusable platform requirement:
+benchmark-reported cost must be independently checkable against provider-side
+evidence.
+
+This is especially important for router-mediated experiments. A routing alias
+such as `router-*` is an experiment identity, not necessarily a provider
+pricing identity. The platform should preserve both the routing alias and the
+canonical backend/provider model used for pricing and reconciliation.
+
+Future cost-accounting work should support a normalized provider-evidence
+workflow that can:
+
+- ingest sanitized provider usage exports, billing detail, request logs, or
+  other provider-side evidence;
+- retain provider family, canonical provider model, selected run identity,
+  provider activity window, and evidence scope separately;
+- map custom router aliases to canonical backend/provider model identities
+  before applying any pricing table;
+- compare harness-recorded or reconstructed cost against provider evidence;
+- report absolute and percentage disagreement rather than silently replacing
+  one value with another;
+- distinguish exact run/arm provider billing from provider-rate reconstructed
+  selected-run cost, day/family aggregates, month/service aggregates,
+  pricing-derived estimates, and internal-only estimates;
+- record the pricing snapshot and cache-hit/cache-miss semantics used for any
+  reconstructed cost;
+- preserve superseded historical cost values as provenance instead of
+  rewriting frozen evidence;
+- record whether current selected cost is allocatable to individual trials and
+  outcome buckets;
+- expose any provider-side amount that cannot be allocated to a selected run
+  as an explicit unallocated/provider-only difference;
+- keep raw API keys, provider identifiers, and raw sensitive provider exports
+  outside version control while committing sanitized normalized evidence;
+- generate machine-readable reconciliation records suitable for dashboard,
+  report, and cross-phase use.
+
+A future dashboard/provider-evidence view should make it easy to inspect, for
+each arm:
+
+    selected run
+      -> router alias
+      -> canonical backend/provider model
+      -> benchmark estimated cost
+      -> provider evidence
+      -> selected current cost
+      -> absolute / relative discrepancy
+      -> trial allocation status
+      -> outcome allocation status
+
+The Cost Coverage page should surface the evidence class alongside the dollar
+amount. A cost should not appear equally authoritative when one arm has an
+exact provider-billed total and another has only an internal estimate.
+
+### Cost-decomposition rule
+
+Bar length and bar segmentation answer different questions.
+
+- Bar length should use the best-supported current selected cost.
+- Colored outcome segments should be shown only when that current cost can be
+  defensibly allocated to trial/outcome evidence.
+- Exact provider totals without valid trial allocation should remain visibly
+  aggregate rather than inheriting historical outcome proportions.
+- Provider-rate reconstructed selected-run costs may use colored outcome
+  segments when the underlying token/accounting evidence supports that
+  allocation.
+- Any provider-only residual should remain explicit rather than being
+  proportionally redistributed across outcomes.
+
+### Reconciliation regression protection
+
+Future tests should specifically guard against cost-accounting failures caused
+by compatibility layers or custom routing identities.
+
+At minimum, tests should verify that:
+
+- a `router-*` alias is never assumed to be the provider pricing model;
+- the canonical observed/backend model is retained independently;
+- one benchmark arm may contain multiple cost-bearing provider models, and
+  their model composition must be preserved rather than collapsed to one
+  pricing identity;
+- cache tokens are not silently priced as ordinary uncached input;
+- provider evidence can supersede a benchmark estimate without modifying the
+  frozen historical value;
+- aggregate provider evidence is not falsely allocated to trials;
+- reconciliation status and evidence scope survive dashboard/report
+  generation.
+
+### Future-experiment requirement
+
+For Phase 4 and later paid experiments, provider evidence should be planned
+before the full sweep rather than reconstructed months afterward.
+
+Before execution, record:
+
+- provider/account family;
+- canonical model identity or ordered set of cost-bearing provider models;
+- expected pricing and cache semantics;
+- expected provider evidence source;
+- whether provider export/request detail can identify the experiment.
+
+After canary, smoke, and full execution, compare available provider evidence
+against benchmark accounting and record the reconciliation status.
+
+This requirement does not mean every provider must expose perfect run-level
+billing. It means the evidence limitation must be known and represented rather
+than hidden behind a single cost number.
 
 ## Phase 4
 

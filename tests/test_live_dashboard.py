@@ -599,16 +599,17 @@ def test_comparative_pages_disclose_their_distinct_corpus_scopes() -> None:
 
     assert "getCurrentReviewedPhase3Scope" in cost
     assert "PHASE3_CURRENT_REVIEWED_COMPARISON" in cost
-    assert "phase3_current_reviewed_comparison_20260821.json" in cost
+    assert "phase3_current_reviewed_comparison_20260824.json" in cost
     assert 'costPresentation="current_and_historical"' in cost
 
     assert 'costPresentation="current_and_historical"' in cross_phase
     assert "PHASE3_CURRENT_REVIEWED_COMPARISON" in cross_phase
-    assert "phase3_current_reviewed_comparison_20260821.json" in cross_phase
+    assert "phase3_current_reviewed_comparison_20260824.json" in cross_phase
 
     assert "getCrossPhaseRows(selectedScope)" in cross_phase
     assert "getPhaseSummaries(rows, selectedScope)" in cross_phase
-    assert "current-reviewed 2026-08-21 selected-cost layer" in cross_phase
+    assert "PHASE3_CURRENT_REVIEWED_COMPARISON.reviewedAt" in cross_phase
+    assert "current-reviewed selected-cost layer" in cross_phase
     assert "Provider-billed aggregate totals" in cross_phase
     assert "are not redistributed across trials or outcomes" in cross_phase
     assert "frozen historical adjusted-cost ratios" in cross_phase
@@ -638,9 +639,13 @@ def test_comparative_pages_disclose_their_distinct_corpus_scopes() -> None:
     assert "currentScope.selectedCostEvidence.selectedCostUsd" in cost
     assert "currentScope.selectedCostEvidence.historicalReviewedArmSumCostUsd" in cost
     assert "Current selected cost" in cost
-    assert "Historical reviewed arm-sum cost" in cost
+    assert "Historical reviewed arm-sum:" in cost
     assert "Historical DR-303 spend decomposition" in cost
-    assert "not redistributed into these trial or outcome buckets" in cost
+    assert (
+        "Exact provider-billed corrections are not redistributed into "
+        "historical trial or outcome buckets."
+        in " ".join(cost.split())
+    )
     assert "Historical outcome-cost breakdown" in cost
     assert "getAdjustedCostOverview" not in cost
     assert "getAdjustedCostArmRows" not in cost
@@ -648,7 +653,7 @@ def test_comparative_pages_disclose_their_distinct_corpus_scopes() -> None:
     assert "Phase 3 extended qualified adjusted-cost estimate" in Path(
         "apps/dashboard/src/generated/phase3-reviewed-comparison-data.ts"
     ).read_text()
-    assert "Qualified retained-rate reconstruction" in cost
+    assert "historical qualified retained-rate reconstruction" in cost
     assert "Pricing-source provenance incomplete" in cost
     assert "arm-run/provider-log allocation confidence low" in cost
     assert "trial-level allocation unresolved" in cost
@@ -851,7 +856,7 @@ def test_cost_performance_chart_foundation_uses_current_reviewed_cost_and_frozen
     assert "getCurrentSelectedOutcomeCostEvidence" in model
     assert "getCurrentSelectedOutcomeCostEvidence(arm)" in model
     assert '"unavailable_provider_aggregate"' in model
-    assert "arm.providerSelectedRunLabel" in model
+    assert "arm.currentSelectedRunLabel" in model
     assert "historical adjusted outcome spend is not reallocated" in model
     assert "not adjusted-known or provider-billed cost" in model
     assert 'export * from "./cost-performance-chart-view"' in model
@@ -1022,7 +1027,7 @@ def test_dr013_omits_only_meaningless_secondary_arm_labels_and_aligns_runner_bod
     assert '<div className="muted mono">{arm.armId}</div>' in cost
     assert '<div className="muted">{providerLabel} · {routingLabel}</div>' in cost
     assert 'if (value === null) return "Unavailable";' in cost
-    assert 'value === null ? "Unavailable" : formatPercent(value)' in cost
+    assert "formatPercent(arm.passRate)" in cost
     assert "Unavailable —" in table
 
     assert 'className="runner-fleet-body"' in runners
@@ -1102,8 +1107,8 @@ def test_overview_has_population_specific_freshness_and_snapshot_provenance() ->
         assert relation in sources
     assert "PHASE3_CURRENT_REVIEWED_COMPARISON.reviewedAt" in sources
     assert "PHASE3_REVIEWED_RUN_SELECTION.reviewedAt" in sources
-    assert "phase3_current_reviewed_comparison_20260821.json" in sources
-    assert "phase3-current-reviewed-comparison-v2" in Path(
+    assert "phase3_current_reviewed_comparison_20260824.json" in sources
+    assert "phase3-current-reviewed-comparison-v3" in Path(
         "apps/dashboard/src/lib/phase3-current-reviewed-comparison.ts"
     ).read_text()
     assert "phase3-reviewed-run-selection-v1" in Path(
@@ -1879,10 +1884,11 @@ def test_dr304_current_selected_outcome_cost_firewall() -> None:
         'arm.selectedOutcomeCostAllocationStatus'
         in current
     )
-    assert (
-        'status !== "available"'
-        in current
-    )
+    assert 'status === "unavailable"' in current
+    assert 'status === "unavailable_provider_aggregate"' in current
+    assert 'if (status === "available")' in current
+    assert 'status === "available_lower_bound"' in current
+    assert '"available_provider_rate_reconstruction"' in current
     assert (
         "arm.selectedCostUsd"
         in current
@@ -1896,9 +1902,15 @@ def test_dr304_current_selected_outcome_cost_firewall() -> None:
         in current
     )
     assert (
-        "selected outcome allocation is not owned by the selected cost"
+        "historical selected outcome allocation is invalid"
         in current
     )
+    assert (
+        "current selected outcome allocation is incomplete"
+        in current
+    )
+    assert "provider_rate_reconstruction_lower_bound" in current
+    assert "provider_rate_reconstruction" in current
 
     assert "getCurrentSelectedOutcomeCostEvidence(arm)" in chart
 

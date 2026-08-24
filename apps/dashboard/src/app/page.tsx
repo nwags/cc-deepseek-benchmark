@@ -1,3 +1,6 @@
+import {
+  formatCurrentCostRelation,
+} from "../lib/current-cost-presentation";
 import Link from "next/link";
 import { TermInfo } from "../components/TermInfo";
 import { AppShell } from "../components/AppShell";
@@ -253,9 +256,9 @@ export default async function DashboardPage({
         <MetricCard label="Reviewed trials" value={formatNumber(reviewedComparison.trialCount)} detail="20 tasks × 3 attempts × 16 selected runs" />
         <MetricCard label="Reviewed pass rate" value={formatPercent(reviewedScope.passRate)} detail={`${formatNumber(reviewedComparison.successCount)} reviewed successes`} />
         <MetricCard
-          label="Current selected cost"
+          label="Mixed best-supported arm sum"
           value={formatReviewedUsd(reviewedComparison.selectedCostUsd)}
-          detail="Best available reviewed arm-level cost evidence; provider-billed where reconciled"
+          detail="Arithmetic sum of mixed arm-level evidence; neither an exact scope bill nor a global lower bound"
         />
         <MetricCard
           label="Historical reviewed cost"
@@ -265,8 +268,8 @@ export default async function DashboardPage({
       </section>
 
       <section className="quality-context-panel">
-        <strong>Current reviewed comparison provenance:</strong> Decision-facing selected costs come from the
-        2026-08-21 current-reviewed layer. It preserves the 2026-08-05 historical benchmark/reviewed cost evidence
+        <strong>Current reviewed comparison provenance:</strong> Decision-facing selected costs come from the{" "}
+        {PHASE3_CURRENT_REVIEWED_COMPARISON.reviewedAt} current-reviewed V3 layer. It preserves the 2026-08-05 historical benchmark/reviewed cost evidence
         as a separate layer. Exact run labels remain frozen by the 2026-08-09 reviewed run-selection contract.
         Database evidence is resolved only for those labels; the database does not select a newer run. Stored cost
         reconciliation compares against the historical benchmark-side recorded/adjusted evidence, not against
@@ -366,12 +369,31 @@ export default async function DashboardPage({
                       ) : <div>Suspect no-op: Unavailable</div>}
                     </td>
                     <td>
-                      <strong>{formatReviewedUsd(row.selectedCostUsd)}</strong>
-                      <div>Per attempt: {formatReviewedUsd(row.selectedCostPerAttemptUsd)}</div>
-                      <div>Per clean success: {formatReviewedUsd(row.selectedCostPerCleanSuccessUsd)}</div>
+                      <strong>
+                        {formatCurrentCostRelation(
+                          formatReviewedUsd(row.selectedCostUsd),
+                          row.selectedCostRelation,
+                        )}
+                      </strong>
+                      <div>
+                        Per attempt:{" "}
+                        {formatCurrentCostRelation(
+                          formatReviewedUsd(row.selectedCostPerAttemptUsd),
+                          row.selectedEfficiencyRelation,
+                        )}
+                      </div>
+                      <div>
+                        Per clean success:{" "}
+                        {formatCurrentCostRelation(
+                          formatReviewedUsd(row.selectedCostPerCleanSuccessUsd),
+                          row.selectedEfficiencyRelation,
+                        )}
+                      </div>
                     </td>
                     <td>
                       <div>Selected basis: {evidenceLabel(row.selectedCostBasis)}</div>
+                      <div>Cost relation: {evidenceLabel(row.selectedCostRelation)}</div>
+                      <div>Efficiency relation: {evidenceLabel(row.selectedEfficiencyRelation)}</div>
                       <div>Selected confidence: {row.selectedCostConfidence}</div>
                       <div>
                         Provider billing reconciliation:{" "}
@@ -391,10 +413,10 @@ export default async function DashboardPage({
                           {formatReviewedUsd(row.providerBilledCostUsd)}
                         </div>
                       )}
-                      {row.providerSelectedRunLabel && (
+                      {row.currentSelectedRunLabel && (
                         <div>
-                          Provider-reconciled run:{" "}
-                          <span className="mono">{row.providerSelectedRunLabel}</span>
+                          Current reconciliation run:{" "}
+                          <span className="mono">{row.currentSelectedRunLabel}</span>
                         </div>
                       )}
                       {isKimi && (

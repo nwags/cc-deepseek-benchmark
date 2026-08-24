@@ -59,7 +59,7 @@ test(
 );
 
 test(
-  "Cost Coverage overlays current selected costs without changing the historical DR-303 model",
+  "Cost Coverage makes current selected cost primary while preserving the historical DR-303 model",
   () => {
     assert.match(
       page,
@@ -75,15 +75,31 @@ test(
     );
     assert.match(
       page,
-      /Current selected and historical arm cost evidence/,
+      /Current best-supported arm cost evidence/,
     );
     assert.match(
       page,
-      /Historical DR-303 spend decomposition/,
+      /Current best-supported cost by arm/,
     );
     assert.match(
       page,
-      /not redistributed into these trial or outcome buckets/,
+      /currentCostNumber\(arm\.selectedCostUsd\)/,
+    );
+    assert.match(
+      page,
+      /maxCurrentArmCost/,
+    );
+    assert.match(
+      page,
+      /historical-cost-details/,
+    );
+    assert.match(
+      page,
+      /Historical DR-303 reconstruction and superseded benchmark-side estimates/,
+    );
+    assert.match(
+      page,
+      /not\s+redistributed into historical trial or outcome buckets/,
     );
 
     assert.doesNotMatch(
@@ -98,35 +114,214 @@ test(
 );
 
 test(
-  "DR-303 follows reviewed headline metrics and precedes operational cost focus",
+  "primary arm table is current-only and historical outcome rows are collapsed",
+  () => {
+    assert.match(page, /Current best-supported arm cost evidence/);
+    assert.match(page, /Current best-supported cost/);
+    assert.match(page, /Evidence basis \/ confidence/);
+    assert.match(page, /Historical outcome-cost rows \(provenance only\)/);
+    assert.doesNotMatch(page, /Current selected and historical arm cost evidence/);
+    assert.doesNotMatch(page, /<th>Historical reviewed cost<\/th>/);
+    assert.doesNotMatch(page, /<th>Historical failure spend<\/th>/);
+  },
+);
+
+test(
+  "current cost chart precedes collapsed DR-303 history and operational cost focus",
   () => {
     const metrics = page.indexOf(
       'className="metric-grid"',
     );
+    const currentChart = page.indexOf(
+      'id="current-cost-by-arm"',
+    );
     const decomposition = page.indexOf(
-      "\n      <SpendDecompositionPanel",
+      "<SpendDecompositionPanel",
     );
     const focus = page.indexOf(
       'id="cost-provenance-focus"',
     );
 
     assert.ok(metrics >= 0);
+    assert.ok(currentChart >= 0);
     assert.ok(decomposition >= 0);
     assert.ok(focus >= 0);
 
     assert.ok(
-      metrics < decomposition,
-      "DR-303 must follow reviewed headline metrics",
+      metrics < currentChart,
+      "current cost chart must follow current headline metrics",
+    );
+    assert.ok(
+      currentChart < decomposition,
+      "current cost chart must precede historical DR-303",
     );
     assert.ok(
       decomposition < focus,
-      "DR-303 must precede optional operational cost focus",
+      "historical DR-303 must precede optional operational cost focus",
     );
   },
 );
 
 test(
-  "stacked-dollar geometry uses one shared absolute arm-cost scale",
+  "primary current-cost chart outer geometry uses current selected arm cost",
+  () => {
+    assert.match(
+      page,
+      /const currentCost = currentCostNumber\(\s*arm\.selectedCostUsd,\s*\)/,
+    );
+    assert.match(
+      page,
+      /const width =\s*\(currentCost \/ maxCurrentArmCost\) \* 100/,
+    );
+    assert.match(
+      page,
+      /className="current-cost-fill"/,
+    );
+  },
+);
+
+test(
+  "current chart introduction describes generalized reconciliation rather than provider billing only",
+  () => {
+    assert.match(
+      page,
+      /Current reconciled evidence replaces superseded/,
+    );
+    assert.match(
+      page,
+      /exact, estimated, lower-bound, or historical fallback/,
+    );
+    assert.doesNotMatch(
+      page,
+      /Exact provider-billed totals replace superseded/,
+    );
+  },
+);
+
+test(
+  "hybrid current bars separate current geometry from allocation evidence",
+  () => {
+    assert.match(
+      page,
+      /const currentCost = currentCostNumber\([\s\S]*arm\.selectedCostUsd/,
+    );
+    assert.match(
+      page,
+      /const width =[\s\S]*currentCost[\s\S]*\/ maxCurrentArmCost[\s\S]*\* 100/,
+    );
+    assert.match(
+      page,
+      /className="current-cost-fill"[\s\S]*style=\{\{ width: `\$\{width\}%` \}\}/,
+    );
+    assert.match(
+      page,
+      /currentCostNumber\([\s\S]*segment\.amountUsd[\s\S]*\/ currentCost/,
+    );
+
+    assert.match(
+      page,
+      /available_provider_rate_reconstruction/,
+    );
+    assert.match(
+      page,
+      /available_lower_bound/,
+    );
+    assert.match(
+      page,
+      /selectedCleanSuccessCostUsd/,
+    );
+    assert.match(
+      page,
+      /selectedNormalFailureCostUsd/,
+    );
+    assert.match(
+      page,
+      /selectedExceptionFailureCostUsd/,
+    );
+    assert.match(
+      page,
+      /selectedExceptionWithSuccessSignalCostUsd/,
+    );
+  },
+);
+
+test(
+  "historical fallback colors require exact DR-303 compatibility",
+  () => {
+    assert.match(
+      page,
+      /arm\.selectedCostRelation !== "historical_fallback"/,
+    );
+    assert.match(
+      page,
+      /historicalArm\.outcomeCostAllocationStatus !== "available"/,
+    );
+    assert.match(
+      page,
+      /historicalArm\.selectedReviewedCostUsd !== arm\.selectedCostUsd/,
+    );
+    assert.match(
+      page,
+      /historical DR-303 allocation · selected historical fallback matches exactly/,
+    );
+  },
+);
+
+test(
+  "aggregate-only and lower-bound uncertainty never fabricate outcome dollars",
+  () => {
+    assert.match(
+      page,
+      /Aggregate cost — outcome split unavailable/,
+    );
+    assert.match(
+      page,
+      /possible_additional_exception_path_spend/,
+    );
+    assert.match(
+      page,
+      /possible additional exception-path spend is not quantified/,
+    );
+    assert.match(
+      page,
+      /Possible additional lower-bound spend is labeled but never assigned invented geometry/,
+    );
+
+    assert.doesNotMatch(
+      page,
+      /providerContextExcessUsd[\s\S]*current-cost-segment/,
+    );
+  },
+);
+
+test(
+  "current hybrid chart reuses outcome colors and adds a neutral allocation state",
+  () => {
+    assert.match(
+      page,
+      /spend-decomposition-segment-\$\{id\.replaceAll\("_", "-"\)\}/,
+    );
+    assert.match(
+      page,
+      /current-cost-segment-unallocated/,
+    );
+    assert.match(
+      css,
+      /\.current-cost-fill[\s\S]*display: flex/,
+    );
+    assert.match(
+      css,
+      /\.current-cost-segment-unallocated/,
+    );
+    assert.match(
+      css,
+      /\.current-cost-legend/,
+    );
+  },
+);
+
+test(
+  "historical DR-303 stacked-dollar geometry keeps its frozen absolute scale",
   () => {
     assert.match(
       component,
@@ -149,6 +344,17 @@ test(
       component,
       /segment\.recordedCostUsd[\s\S]*\/ geometryUsd\(arm\.selectedReviewedCostUsd\)/,
     );
+  },
+);
+
+test(
+  "historical DR-303 values are explicitly labeled as historical provenance",
+  () => {
+    assert.match(component, /Historical DR-303 outcome-cost reconstruction/);
+    assert.match(component, /Historical DR-303 reviewed scope estimate/);
+    assert.match(component, /Historical DR-303 reviewed estimate/);
+    assert.doesNotMatch(component, /Selected reviewed scope cost/);
+    assert.doesNotMatch(component, />Selected reviewed cost</);
   },
 );
 
@@ -342,6 +548,12 @@ test(
   "DR-303 presentation has dedicated responsive styles and five segment styles",
   () => {
     for (const selector of [
+      ".current-cost-panel",
+      ".current-cost-chart",
+      ".current-cost-chart-row",
+      ".current-cost-track",
+      ".current-cost-fill",
+      ".historical-cost-details",
       ".spend-decomposition-panel",
       ".spend-decomposition-provenance",
       ".spend-decomposition-summary-grid",

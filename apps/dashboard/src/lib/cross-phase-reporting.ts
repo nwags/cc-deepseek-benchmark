@@ -33,6 +33,10 @@ type HistoricalCrossPhaseRow = {
 
 export type CrossPhaseRow = HistoricalCrossPhaseRow & {
   comparison_cost_usd: number | null;
+  comparison_cost_relation:
+    CurrentReviewedPhase3Arm["selectedCostRelation"] | null;
+  comparison_efficiency_relation:
+    CurrentReviewedPhase3Arm["selectedEfficiencyRelation"] | null;
   comparison_cost_per_attempt_usd: number | null;
   comparison_cost_per_clean_success_usd: number | null;
   comparison_cost_basis: string;
@@ -52,7 +56,7 @@ export type CrossPhaseRow = HistoricalCrossPhaseRow & {
 
   provider_billed_cost_usd: number | null;
   provider_billing_reconciliation_status: string | null;
-  provider_selected_run_label: string | null;
+  current_selected_run_label: string | null;
 };
 
 export type RouterComparisonRow = {
@@ -866,6 +870,24 @@ function selectedCostLabel(
   }
   if (
     arm.selectedCostBasis
+      === "provider_rate_reconstructed_retained_usage"
+  ) {
+    return "Provider-rate reconstructed retained usage";
+  }
+  if (
+    arm.selectedCostBasis
+      === "provider_rate_reconstructed_retained_usage_lower_bound"
+  ) {
+    return "Provider-rate retained-usage lower bound";
+  }
+  if (
+    arm.selectedCostBasis
+      === "provider_rate_reconstructed_selected_run"
+  ) {
+    return "Provider-rate reconstructed selected-run estimate";
+  }
+  if (
+    arm.selectedCostBasis
       === "qualified_retained_rate_estimate"
   ) {
     return "Qualified retained-rate estimate";
@@ -921,11 +943,15 @@ export function getCurrentReviewedPhase3Rows(
     billing_reconciliation_status:
       arm.billingReconciliationStatus,
 
-    // Decision-facing comparison fields use the current v2
-    // selected-cost contract.
+    // Decision-facing comparison fields use the generalized
+    // current V3 selected-cost contract.
     comparison_cost_usd: reviewedDecimal(
       arm.selectedCostUsd,
     ),
+    comparison_cost_relation:
+      arm.selectedCostRelation,
+    comparison_efficiency_relation:
+      arm.selectedEfficiencyRelation,
     comparison_cost_per_attempt_usd:
       reviewedDecimal(
         arm.selectedCostPerAttemptUsd,
@@ -962,8 +988,8 @@ export function getCurrentReviewedPhase3Rows(
       reviewedDecimal(arm.providerBilledCostUsd),
     provider_billing_reconciliation_status:
       arm.providerBillingReconciliationStatus,
-    provider_selected_run_label:
-      arm.providerSelectedRunLabel,
+    current_selected_run_label:
+      arm.currentSelectedRunLabel,
   }));
 }
 
@@ -978,6 +1004,8 @@ function historicalBaselineRow(
     reviewed_cost_label: "Adjusted known cost",
 
     comparison_cost_usd: comparisonCost,
+    comparison_cost_relation: null,
+    comparison_efficiency_relation: null,
     comparison_cost_per_attempt_usd:
       comparisonCost === null
         ? null
@@ -1005,7 +1033,7 @@ function historicalBaselineRow(
 
     provider_billed_cost_usd: null,
     provider_billing_reconciliation_status: null,
-    provider_selected_run_label: null,
+    current_selected_run_label: null,
   };
 }
 
@@ -1161,7 +1189,7 @@ export function getPhaseSummaries(
             : "adjusted_known_cost",
         comparison_cost_label:
           isSelectedPhase3
-            ? "Current selected cost"
+            ? "Mixed best-supported arm sum"
             : "Adjusted known cost",
         comparison_cost_per_clean_success_usd:
           comparisonCostPerCleanSuccess,

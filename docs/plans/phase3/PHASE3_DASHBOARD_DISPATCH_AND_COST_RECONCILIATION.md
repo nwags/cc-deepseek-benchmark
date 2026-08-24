@@ -1,9 +1,14 @@
 # Phase 3 Dashboard Dispatch and Cost Reconciliation Plan
 
-> **Historical status — 2026-08-23:** Phase 3 cost reconciliation
-> is complete through DR-304. Protected server-side dashboard dispatch remains
-> deferred future platform work and is not a Phase 4 prerequisite. This plan is
-> preserved as historical design provenance; current guidance is
+> **Historical status correction — 2026-08-23:** DR-304 implemented an
+> OpenAI-specific provider-aware current selected-cost layer, but subsequent
+> provider-evidence review showed that broader Phase 3 provider-family cost
+> reconciliation was not complete. In particular, later review identified
+> materially incorrect DeepSeek compatibility-layer cost estimates and the need
+> to re-audit other router-mediated families against provider evidence.
+> Protected server-side dashboard dispatch remains deferred future platform
+> work and is not a Phase 4 prerequisite. This plan is preserved as historical
+> design provenance; current guidance is
 > `docs/guides/PROJECT_HANDOFF_AND_FUTURE_ROADMAP.md`.
 
 ## Dashboard dispatch

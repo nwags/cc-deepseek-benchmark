@@ -74,6 +74,10 @@ export type OverviewReviewedComparisonRow = Readonly<{
 
   // Current decision-facing selected-cost layer.
   selectedCostUsd: string;
+  selectedCostRelation:
+    CurrentReviewedPhase3Arm["selectedCostRelation"];
+  selectedEfficiencyRelation:
+    CurrentReviewedPhase3Arm["selectedEfficiencyRelation"];
   selectedCostPerAttemptUsd: string;
   selectedCostPerCleanSuccessUsd: string;
   selectedCostBasis: CurrentReviewedPhase3Arm["selectedCostBasis"];
@@ -81,7 +85,7 @@ export type OverviewReviewedComparisonRow = Readonly<{
   providerBilledCostUsd: string | null;
   providerBillingReconciliationStatus:
     CurrentReviewedPhase3Arm["providerBillingReconciliationStatus"];
-  providerSelectedRunLabel: string | null;
+  currentSelectedRunLabel: string | null;
   selectedTrialCostAllocationStatus:
     CurrentReviewedPhase3Arm["selectedTrialCostAllocationStatus"];
   selectedOutcomeCostAllocationStatus:
@@ -395,11 +399,11 @@ export function buildOverviewReviewedComparison(
     const selection = selectionsByArm.get(arm.armId);
     if (!selection) throw new Error(`No reviewed selected run exists for ${arm.armId}`);
     if (
-      arm.providerSelectedRunLabel !== null
-      && arm.providerSelectedRunLabel !== selection.selectedRunLabel
+      arm.currentSelectedRunLabel !== null
+      && arm.currentSelectedRunLabel !== selection.selectedRunLabel
     ) {
       throw new Error(
-        `Provider billing run and G1 selected run disagree for ${arm.armId}`,
+        `Current reconciliation run and G1 selected run disagree for ${arm.armId}`,
       );
     }
     const issues: OverviewReconciliationIssue[] = [];
@@ -450,6 +454,8 @@ export function buildOverviewReviewedComparison(
       databaseAdjustedCostEvidence: databaseCost.row,
 
       selectedCostUsd: arm.selectedCostUsd,
+      selectedCostRelation: arm.selectedCostRelation,
+      selectedEfficiencyRelation: arm.selectedEfficiencyRelation,
       selectedCostPerAttemptUsd: arm.selectedCostPerAttemptUsd,
       selectedCostPerCleanSuccessUsd:
         arm.selectedCostPerCleanSuccessUsd,
@@ -458,7 +464,7 @@ export function buildOverviewReviewedComparison(
       providerBilledCostUsd: arm.providerBilledCostUsd,
       providerBillingReconciliationStatus:
         arm.providerBillingReconciliationStatus,
-      providerSelectedRunLabel: arm.providerSelectedRunLabel,
+      currentSelectedRunLabel: arm.currentSelectedRunLabel,
       selectedTrialCostAllocationStatus:
         arm.selectedTrialCostAllocationStatus,
       selectedOutcomeCostAllocationStatus:

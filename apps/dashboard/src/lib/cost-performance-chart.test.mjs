@@ -8,7 +8,7 @@ import ts from "typescript";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const comparison = JSON.parse(await readFile(
-  resolve(here, "../../../../results/phase3/reporting/phase3_current_reviewed_comparison_20260821.json"),
+  resolve(here, "../../../../results/phase3/reporting/phase3_current_reviewed_comparison_20260824.json"),
   "utf8",
 ));
 const runSelection = JSON.parse(await readFile(
@@ -33,9 +33,29 @@ const moduleUrl = `data:text/javascript;base64,${Buffer.from(`
   const PHASE3_CURRENT_REVIEWED_COMPARISON = ${JSON.stringify(comparison)};
   const PHASE3_REVIEWED_RUN_SELECTION = ${JSON.stringify(runSelection)};
   const getCurrentReviewedPhase3Scope = (scopeId) => PHASE3_CURRENT_REVIEWED_COMPARISON.scopes[scopeId];
+  const sumOutcomeDecimals = (values) => {
+    const scales = values.map((value) => (value.split(".")[1] ?? "").length);
+    const scale = Math.max(0, ...scales);
+    const factor = 10n ** BigInt(scale);
+    const units = values.reduce((total, value) => {
+      const [whole, fraction = ""] = value.split(".");
+      return total
+        + BigInt(whole) * factor
+        + BigInt((fraction.padEnd(scale, "0") || "0"));
+    }, 0n);
+    if (scale === 0) return units.toString();
+    const padded = units.toString().padStart(scale + 1, "0");
+    const whole = padded.slice(0, -scale);
+    const fraction = padded.slice(-scale).replace(/0+$/, "");
+    return fraction ? whole + "." + fraction : whole;
+  };
   const getCurrentSelectedOutcomeCostEvidence = (arm) => {
     const status = arm.selectedOutcomeCostAllocationStatus;
-    if (status !== "available") {
+
+    if (
+      status === "unavailable"
+      || status === "unavailable_provider_aggregate"
+    ) {
       return {
         status,
         evidenceBasis: null,
@@ -46,14 +66,42 @@ const moduleUrl = `data:text/javascript;base64,${Buffer.from(`
         nonproductiveOrUncleanSpendShare: null,
       };
     }
+
+    if (status === "available") {
+      return {
+        status: "available",
+        evidenceBasis: "historical_reviewed_selected_cost",
+        adjustedCleanSuccessCostUsd: arm.adjustedCleanSuccessCostUsd,
+        adjustedFailureOrIncompleteCostUsd: arm.adjustedFailureOrIncompleteCostUsd,
+        adjustedExceptionSuccessSignalCostUsd: arm.adjustedExceptionSuccessSignalCostUsd,
+        failureOrIncompleteSpendShare: arm.failureOrIncompleteSpendShare,
+        nonproductiveOrUncleanSpendShare: arm.nonproductiveOrUncleanSpendShare,
+      };
+    }
+
+    const failureOrIncomplete = sumOutcomeDecimals([
+      arm.selectedNormalFailureCostUsd,
+      arm.selectedExceptionFailureCostUsd,
+    ]);
+    const nonproductiveOrUnclean = sumOutcomeDecimals([
+      failureOrIncomplete,
+      arm.selectedExceptionWithSuccessSignalCostUsd,
+    ]);
+
     return {
-      status: "available",
-      evidenceBasis: "historical_reviewed_selected_cost",
-      adjustedCleanSuccessCostUsd: arm.adjustedCleanSuccessCostUsd,
-      adjustedFailureOrIncompleteCostUsd: arm.adjustedFailureOrIncompleteCostUsd,
-      adjustedExceptionSuccessSignalCostUsd: arm.adjustedExceptionSuccessSignalCostUsd,
-      failureOrIncompleteSpendShare: arm.failureOrIncompleteSpendShare,
-      nonproductiveOrUncleanSpendShare: arm.nonproductiveOrUncleanSpendShare,
+      status,
+      evidenceBasis:
+        status === "available_lower_bound"
+          ? "provider_rate_reconstruction_lower_bound"
+          : "provider_rate_reconstruction",
+      adjustedCleanSuccessCostUsd: arm.selectedCleanSuccessCostUsd,
+      adjustedFailureOrIncompleteCostUsd: failureOrIncomplete,
+      adjustedExceptionSuccessSignalCostUsd:
+        arm.selectedExceptionWithSuccessSignalCostUsd,
+      failureOrIncompleteSpendShare:
+        Number(failureOrIncomplete) / Number(arm.selectedCostUsd),
+      nonproductiveOrUncleanSpendShare:
+        Number(nonproductiveOrUnclean) / Number(arm.selectedCostUsd),
     };
   };
   const getReviewedRunSelectionScope = (scopeId) => PHASE3_REVIEWED_RUN_SELECTION.scopes[scopeId];
@@ -189,6 +237,14 @@ test("Kimi selected metric preserves its qualified retained-rate basis", () => {
   assert.equal(kimi.qualifiedRetainedRateCostUsd, "30.8143194");
   assert.equal(kimi.reviewedComparableCostUsd, "30.8143194");
   assert.equal(kimi.costBasis, "qualified_retained_rate_estimate");
+  assert.equal(
+    kimi.selectedCostRelation,
+    "historical_fallback",
+  );
+  assert.equal(
+    kimi.selectedEfficiencyRelation,
+    "historical_fallback",
+  );
   assert.equal(kimi.adjustedCostPerAttempt.status, "available");
   assert.equal(kimi.adjustedCostPerAttempt.decimalUsd, "0.51357199");
   assert.match(kimi.adjustedCostPerAttempt.qualification, /qualified retained-rate estimate/);
@@ -209,6 +265,8 @@ test("OpenAI frontier uses exact provider-billed selected costs", () => {
   );
   assert.equal(gpt54.providerBilledCostUsd, "29.7919335");
   assert.equal(gpt54.costBasis, "provider_billed");
+  assert.equal(gpt54.selectedCostRelation, "exact");
+  assert.equal(gpt54.selectedEfficiencyRelation, "exact");
   assert.equal(
     gpt54.adjustedCostPerAttempt.decimalUsd,
     "0.496532225",
@@ -242,7 +300,7 @@ test("OpenAI frontier uses exact provider-billed selected costs", () => {
     "exact_arm_total",
   );
   assert.equal(
-    gpt55.providerSelectedRunLabel,
+    gpt55.currentSelectedRunLabel,
     gpt55.selectedRunLabel,
   );
   assert.deepEqual(gpt55.costSources, [
@@ -276,10 +334,30 @@ test("selected aggregate ratios remain available without fabricating outcome all
     /provider-billed arm total is aggregate-only/i,
   );
 
+  const deepseekFlash =
+    armFor(coreArms, "router-deepseek-flash");
   assert.equal(
-    armFor(coreArms, "router-deepseek-flash")
-      .failureIncompleteSpend.status,
+    deepseekFlash.failureIncompleteSpend.status,
     "available",
+  );
+  assert.equal(
+    deepseekFlash.selectedCostRelation,
+    "estimate",
+  );
+  assert.equal(
+    deepseekFlash.selectedEfficiencyRelation,
+    "estimate",
+  );
+
+  const opus =
+    armFor(coreArms, "router-anthropic-opus");
+  assert.equal(
+    opus.selectedCostRelation,
+    "lower_bound",
+  );
+  assert.equal(
+    opus.selectedEfficiencyRelation,
+    "lower_bound",
   );
 });
 
@@ -447,7 +525,7 @@ test("Pareto result is invariant to input order", () => {
   assert.deepEqual(forward, reverse);
 });
 
-test("scope, provider, arm selection, and x metric recalculate the frontier", () => {
+test("scope, provider, arm selection, and x metric recalculate chart state", () => {
   const core = view(coreArms, "adjusted_cost_per_attempt");
   const extended = view(extendedArms, "adjusted_cost_per_attempt");
   assert.notDeepEqual(
@@ -475,10 +553,39 @@ test("scope, provider, arm selection, and x metric recalculate the frontier", ()
     extended.frontier.map((item) => item.armId),
   );
 
-  const cleanSuccess = view(extendedArms, "cost_per_clean_success");
-  assert.notDeepEqual(
-    cleanSuccess.frontier.map((item) => item.armId),
-    extended.frontier.map((item) => item.armId),
+  const cleanSuccess = view(
+    extendedArms,
+    "cost_per_clean_success",
+  );
+  assert.equal(
+    cleanSuccess.metric,
+    "cost_per_clean_success",
+  );
+
+  const flashAttemptPoint = extended.plotPoints.find(
+    (item) => item.armId === "router-deepseek-flash",
+  );
+  const flashCleanSuccessPoint = cleanSuccess.plotPoints.find(
+    (item) => item.armId === "router-deepseek-flash",
+  );
+  assert.ok(flashAttemptPoint);
+  assert.ok(flashCleanSuccessPoint);
+
+  const flash = armFor(
+    extendedArms,
+    "router-deepseek-flash",
+  );
+  assert.equal(
+    flashAttemptPoint.xValue,
+    flash.adjustedCostPerAttempt.value,
+  );
+  assert.equal(
+    flashCleanSuccessPoint.xValue,
+    flash.costPerCleanSuccess.value,
+  );
+  assert.notEqual(
+    flashCleanSuccessPoint.xValue,
+    flashAttemptPoint.xValue,
   );
 });
 
@@ -521,7 +628,7 @@ test("x-axis validation defaults deterministically and accepts only the reviewed
 });
 
 test(
-  "current-selected outcome consumers use the v2 allocation firewall",
+  "current-selected outcome consumers use the generalized allocation firewall",
   () => {
     assert.match(
       source,
