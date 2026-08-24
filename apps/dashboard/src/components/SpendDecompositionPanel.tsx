@@ -121,7 +121,7 @@ export function SpendDecompositionPanel({
         <div className="panel-heading">
           <div>
             <h2 id="spend-decomposition-heading">
-              Spend decomposition by arm{" "}
+              Historical DR-303 outcome-cost reconstruction{" "}
               <span className="derived-label">derived</span>
             </h2>
             <p>
@@ -172,7 +172,7 @@ export function SpendDecompositionPanel({
       <div className="panel-heading">
         <div>
           <h2 id="spend-decomposition-heading">
-            Spend decomposition by arm{" "}
+            Historical DR-303 outcome-cost reconstruction{" "}
             <span className="derived-label">derived</span>
           </h2>
           <p>
@@ -202,7 +202,7 @@ export function SpendDecompositionPanel({
       <div className="spend-decomposition-summary-grid">
         <article>
           <span className="metric-label">
-            Selected reviewed scope cost
+            Historical DR-303 reviewed scope estimate
           </span>
           <strong>
             {exactUsd(model.scopeSelectedReviewedCostUsd)}
@@ -274,7 +274,7 @@ export function SpendDecompositionPanel({
           <span>
             <strong>Known accounting gap</strong>
             <small>
-              Selected reviewed arm cost minus recorded arm cost.
+              Historical DR-303 reviewed arm estimate minus recorded arm cost.
               This is the fifth dollar segment, not an outcome
               classification.
             </small>
@@ -298,8 +298,8 @@ export function SpendDecompositionPanel({
                 <strong>{friendlyArmLabel(arm.armId)}</strong>
                 <code>{arm.armId}</code>
                 <span>
-                  {exactUsd(arm.selectedReviewedCostUsd)} selected
-                  reviewed cost
+                  {exactUsd(arm.selectedReviewedCostUsd)} historical
+                  DR-303 reviewed estimate
                 </span>
               </div>
 
@@ -371,8 +371,8 @@ export function SpendDecompositionPanel({
               ))}
               <th>Recorded total</th>
               <th>Known accounting gap</th>
-              <th>Selected reviewed cost</th>
-              <th>Selected cost basis</th>
+              <th>Historical DR-303 reviewed estimate</th>
+              <th>Historical cost basis</th>
               <th>Missing / unresolved</th>
               <th>Evidence qualification</th>
             </tr>

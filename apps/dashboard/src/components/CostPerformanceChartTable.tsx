@@ -1,3 +1,6 @@
+import {
+  formatCurrentCostRelation,
+} from "../lib/current-cost-presentation";
 import Link from "next/link";
 import {
   CHART_X_AXIS_OPTIONS,
@@ -23,24 +26,56 @@ function scopeLabel(scope: ChartScope): string {
   return scope === "phase3-core" ? "Phase 3 core" : "Phase 3 extended";
 }
 
-function metricText(value: ChartMetricValue): string {
-  if (value.status === "unavailable") return `Unavailable — ${value.reason}`;
-  return `$${value.decimalUsd}${value.qualification ? ` — ${value.qualification}` : ""}`;
+function metricText(
+  value: ChartMetricValue,
+  relation: ChartArmDatum["selectedEfficiencyRelation"] | null,
+): string {
+  if (value.status === "unavailable") {
+    return `Unavailable — ${value.reason}`;
+  }
+
+  const amount = formatCurrentCostRelation(
+    `$${value.decimalUsd}`,
+    relation,
+  );
+
+  return `${amount}${value.qualification ? ` — ${value.qualification}` : ""}`;
 }
 
-function evidenceAmountText(value: ChartEvidenceAmount): string {
-  if (value.status === "unavailable") return `Unavailable — ${value.reason}`;
-  return `$${value.decimalUsd}`;
+function evidenceAmountText(
+  value: ChartEvidenceAmount,
+  relation: ChartArmDatum["selectedCostRelation"],
+): string {
+  if (value.status === "unavailable") {
+    return `Unavailable — ${value.reason}`;
+  }
+
+  return formatCurrentCostRelation(
+    `$${value.decimalUsd}`,
+    relation,
+  );
 }
 
-function linkedMetric(value: ChartMetricValue, href: string) {
-  const text = metricText(value);
-  return value.status === "available" ? <Link href={href}>{text}</Link> : text;
+function linkedMetric(
+  value: ChartMetricValue,
+  href: string,
+  relation: ChartArmDatum["selectedEfficiencyRelation"] | null,
+) {
+  const text = metricText(value, relation);
+  return value.status === "available"
+    ? <Link href={href}>{text}</Link>
+    : text;
 }
 
-function linkedEvidenceAmount(value: ChartEvidenceAmount, href: string) {
-  const text = evidenceAmountText(value);
-  return value.status === "available" ? <Link href={href}>{text}</Link> : text;
+function linkedEvidenceAmount(
+  value: ChartEvidenceAmount,
+  href: string,
+  relation: ChartArmDatum["selectedCostRelation"],
+) {
+  const text = evidenceAmountText(value, relation);
+  return value.status === "available"
+    ? <Link href={href}>{text}</Link>
+    : text;
 }
 
 function evidenceStatusLabel(value: string): string {
@@ -100,11 +135,23 @@ export function CostPerformanceChartTable({
                 </td>
                 <td>{row.successCount} / {row.trialCount}</td>
                 <td>{(row.passRate * 100).toFixed(1)}%</td>
-                <td>{linkedMetric(row.xMetricValue, row.costProvenanceHref)}</td>
+                <td>
+                  {linkedMetric(
+                    row.xMetricValue,
+                    row.costProvenanceHref,
+                    row.xMetricRelation,
+                  )}
+                </td>
                 <td>
                   <div>{row.costBasisLabel}</div>
                   <div className="mono">{row.costBasis}</div>
-                  <div>Selected total: ${row.selectedCostUsd}</div>
+                  <div>
+                    Selected total:{" "}
+                    {formatCurrentCostRelation(
+                      `$${row.selectedCostUsd}`,
+                      row.selectedCostRelation,
+                    )}
+                  </div>
                   {row.selectedCostUsd !== row.historicalReviewedCostUsd ? (
                     <div>
                       Historical reviewed total:{" "}
@@ -121,10 +168,10 @@ export function CostPerformanceChartTable({
                   <div>Historical arm/run allocation: {evidenceStatusLabel(row.armRunAllocationConfidence)}</div>
                   <div>Selected trial allocation: {evidenceStatusLabel(row.trialAllocationStatus)}</div>
                   <div>Provider billing reconciliation: {evidenceStatusLabel(row.billingReconciliationStatus)}</div>
-                  {row.providerSelectedRunLabel ? (
+                  {row.currentSelectedRunLabel ? (
                     <div>
-                      Provider-reconciled run:{" "}
-                      <span className="mono">{row.providerSelectedRunLabel}</span>
+                      Current reconciliation run:{" "}
+                      <span className="mono">{row.currentSelectedRunLabel}</span>
                     </div>
                   ) : null}
                   <div>Provider-log exclusivity: {row.providerLogExclusivityStatus
@@ -135,7 +182,13 @@ export function CostPerformanceChartTable({
                   <div>Historical reviewed gap</div>
                   <Link href={row.costProvenanceHref}>${row.accountingGapUsd}</Link>
                 </td>
-                <td>{linkedEvidenceAmount(row.failureIncompleteSpend, row.costProvenanceHref)}</td>
+                <td>
+                  {linkedEvidenceAmount(
+                    row.failureIncompleteSpend,
+                    row.costProvenanceHref,
+                    row.selectedCostRelation,
+                  )}
+                </td>
                 <td>{row.qualificationText ?? "No additional qualification beyond the listed reviewed evidence statuses."}</td>
               </tr>
             )) : (

@@ -108,7 +108,29 @@ test("client-boundary modules import only the pure chart view layer", () => {
   ]) {
     assert.doesNotMatch(viewSource, new RegExp(forbiddenReference));
   }
-  assert.doesNotMatch(viewSource, /^import\s/m);
+  assert.match(
+    viewSource,
+    /import type \{\s*CurrentSelectedCostRelation,\s*\} from "\.\/current-cost-relation";/,
+  );
+  assert.doesNotMatch(
+    viewSource,
+    /^import(?!\s+type\b)\s/m,
+  );
+
+  const viewImports = [
+    ...viewSource.matchAll(/^import[\s\S]*?;$/gm),
+  ].map((match) => match[0]);
+
+  assert.deepEqual(
+    viewImports,
+    [
+      [
+        "import type {",
+        "  CurrentSelectedCostRelation,",
+        '} from "./current-cost-relation";',
+      ].join("\n"),
+    ],
+  );
 });
 
 test("the client delegates metric eligibility and frontier policy to H1", () => {

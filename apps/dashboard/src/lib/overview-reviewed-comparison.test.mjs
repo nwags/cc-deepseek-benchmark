@@ -8,7 +8,7 @@ import ts from "typescript";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const comparison = JSON.parse(await readFile(
-  resolve(here, "../../../../results/phase3/reporting/phase3_current_reviewed_comparison_20260821.json"),
+  resolve(here, "../../../../results/phase3/reporting/phase3_current_reviewed_comparison_20260824.json"),
   "utf8",
 ));
 const runSelection = JSON.parse(await readFile(
@@ -109,12 +109,12 @@ function rowFor(result, armId) {
 test("joins all 16 current-reviewed arms to exactly one frozen G1 selected run", () => {
   const result = build();
   assert.deepEqual([result.armCount, result.trialCount, result.successCount], [16, 960, 562]);
-  assert.equal(result.selectedCostUsd, "713.775490893867");
+  assert.equal(result.selectedCostUsd, "541.219998206867");
   assert.equal(
     result.historicalReviewedCostUsd,
     "1002.984164889198",
   );
-  assert.equal(result.reviewedAt, "2026-08-21");
+  assert.equal(result.reviewedAt, "2026-08-24");
   assert.equal(result.rows.length, 16);
   assert.equal(new Set(result.rows.map((row) => row.selectedRunLabel)).size, 16);
   const kimi = rowFor(result, "router-kimi-k3");
@@ -201,6 +201,8 @@ test("OpenAI provider-billed selected totals remain separate from historical dat
   assert.equal(gpt54.selectedCostUsd, "29.7919335");
   assert.equal(gpt54.providerBilledCostUsd, "29.7919335");
   assert.equal(gpt54.selectedCostBasis, "provider_billed");
+  assert.equal(gpt54.selectedCostRelation, "exact");
+  assert.equal(gpt54.selectedEfficiencyRelation, "exact");
   assert.equal(
     gpt54.selectedCostConfidence,
     "exact_provider_arm_total",
@@ -236,7 +238,7 @@ test("OpenAI provider-billed selected totals remain separate from historical dat
     "unavailable_provider_aggregate",
   );
   assert.equal(
-    gpt54.providerSelectedRunLabel,
+    gpt54.currentSelectedRunLabel,
     gpt54.selectedRunLabel,
   );
 
@@ -318,13 +320,21 @@ test("Kimi selected aggregate ratio stays separate from allocation evidence", ()
 
   assert.equal(kimi.selectedCostUsd, "30.8143194");
   assert.equal(
+    kimi.selectedCostRelation,
+    "historical_fallback",
+  );
+  assert.equal(
+    kimi.selectedEfficiencyRelation,
+    "historical_fallback",
+  );
+  assert.equal(
     kimi.selectedCostPerCleanSuccessUsd,
     "0.7003254409090909090909090909",
   );
   assert.equal(kimi.providerBilledCostUsd, null);
   assert.equal(
     kimi.providerBillingReconciliationStatus,
-    "not_available_in_current_provider_layer",
+    "not_available_in_current_reconciliation_layer",
   );
   assert.equal(
     kimi.selectedTrialCostAllocationStatus,
@@ -336,18 +346,18 @@ test("Kimi selected aggregate ratio stays separate from allocation evidence", ()
   );
 });
 
-test("provider billing run identity must match the frozen G1 selection", () => {
+test("current reconciliation run identity must match the frozen G1 selection", () => {
   const mismatchedScope = structuredClone(scope);
   const gpt54 = mismatchedScope.arms.find(
     (arm) => arm.armId === "router-gpt-5.4",
   );
   assert.ok(gpt54);
 
-  gpt54.providerSelectedRunLabel =
+  gpt54.currentSelectedRunLabel =
     "router-gpt-5.4/2099-01-01__00-00-00";
 
   assert.throws(
     () => build({ scope: mismatchedScope }),
-    /Provider billing run and G1 selected run disagree for router-gpt-5\.4/,
+    /Current reconciliation run and G1 selected run disagree for router-gpt-5\.4/,
   );
 });

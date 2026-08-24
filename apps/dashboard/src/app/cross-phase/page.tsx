@@ -1,3 +1,6 @@
+import {
+  formatCurrentCostRelation,
+} from "../../lib/current-cost-presentation";
 import Link from "next/link";
 
 import { AppShell } from "../../components/AppShell";
@@ -109,8 +112,8 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
         chartArmById.get(row.arm_id);
       if (!chartArm) return true;
       return (
-        row.provider_selected_run_label !== null
-        && row.provider_selected_run_label
+        row.current_selected_run_label !== null
+        && row.current_selected_run_label
           !== chartArm.selectedRunLabel
       );
     })
@@ -123,7 +126,7 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
   return (
     <AppShell
       title={`Cross-phase: ${phaseDisplayLabel("phase3", selection.scopeId)}`}
-      description={`File-backed reporting view for frozen Phase 1/2 baselines and the ${selectedScope.displayName.toLowerCase()} using the current-reviewed 2026-08-21 selected-cost layer with historical Phase 3 evidence retained separately.`}
+      description={`File-backed reporting view for frozen Phase 1/2 baselines and the ${selectedScope.displayName.toLowerCase()} using the current-reviewed 2026-08-24 selected-cost layer with historical Phase 3 evidence retained separately.`}
     >
       <CorpusScopeSelector pathname="/cross-phase" selectedScopeId={selection.scopeId} />
       {selection.warningMessage ? (
@@ -150,7 +153,7 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
         {" "}<Link href={`/cost-coverage?scope=${selection.scopeId}`}>Open Cost Coverage with this scope</Link>.
         <details>
           <summary>Traceable current and historical sources</summary>
-          <p className="mono">results/phase3/reporting/phase3_current_reviewed_comparison_20260821.json</p>
+          <p className="mono">results/phase3/reporting/phase3_current_reviewed_comparison_20260824.json</p>
           <p className="mono">results/phase3/reporting/phase3_extended_reviewed_comparison_20260805.json</p>
         </details>
       </section>
@@ -302,9 +305,19 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
                   <td>{row.success_count}/{row.trial_count}</td>
                   <td>{formatPercent(row.pass_rate)}</td>
                   <td>{chartArm ? linkedMoney(row.recorded_cost_usd, chartArm.costProvenanceHref, 6) : formatMoney(row.recorded_cost_usd, 6)}</td>
-                  <td>{formatMoney(row.comparison_cost_usd, 7)}</td>
+                  <td>
+                    {formatCurrentCostRelation(
+                      formatMoney(row.comparison_cost_usd, 7),
+                      row.comparison_cost_relation,
+                    )}
+                  </td>
                   <td>{row.comparison_cost_label}</td>
-                  <td>{formatMoney(row.comparison_cost_per_clean_success_usd)}</td>
+                  <td>
+                    {formatCurrentCostRelation(
+                      formatMoney(row.comparison_cost_per_clean_success_usd),
+                      row.comparison_efficiency_relation,
+                    )}
+                  </td>
                   <td>{chartArm ? linkedMoney(row.historical_reviewed_cost_usd, chartArm.costProvenanceHref, 7) : formatMoney(row.historical_reviewed_cost_usd, 7)}</td>
                   <td>{formatPercent(row.historical_unclean_spend_share)}</td>
                   <td className="table-cell-wrap">
@@ -317,9 +330,9 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
                         <div className="muted">
                           Historical pricing provenance: {evidenceLabel(row.pricing_provenance_status)} · historical arm-run allocation: {evidenceLabel(row.arm_run_allocation_confidence)}
                         </div>
-                        {row.provider_selected_run_label ? (
+                        {row.current_selected_run_label ? (
                           <div className="muted mono">
-                            Provider-selected run: {row.provider_selected_run_label}
+                            Current reconciliation run: {row.current_selected_run_label}
                           </div>
                         ) : null}
                       </>
@@ -373,8 +386,18 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
                         : null}
                     </td>
                     <td>{formatPercent(row.pass_rate)}</td>
-                    <td>{formatMoney(row.comparison_cost_usd, 7)}</td>
-                    <td>{formatMoney(row.comparison_cost_per_clean_success_usd)}</td>
+                    <td>
+                      {formatCurrentCostRelation(
+                        formatMoney(row.comparison_cost_usd, 7),
+                        row.comparison_cost_relation,
+                      )}
+                    </td>
+                    <td>
+                      {formatCurrentCostRelation(
+                        formatMoney(row.comparison_cost_per_clean_success_usd),
+                        row.comparison_efficiency_relation,
+                      )}
+                    </td>
                     <td>{formatPercent(row.historical_unclean_spend_share)}</td>
                     <td>{behavior?.behavior_tags ?? ""}</td>
                   </tr>

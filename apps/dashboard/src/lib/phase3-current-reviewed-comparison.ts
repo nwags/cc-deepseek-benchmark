@@ -1,4 +1,4 @@
-import currentReviewedSnapshotJson from "../generated/phase3-current-reviewed-comparison-data";
+import currentReviewedSnapshotJson from "../generated/phase3-current-reviewed-comparison-data-v3";
 import {
   PHASE3_REVIEWED_COMPARISON,
   type ReviewedCostEvidence,
@@ -8,65 +8,152 @@ import {
 } from "./phase3-reviewed-comparison";
 
 export const PHASE3_CURRENT_REVIEWED_COMPARISON_SCHEMA_VERSION =
-  "phase3-current-reviewed-comparison-v2" as const;
+  "phase3-current-reviewed-comparison-v3" as const;
 
 export type CurrentReviewedPhase3ScopeId = ReviewedPhase3ScopeId;
+
+import type {
+  CurrentSelectedCostRelation,
+} from "./current-cost-relation";
+
+export type {
+  CurrentSelectedCostRelation,
+} from "./current-cost-relation";
+
+export type CurrentSelectedEfficiencyRelation =
+  CurrentSelectedCostRelation;
 
 export type CurrentSelectedCostBasis =
   | "adjusted_known_cost"
   | "qualified_retained_rate_estimate"
-  | "provider_billed";
+  | "provider_billed"
+  | "provider_rate_reconstructed_retained_usage"
+  | "provider_rate_reconstructed_retained_usage_lower_bound"
+  | "provider_rate_reconstructed_selected_run";
+
+export type CurrentReconciliationStatus =
+  | "reconciled"
+  | "historical_fallback";
+
+export type CurrentEvidenceClass =
+  | "exact_provider_arm_total"
+  | "historical_reviewed_fallback"
+  | "provider_rate_reconstruction_with_same_day_provider_crosscheck"
+  | "verified_retained_artifacts_plus_official_provider_rates";
 
 export type CurrentProviderBillingReconciliationStatus =
   | "exact_arm_total"
-  | "not_available_in_current_provider_layer";
+  | "not_available_in_current_reconciliation_layer"
+  | "provider_invoice_unavailable"
+  | "same_day_model_aggregate_not_run_isolated";
+
+export type CurrentProviderContextScope =
+  | "exact_arm_total"
+  | "same_day_model_aggregate";
 
 export type CurrentSelectedTrialCostAllocationStatus =
   | "available_for_reviewed_layer"
-  | "unresolved"
-  | "unavailable_provider_aggregate";
+  | "available_provider_rate_reconstruction"
+  | "available_with_exception_path_lower_bounds"
+  | "unavailable_provider_aggregate"
+  | "unresolved";
 
 export type CurrentSelectedOutcomeCostAllocationStatus =
   | "available"
+  | "available_lower_bound"
+  | "available_provider_rate_reconstruction"
   | "unavailable"
   | "unavailable_provider_aggregate";
+
+export type CurrentUnquantifiedAdditionalCostStatus =
+  | "none"
+  | "not_evaluated_current_reconciliation"
+  | "possible_additional_exception_path_spend";
 
 export type CurrentReviewedPhase3Arm = Readonly<
   ReviewedPhase3Arm & {
     historicalHarnessRecordedCostUsd: string;
     historicalReviewedCostBasis: ReviewedPhase3Arm["costBasis"];
     historicalReviewedCostUsd: string;
-    providerBilledCostUsd: string | null;
-    providerBillingReconciliationStatus:
-      CurrentProviderBillingReconciliationStatus;
-    providerSelectedRunLabel: string | null;
+
+    currentReconciliationStatus: CurrentReconciliationStatus;
+    currentSelectedRunLabel: string | null;
+    currentRoutingAliases: readonly string[];
+    currentProviderModels: readonly string[];
+    currentEvidenceNote: string;
+
+    selectedCostRelation: CurrentSelectedCostRelation;
+    selectedEfficiencyRelation: CurrentSelectedEfficiencyRelation;
     selectedCostBasis: CurrentSelectedCostBasis;
     selectedCostConfidence: string;
+    selectedCostUsd: string;
     selectedCostPerAnySuccessUsd: string;
     selectedCostPerAttemptUsd: string;
     selectedCostPerCleanSuccessUsd: string;
-    selectedCostUsd: string;
-    selectedOutcomeCostAllocationStatus:
-      CurrentSelectedOutcomeCostAllocationStatus;
+
+    evidenceClass: CurrentEvidenceClass;
+
+    providerBilledCostUsd: string | null;
+    providerContextBilledCostUsd: string | null;
+    providerContextScope: CurrentProviderContextScope | null;
+    providerContextExcessUsd: string | null;
+    providerBillingReconciliationStatus:
+      CurrentProviderBillingReconciliationStatus;
+
+    completeTrialCostCount: number | null;
+    lowerBoundTrialCount: number | null;
+    confirmedZeroCostTrialCount: number | null;
+
     selectedTrialCostAllocationStatus:
       CurrentSelectedTrialCostAllocationStatus;
+    selectedOutcomeCostAllocationStatus:
+      CurrentSelectedOutcomeCostAllocationStatus;
+
+    selectedCleanSuccessCostUsd: string | null;
+    selectedNormalFailureCostUsd: string | null;
+    selectedExceptionFailureCostUsd: string | null;
+    selectedExceptionWithSuccessSignalCostUsd: string | null;
+    knownAllocatedCostUsd: string | null;
+    unallocatedKnownCostUsd: string | null;
+    unquantifiedAdditionalCostStatus:
+      CurrentUnquantifiedAdditionalCostStatus;
   }
 >;
+
+export type CurrentSelectedCostRelationCounts = Readonly<{
+  exact: number;
+  estimate: number;
+  lowerBound: number;
+  historicalFallback: number;
+}>;
 
 export type CurrentSelectedCostEvidence = Readonly<{
   historicalReviewedArmSumCostUsd: string;
   historicalSourceScopeCostUsd: string;
   note: string;
-  outcomeAllocationStatus: "mixed_by_arm";
-  providerBillingCoverageStatus: "partial_by_arm";
-  providerReconciledArmCount: number;
-  providerReconciledArmIds: readonly string[];
-  providerReconciledCostUsd: string;
+
+  currentReconciledArmCount: number;
+  currentReconciledArmIds: readonly string[];
+  currentReconciledCostUsd: string;
+  currentReconciliationCoverageStatus: "partial_by_arm";
+
+  exactProviderBilledArmCount: number;
+  exactProviderBilledArmIds: readonly string[];
+  exactProviderBilledCostUsd: string;
+
   selectedCostBasis: "mixed_best_available_arm_evidence";
+  selectedCostRelation: "mixed_by_arm";
+  selectedCostRelationCounts: CurrentSelectedCostRelationCounts;
   selectedCostUsd: string;
+
   sourceScopeReconciliationAdjustmentUsd: string;
   sourceScopeTransformedSelectedCostUsd: string;
+
   trialAllocationStatus: "mixed_by_arm";
+  outcomeAllocationStatus: "mixed_by_arm";
+
+  unquantifiedAdditionalCostArmCount: number;
+  unquantifiedAdditionalCostArmIds: readonly string[];
 }>;
 
 export type CurrentReviewedPhase3Scope = Readonly<{
@@ -89,11 +176,11 @@ export type CurrentReviewedPhase3Scope = Readonly<{
 export type Phase3CurrentReviewedComparison = Readonly<{
   schemaVersion:
     typeof PHASE3_CURRENT_REVIEWED_COMPARISON_SCHEMA_VERSION;
-  reviewedAt: "2026-08-21";
+  reviewedAt: "2026-08-24";
   historicalReviewedAt: "2026-08-05";
   generator: Readonly<{
-    name: "scripts/generate_phase3_current_reviewed_comparison.py";
-    version: "1.0.0";
+    name: "scripts/generate_phase3_current_reviewed_comparison_v3.py";
+    version: "2.0.0";
   }>;
   inputs: readonly Readonly<{
     path: string;
@@ -113,6 +200,9 @@ export type CurrentReviewedScopeSelection = Readonly<{
   usedDefault: boolean;
 }>;
 
+type UnknownRecord = Record<string, unknown>;
+type DecimalParts = Readonly<{ units: bigint; scale: number }>;
+
 const DECIMAL_PATTERN = /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 
@@ -129,56 +219,63 @@ const EXPECTED_INPUTS = new Map<string, Readonly<{
     },
   ],
   [
-    "results/phase3/provider_usage/normalized/openai_provider_reconciliation_20260821.csv",
+    "results/phase3/reporting/phase3_current_arm_cost_reconciliation_20260824.csv",
     {
-      role: "sanitized_provider_billing_reconciliation",
+      role: "sanitized_current_arm_cost_reconciliation",
       sha256:
-        "5da12494743dc7265c3c08ffc08aa988451fbc308940453cf9b3bc6cdf71e452",
+        "7fc2ac41dfd56af4888cac0cc6d80be15f5d3b8edef12b915206fd57bc9afbea",
+    },
+  ],
+  [
+    "results/phase3/reporting/phase3_anthropic_exception_lower_bound_reconciliation_20260824.csv",
+    {
+      role: "supporting_anthropic_exception_lower_bound_evidence",
+      sha256:
+        "9223673f2dcdd55fa558f0336d72d721f0bf3c58f409e84fadeaeb277a7dfa88",
     },
   ],
 ]);
 
+const EXPECTED_RECONCILED_ARM_IDS = Object.freeze([
+  "router-anthropic-fable-5",
+  "router-anthropic-haiku-sanitized",
+  "router-anthropic-opus",
+  "router-anthropic-sonnet",
+  "router-deepseek-flash",
+  "router-deepseek-pro",
+  "router-gpt-5.4",
+  "router-gpt-5.5",
+]);
+
+const EXPECTED_EXACT_PROVIDER_BILLED_ARM_IDS = Object.freeze([
+  "router-gpt-5.4",
+  "router-gpt-5.5",
+]);
+
+const EXPECTED_UNQUANTIFIED_ADDITIONAL_COST_ARM_IDS =
+  Object.freeze([
+    "router-anthropic-opus",
+    "router-anthropic-sonnet",
+  ]);
+
 const SCOPE_EXPECTATIONS = Object.freeze({
   "phase3-core": Object.freeze({
-    selectedCostUsd: "682.961171493867",
+    selectedCostUsd: "510.405678806867",
     historicalReviewedArmSumCostUsd: "972.169845489198",
     historicalSourceScopeCostUsd: "972.169845489198",
     sourceScopeReconciliationAdjustmentUsd: "0",
-    sourceScopeTransformedSelectedCostUsd: "682.961171493867",
+    sourceScopeTransformedSelectedCostUsd: "510.405678806867",
+    historicalFallbackCount: 7,
   }),
   "phase3-extended": Object.freeze({
-    selectedCostUsd: "713.775490893867",
+    selectedCostUsd: "541.219998206867",
     historicalReviewedArmSumCostUsd: "1002.984164889198",
     historicalSourceScopeCostUsd: "1002.9841648891979",
     sourceScopeReconciliationAdjustmentUsd: "-0.0000000000001",
-    sourceScopeTransformedSelectedCostUsd: "713.7754908938669",
+    sourceScopeTransformedSelectedCostUsd: "541.2199982068669",
+    historicalFallbackCount: 8,
   }),
 });
-
-const OPENAI_EXPECTATIONS = Object.freeze({
-  "router-gpt-5.4": Object.freeze({
-    providerBilledCostUsd: "29.7919335",
-    selectedCostPerAttemptUsd: "0.496532225",
-    selectedCostPerCleanSuccessUsd: "0.78399825",
-    selectedCostPerAnySuccessUsd:
-      "0.7638957307692307692307692308",
-    providerSelectedRunLabel:
-      "router-gpt-5.4/2026-06-19__13-47-51",
-  }),
-  "router-gpt-5.5": Object.freeze({
-    providerBilledCostUsd: "48.604914",
-    selectedCostPerAttemptUsd: "0.8100819",
-    selectedCostPerCleanSuccessUsd:
-      "1.157259857142857142857142857",
-    selectedCostPerAnySuccessUsd:
-      "1.104657136363636363636363636",
-    providerSelectedRunLabel:
-      "router-gpt-5.5/2026-06-27__01-30-18",
-  }),
-});
-
-type UnknownRecord = Record<string, unknown>;
-type DecimalParts = Readonly<{ units: bigint; scale: number }>;
 
 function record(value: unknown, label: string): UnknownRecord {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -210,45 +307,15 @@ function nullableDecimal(value: unknown, label: string): string | null {
   return value === null ? null : decimal(value, label);
 }
 
-function nonnegativeInteger(value: unknown, label: string): number {
-  if (
-    typeof value !== "number"
-    || !Number.isInteger(value)
-    || value < 0
-  ) {
-    throw new Error(`${label} must be a nonnegative integer`);
-  }
-  return value;
-}
-
-function finiteNumber(value: unknown, label: string): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new Error(`${label} must be finite`);
-  }
-  return value;
-}
-
-function exact<T extends string>(
-  value: unknown,
-  allowed: readonly T[],
-  label: string,
-): T {
-  if (
-    typeof value !== "string"
-    || !allowed.includes(value as T)
-  ) {
-    throw new Error(`${label} has an unsupported value`);
-  }
-  return value as T;
-}
-
 function decimalParts(value: string, label: string): DecimalParts {
   if (!DECIMAL_PATTERN.test(value)) {
     throw new Error(`${label} is not a reviewed decimal`);
   }
+
   const negative = value.startsWith("-");
   const unsigned = negative ? value.slice(1) : value;
   const [whole, fraction = ""] = unsigned.split(".");
+
   return {
     units: BigInt(
       `${negative ? "-" : ""}${whole}${fraction}`,
@@ -268,16 +335,59 @@ function decimalSumEquals(
   const parts = values.map((value) =>
     decimalParts(value, "summed decimal")
   );
-  const expectedParts = decimalParts(expected, "expected decimal");
+  const expectedParts = decimalParts(
+    expected,
+    "expected decimal",
+  );
   const scale = Math.max(
     expectedParts.scale,
     ...parts.map((value) => value.scale),
   );
+
   const total = parts.reduce(
     (sum, value) => sum + scaleUnits(value, scale),
     0n,
   );
+
   return total === scaleUnits(expectedParts, scale);
+}
+
+function sumDecimalStrings(values: readonly string[]): string {
+  if (!values.length) return "0";
+
+  const parts = values.map((value) =>
+    decimalParts(value, "decimal sum")
+  );
+  const scale = Math.max(...parts.map((value) => value.scale));
+  const total = parts.reduce(
+    (sum, value) => sum + scaleUnits(value, scale),
+    0n,
+  );
+
+  const negative = total < 0n;
+  const absolute = negative ? -total : total;
+
+  if (scale === 0) {
+    return `${negative ? "-" : ""}${absolute.toString()}`;
+  }
+
+  const padded = absolute
+    .toString()
+    .padStart(scale + 1, "0");
+
+  const whole = padded.slice(0, -scale);
+  const fraction = padded
+    .slice(-scale)
+    .replace(/0+$/, "");
+
+  return (
+    `${negative ? "-" : ""}${whole}`
+    + `${fraction ? `.${fraction}` : ""}`
+  );
+}
+
+function isNonnegativeDecimal(value: string): boolean {
+  return decimalParts(value, "nonnegative decimal").units >= 0n;
 }
 
 function significantDecimalDigits(value: string): number {
@@ -300,10 +410,12 @@ function decimalRatioMatches(
     quotient,
     "ratio quotient",
   );
+
   const scale = Math.max(
     totalParts.scale,
     quotientParts.scale,
   );
+
   const totalUnits = scaleUnits(totalParts, scale);
   const quotientUnits = scaleUnits(quotientParts, scale);
   const divisorUnits = BigInt(divisor);
@@ -321,14 +433,74 @@ function decimalRatioMatches(
     return false;
   }
 
-  const quotientUlp = 10n ** BigInt(
-    scale - quotientParts.scale,
-  );
+  const quotientUlp =
+    10n ** BigInt(scale - quotientParts.scale);
 
   return (
     2n * difference
     <= divisorUnits * quotientUlp
   );
+}
+
+function nonnegativeInteger(
+  value: unknown,
+  label: string,
+): number {
+  if (
+    typeof value !== "number"
+    || !Number.isInteger(value)
+    || value < 0
+  ) {
+    throw new Error(`${label} must be a nonnegative integer`);
+  }
+  return value;
+}
+
+function nullableNonnegativeInteger(
+  value: unknown,
+  label: string,
+): number | null {
+  return value === null
+    ? null
+    : nonnegativeInteger(value, label);
+}
+
+function finiteNumber(value: unknown, label: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error(`${label} must be finite`);
+  }
+  return value;
+}
+
+function exact<T extends string>(
+  value: unknown,
+  allowed: readonly T[],
+  label: string,
+): T {
+  if (
+    typeof value !== "string"
+    || !allowed.includes(value as T)
+  ) {
+    throw new Error(`${label} has an unsupported value`);
+  }
+
+  return value as T;
+}
+
+function stringArray(
+  value: unknown,
+  label: string,
+): readonly string[] {
+  if (
+    !Array.isArray(value)
+    || value.some(
+      (item) => typeof item !== "string" || !item.length,
+    )
+  ) {
+    throw new Error(`${label} must be a string array`);
+  }
+
+  return Object.freeze([...value] as string[]);
 }
 
 function canonicalJson(value: unknown): string {
@@ -362,45 +534,12 @@ function assertExactKeys(
 ): void {
   const actual = Object.keys(value).sort();
   const expected = [...expectedKeys].sort();
+
   if (!sameJson(actual, expected)) {
-    throw new Error(`${label} has unsupported or missing fields`);
+    throw new Error(
+      `${label} has unsupported or missing fields`,
+    );
   }
-}
-
-function validateInputs(value: unknown): Phase3CurrentReviewedComparison["inputs"] {
-  if (!Array.isArray(value) || value.length !== EXPECTED_INPUTS.size) {
-    throw new Error("inputs must contain exactly the reviewed v2 sources");
-  }
-
-  const seen = new Set<string>();
-
-  const inputs = value.map((raw, index) => {
-    const item = record(raw, `inputs[${index}]`);
-    assertExactKeys(item, ["path", "role", "sha256"], `inputs[${index}]`);
-
-    const path = text(item.path, `inputs[${index}].path`);
-    const role = text(item.role, `inputs[${index}].role`);
-    const sha256 = text(item.sha256, `inputs[${index}].sha256`);
-
-    if (!SHA256_PATTERN.test(sha256)) {
-      throw new Error(`inputs[${index}].sha256 is invalid`);
-    }
-
-    const expected = EXPECTED_INPUTS.get(path);
-    if (
-      !expected
-      || expected.role !== role
-      || expected.sha256 !== sha256
-      || seen.has(path)
-    ) {
-      throw new Error("current reviewed input provenance is invalid");
-    }
-
-    seen.add(path);
-    return Object.freeze({ path, role, sha256 });
-  });
-
-  return Object.freeze(inputs);
 }
 
 function historicalReviewedCost(
@@ -419,6 +558,336 @@ function historicalReviewedCost(
   return value;
 }
 
+function validateInputs(
+  value: unknown,
+): Phase3CurrentReviewedComparison["inputs"] {
+  if (
+    !Array.isArray(value)
+    || value.length !== EXPECTED_INPUTS.size
+  ) {
+    throw new Error(
+      "inputs must contain exactly the reviewed v3 sources",
+    );
+  }
+
+  const seen = new Set<string>();
+
+  const inputs = value.map((raw, index) => {
+    const item = record(raw, `inputs[${index}]`);
+
+    assertExactKeys(
+      item,
+      ["path", "role", "sha256"],
+      `inputs[${index}]`,
+    );
+
+    const path = text(
+      item.path,
+      `inputs[${index}].path`,
+    );
+    const role = text(
+      item.role,
+      `inputs[${index}].role`,
+    );
+    const sha256 = text(
+      item.sha256,
+      `inputs[${index}].sha256`,
+    );
+
+    if (!SHA256_PATTERN.test(sha256)) {
+      throw new Error(
+        `inputs[${index}].sha256 is invalid`,
+      );
+    }
+
+    const expected = EXPECTED_INPUTS.get(path);
+
+    if (
+      !expected
+      || expected.role !== role
+      || expected.sha256 !== sha256
+      || seen.has(path)
+    ) {
+      throw new Error(
+        "current reviewed input provenance is invalid",
+      );
+    }
+
+    seen.add(path);
+
+    return Object.freeze({
+      path,
+      role,
+      sha256,
+    });
+  });
+
+  return Object.freeze(inputs);
+}
+
+function validateHistoricalFallback(
+  arm: CurrentReviewedPhase3Arm,
+  historical: ReviewedPhase3Arm,
+  label: string,
+): void {
+  const nullableCurrentFields = [
+    arm.currentSelectedRunLabel,
+    arm.providerBilledCostUsd,
+    arm.providerContextBilledCostUsd,
+    arm.providerContextScope,
+    arm.providerContextExcessUsd,
+    arm.completeTrialCostCount,
+    arm.lowerBoundTrialCount,
+    arm.confirmedZeroCostTrialCount,
+    arm.selectedCleanSuccessCostUsd,
+    arm.selectedNormalFailureCostUsd,
+    arm.selectedExceptionFailureCostUsd,
+    arm.selectedExceptionWithSuccessSignalCostUsd,
+    arm.knownAllocatedCostUsd,
+    arm.unallocatedKnownCostUsd,
+  ];
+
+  if (
+    arm.currentReconciliationStatus !== "historical_fallback"
+    || arm.currentRoutingAliases.length !== 0
+    || arm.currentProviderModels.length !== 0
+    || nullableCurrentFields.some((value) => value !== null)
+    || arm.selectedCostRelation !== "historical_fallback"
+    || arm.selectedEfficiencyRelation !== "historical_fallback"
+    || arm.selectedCostBasis !== historical.costBasis
+    || arm.selectedCostConfidence !== historical.costConfidence
+    || arm.selectedCostUsd !== historicalReviewedCost(historical)
+    || arm.providerBillingReconciliationStatus
+      !== "not_available_in_current_reconciliation_layer"
+    || arm.selectedTrialCostAllocationStatus
+      !== historical.trialAllocationStatus
+    || arm.selectedOutcomeCostAllocationStatus
+      !== historical.outcomeCostAllocationStatus
+    || arm.evidenceClass !== "historical_reviewed_fallback"
+    || arm.unquantifiedAdditionalCostStatus
+      !== "not_evaluated_current_reconciliation"
+  ) {
+    throw new Error(
+      `${label} historical fallback contract is invalid`,
+    );
+  }
+}
+
+function validateAllocatedCurrentCost(
+  arm: CurrentReviewedPhase3Arm,
+  label: string,
+): void {
+  const buckets = [
+    arm.selectedCleanSuccessCostUsd,
+    arm.selectedNormalFailureCostUsd,
+    arm.selectedExceptionFailureCostUsd,
+    arm.selectedExceptionWithSuccessSignalCostUsd,
+  ];
+
+  if (
+    buckets.some((value) => value === null)
+    || arm.knownAllocatedCostUsd === null
+    || arm.unallocatedKnownCostUsd === null
+  ) {
+    throw new Error(
+      `${label} selected current allocation is incomplete`,
+    );
+  }
+
+  const allocated = buckets as string[];
+
+  if (
+    !decimalSumEquals(
+      allocated,
+      arm.knownAllocatedCostUsd,
+    )
+    || !decimalSumEquals(
+      [
+        arm.knownAllocatedCostUsd,
+        arm.unallocatedKnownCostUsd,
+      ],
+      arm.selectedCostUsd,
+    )
+  ) {
+    throw new Error(
+      `${label} selected current allocation does not reconcile`,
+    );
+  }
+}
+
+function validateReconciledArm(
+  arm: CurrentReviewedPhase3Arm,
+  label: string,
+): void {
+  if (
+    arm.currentReconciliationStatus !== "reconciled"
+    || arm.currentSelectedRunLabel === null
+    || arm.currentRoutingAliases.length === 0
+    || arm.currentProviderModels.length === 0
+    || arm.selectedCostRelation
+      !== arm.selectedEfficiencyRelation
+  ) {
+    throw new Error(
+      `${label} reconciled current identity is invalid`,
+    );
+  }
+
+  const complete = arm.completeTrialCostCount;
+  const lower = arm.lowerBoundTrialCount;
+  const zero = arm.confirmedZeroCostTrialCount;
+
+  if (arm.selectedCostBasis === "provider_billed") {
+    if (
+      arm.selectedCostRelation !== "exact"
+      || arm.evidenceClass !== "exact_provider_arm_total"
+      || arm.providerBilledCostUsd !== arm.selectedCostUsd
+      || arm.providerContextBilledCostUsd !== arm.selectedCostUsd
+      || arm.providerContextScope !== "exact_arm_total"
+      || arm.providerContextExcessUsd !== "0"
+      || arm.providerBillingReconciliationStatus !== "exact_arm_total"
+      || complete !== 0
+      || lower !== 0
+      || zero !== 0
+      || arm.selectedTrialCostAllocationStatus
+        !== "unavailable_provider_aggregate"
+      || arm.selectedOutcomeCostAllocationStatus
+        !== "unavailable_provider_aggregate"
+      || arm.selectedCleanSuccessCostUsd !== null
+      || arm.selectedNormalFailureCostUsd !== null
+      || arm.selectedExceptionFailureCostUsd !== null
+      || arm.selectedExceptionWithSuccessSignalCostUsd !== null
+      || arm.knownAllocatedCostUsd !== "0"
+      || arm.unallocatedKnownCostUsd !== arm.selectedCostUsd
+      || arm.unquantifiedAdditionalCostStatus !== "none"
+    ) {
+      throw new Error(
+        `${label} exact provider-billed contract is invalid`,
+      );
+    }
+
+    return;
+  }
+
+  if (
+    complete === null
+    || lower === null
+    || zero === null
+    || zero > complete
+    || complete + lower !== arm.trialCount
+    || arm.providerBilledCostUsd !== null
+  ) {
+    throw new Error(
+      `${label} reconciled trial-count coverage is invalid`,
+    );
+  }
+
+  validateAllocatedCurrentCost(arm, label);
+
+  if (
+    arm.selectedCostBasis
+      === "provider_rate_reconstructed_retained_usage"
+  ) {
+    if (
+      arm.selectedCostRelation !== "exact"
+      || arm.evidenceClass
+        !== "verified_retained_artifacts_plus_official_provider_rates"
+      || arm.providerContextBilledCostUsd !== null
+      || arm.providerContextScope !== null
+      || arm.providerContextExcessUsd !== null
+      || arm.providerBillingReconciliationStatus
+        !== "provider_invoice_unavailable"
+      || complete !== arm.trialCount
+      || lower !== 0
+      || arm.selectedTrialCostAllocationStatus
+        !== "available_provider_rate_reconstruction"
+      || arm.selectedOutcomeCostAllocationStatus
+        !== "available_provider_rate_reconstruction"
+      || arm.unallocatedKnownCostUsd !== "0"
+      || arm.unquantifiedAdditionalCostStatus !== "none"
+    ) {
+      throw new Error(
+        `${label} exact retained-usage reconstruction is invalid`,
+      );
+    }
+
+    return;
+  }
+
+  if (
+    arm.selectedCostBasis
+      === "provider_rate_reconstructed_retained_usage_lower_bound"
+  ) {
+    if (
+      arm.selectedCostRelation !== "lower_bound"
+      || arm.evidenceClass
+        !== "verified_retained_artifacts_plus_official_provider_rates"
+      || arm.providerContextBilledCostUsd !== null
+      || arm.providerContextScope !== null
+      || arm.providerContextExcessUsd !== null
+      || arm.providerBillingReconciliationStatus
+        !== "provider_invoice_unavailable"
+      || lower <= 0
+      || arm.selectedTrialCostAllocationStatus
+        !== "available_with_exception_path_lower_bounds"
+      || arm.selectedOutcomeCostAllocationStatus
+        !== "available_lower_bound"
+      || arm.knownAllocatedCostUsd !== arm.selectedCostUsd
+      || arm.unallocatedKnownCostUsd !== "0"
+      || arm.unquantifiedAdditionalCostStatus
+        !== "possible_additional_exception_path_spend"
+    ) {
+      throw new Error(
+        `${label} retained-usage lower-bound contract is invalid`,
+      );
+    }
+
+    return;
+  }
+
+  if (
+    arm.selectedCostBasis
+      === "provider_rate_reconstructed_selected_run"
+  ) {
+    if (
+      arm.selectedCostRelation !== "estimate"
+      || arm.evidenceClass
+        !== "provider_rate_reconstruction_with_same_day_provider_crosscheck"
+      || arm.providerContextBilledCostUsd === null
+      || arm.providerContextScope
+        !== "same_day_model_aggregate"
+      || arm.providerContextExcessUsd === null
+      || arm.providerBillingReconciliationStatus
+        !== "same_day_model_aggregate_not_run_isolated"
+      || !decimalSumEquals(
+        [
+          arm.selectedCostUsd,
+          arm.providerContextExcessUsd,
+        ],
+        arm.providerContextBilledCostUsd,
+      )
+      || complete !== arm.trialCount
+      || lower !== 0
+      || arm.selectedTrialCostAllocationStatus
+        !== "available_provider_rate_reconstruction"
+      || arm.selectedOutcomeCostAllocationStatus
+        !== "available_provider_rate_reconstruction"
+      || arm.knownAllocatedCostUsd !== arm.selectedCostUsd
+      || arm.unallocatedKnownCostUsd !== "0"
+      || arm.unquantifiedAdditionalCostStatus !== "none"
+    ) {
+      throw new Error(
+        `${label} selected-run provider-rate estimate is invalid`,
+      );
+    }
+
+    return;
+  }
+
+  throw new Error(
+    `${label} reconciled arm has an unsupported selected-cost basis`,
+  );
+}
+
 function validateCurrentArm(
   value: unknown,
   historical: ReviewedPhase3Arm,
@@ -430,17 +899,44 @@ function validateCurrentArm(
     "historicalHarnessRecordedCostUsd",
     "historicalReviewedCostBasis",
     "historicalReviewedCostUsd",
-    "providerBilledCostUsd",
-    "providerBillingReconciliationStatus",
-    "providerSelectedRunLabel",
+
+    "currentReconciliationStatus",
+    "currentSelectedRunLabel",
+    "currentRoutingAliases",
+    "currentProviderModels",
+    "currentEvidenceNote",
+
+    "selectedCostRelation",
+    "selectedEfficiencyRelation",
     "selectedCostBasis",
     "selectedCostConfidence",
     "selectedCostPerAnySuccessUsd",
     "selectedCostPerAttemptUsd",
     "selectedCostPerCleanSuccessUsd",
     "selectedCostUsd",
-    "selectedOutcomeCostAllocationStatus",
+
+    "evidenceClass",
+
+    "providerBilledCostUsd",
+    "providerContextBilledCostUsd",
+    "providerContextScope",
+    "providerContextExcessUsd",
+    "providerBillingReconciliationStatus",
+
+    "completeTrialCostCount",
+    "lowerBoundTrialCount",
+    "confirmedZeroCostTrialCount",
+
     "selectedTrialCostAllocationStatus",
+    "selectedOutcomeCostAllocationStatus",
+
+    "selectedCleanSuccessCostUsd",
+    "selectedNormalFailureCostUsd",
+    "selectedExceptionFailureCostUsd",
+    "selectedExceptionWithSuccessSignalCostUsd",
+    "knownAllocatedCostUsd",
+    "unallocatedKnownCostUsd",
+    "unquantifiedAdditionalCostStatus",
   ];
 
   assertExactKeys(
@@ -449,7 +945,10 @@ function validateCurrentArm(
     label,
   );
 
-  for (const [key, historicalValue] of Object.entries(historical)) {
+  for (
+    const [key, historicalValue]
+    of Object.entries(historical)
+  ) {
     if (!sameJson(item[key], historicalValue)) {
       throw new Error(
         `${label}.${key} does not preserve the frozen historical arm`,
@@ -457,158 +956,264 @@ function validateCurrentArm(
     }
   }
 
-  const historicalHarnessRecordedCostUsd = decimal(
-    item.historicalHarnessRecordedCostUsd,
-    `${label}.historicalHarnessRecordedCostUsd`,
-  );
-  const historicalReviewedCostBasis = exact(
-    item.historicalReviewedCostBasis,
-    ["adjusted_known_cost", "qualified_retained_rate_estimate"] as const,
-    `${label}.historicalReviewedCostBasis`,
-  );
-  const historicalReviewedCostUsd = decimal(
-    item.historicalReviewedCostUsd,
-    `${label}.historicalReviewedCostUsd`,
-  );
-  const providerBilledCostUsd = nullableDecimal(
-    item.providerBilledCostUsd,
-    `${label}.providerBilledCostUsd`,
-  );
-  const providerBillingReconciliationStatus = exact(
-    item.providerBillingReconciliationStatus,
-    [
-      "exact_arm_total",
-      "not_available_in_current_provider_layer",
-    ] as const,
-    `${label}.providerBillingReconciliationStatus`,
-  );
-  const providerSelectedRunLabel = nullableText(
-    item.providerSelectedRunLabel,
-    `${label}.providerSelectedRunLabel`,
-  );
-  const selectedCostBasis = exact(
-    item.selectedCostBasis,
-    [
-      "adjusted_known_cost",
-      "qualified_retained_rate_estimate",
-      "provider_billed",
-    ] as const,
-    `${label}.selectedCostBasis`,
-  );
-  const selectedCostConfidence = text(
-    item.selectedCostConfidence,
-    `${label}.selectedCostConfidence`,
-  );
-  const selectedCostPerAnySuccessUsd = decimal(
-    item.selectedCostPerAnySuccessUsd,
-    `${label}.selectedCostPerAnySuccessUsd`,
-  );
-  const selectedCostPerAttemptUsd = decimal(
-    item.selectedCostPerAttemptUsd,
-    `${label}.selectedCostPerAttemptUsd`,
-  );
-  const selectedCostPerCleanSuccessUsd = decimal(
-    item.selectedCostPerCleanSuccessUsd,
-    `${label}.selectedCostPerCleanSuccessUsd`,
-  );
-  const selectedCostUsd = decimal(
-    item.selectedCostUsd,
-    `${label}.selectedCostUsd`,
-  );
-  const selectedOutcomeCostAllocationStatus = exact(
-    item.selectedOutcomeCostAllocationStatus,
-    [
-      "available",
-      "unavailable",
-      "unavailable_provider_aggregate",
-    ] as const,
-    `${label}.selectedOutcomeCostAllocationStatus`,
-  );
-  const selectedTrialCostAllocationStatus = exact(
-    item.selectedTrialCostAllocationStatus,
-    [
-      "available_for_reviewed_layer",
-      "unresolved",
-      "unavailable_provider_aggregate",
-    ] as const,
-    `${label}.selectedTrialCostAllocationStatus`,
-  );
+  const arm: CurrentReviewedPhase3Arm = Object.freeze({
+    ...historical,
+
+    historicalHarnessRecordedCostUsd: decimal(
+      item.historicalHarnessRecordedCostUsd,
+      `${label}.historicalHarnessRecordedCostUsd`,
+    ),
+    historicalReviewedCostBasis: exact(
+      item.historicalReviewedCostBasis,
+      [
+        "adjusted_known_cost",
+        "qualified_retained_rate_estimate",
+      ] as const,
+      `${label}.historicalReviewedCostBasis`,
+    ),
+    historicalReviewedCostUsd: decimal(
+      item.historicalReviewedCostUsd,
+      `${label}.historicalReviewedCostUsd`,
+    ),
+
+    currentReconciliationStatus: exact(
+      item.currentReconciliationStatus,
+      ["reconciled", "historical_fallback"] as const,
+      `${label}.currentReconciliationStatus`,
+    ),
+    currentSelectedRunLabel: nullableText(
+      item.currentSelectedRunLabel,
+      `${label}.currentSelectedRunLabel`,
+    ),
+    currentRoutingAliases: stringArray(
+      item.currentRoutingAliases,
+      `${label}.currentRoutingAliases`,
+    ),
+    currentProviderModels: stringArray(
+      item.currentProviderModels,
+      `${label}.currentProviderModels`,
+    ),
+    currentEvidenceNote: text(
+      item.currentEvidenceNote,
+      `${label}.currentEvidenceNote`,
+    ),
+
+    selectedCostRelation: exact(
+      item.selectedCostRelation,
+      [
+        "exact",
+        "estimate",
+        "lower_bound",
+        "historical_fallback",
+      ] as const,
+      `${label}.selectedCostRelation`,
+    ),
+    selectedEfficiencyRelation: exact(
+      item.selectedEfficiencyRelation,
+      [
+        "exact",
+        "estimate",
+        "lower_bound",
+        "historical_fallback",
+      ] as const,
+      `${label}.selectedEfficiencyRelation`,
+    ),
+    selectedCostBasis: exact(
+      item.selectedCostBasis,
+      [
+        "adjusted_known_cost",
+        "qualified_retained_rate_estimate",
+        "provider_billed",
+        "provider_rate_reconstructed_retained_usage",
+        "provider_rate_reconstructed_retained_usage_lower_bound",
+        "provider_rate_reconstructed_selected_run",
+      ] as const,
+      `${label}.selectedCostBasis`,
+    ),
+    selectedCostConfidence: text(
+      item.selectedCostConfidence,
+      `${label}.selectedCostConfidence`,
+    ),
+    selectedCostPerAnySuccessUsd: decimal(
+      item.selectedCostPerAnySuccessUsd,
+      `${label}.selectedCostPerAnySuccessUsd`,
+    ),
+    selectedCostPerAttemptUsd: decimal(
+      item.selectedCostPerAttemptUsd,
+      `${label}.selectedCostPerAttemptUsd`,
+    ),
+    selectedCostPerCleanSuccessUsd: decimal(
+      item.selectedCostPerCleanSuccessUsd,
+      `${label}.selectedCostPerCleanSuccessUsd`,
+    ),
+    selectedCostUsd: decimal(
+      item.selectedCostUsd,
+      `${label}.selectedCostUsd`,
+    ),
+
+    evidenceClass: exact(
+      item.evidenceClass,
+      [
+        "exact_provider_arm_total",
+        "historical_reviewed_fallback",
+        "provider_rate_reconstruction_with_same_day_provider_crosscheck",
+        "verified_retained_artifacts_plus_official_provider_rates",
+      ] as const,
+      `${label}.evidenceClass`,
+    ),
+
+    providerBilledCostUsd: nullableDecimal(
+      item.providerBilledCostUsd,
+      `${label}.providerBilledCostUsd`,
+    ),
+    providerContextBilledCostUsd: nullableDecimal(
+      item.providerContextBilledCostUsd,
+      `${label}.providerContextBilledCostUsd`,
+    ),
+    providerContextScope:
+      item.providerContextScope === null
+        ? null
+        : exact(
+            item.providerContextScope,
+            [
+              "exact_arm_total",
+              "same_day_model_aggregate",
+            ] as const,
+            `${label}.providerContextScope`,
+          ),
+    providerContextExcessUsd: nullableDecimal(
+      item.providerContextExcessUsd,
+      `${label}.providerContextExcessUsd`,
+    ),
+    providerBillingReconciliationStatus: exact(
+      item.providerBillingReconciliationStatus,
+      [
+        "exact_arm_total",
+        "not_available_in_current_reconciliation_layer",
+        "provider_invoice_unavailable",
+        "same_day_model_aggregate_not_run_isolated",
+      ] as const,
+      `${label}.providerBillingReconciliationStatus`,
+    ),
+
+    completeTrialCostCount: nullableNonnegativeInteger(
+      item.completeTrialCostCount,
+      `${label}.completeTrialCostCount`,
+    ),
+    lowerBoundTrialCount: nullableNonnegativeInteger(
+      item.lowerBoundTrialCount,
+      `${label}.lowerBoundTrialCount`,
+    ),
+    confirmedZeroCostTrialCount: nullableNonnegativeInteger(
+      item.confirmedZeroCostTrialCount,
+      `${label}.confirmedZeroCostTrialCount`,
+    ),
+
+    selectedTrialCostAllocationStatus: exact(
+      item.selectedTrialCostAllocationStatus,
+      [
+        "available_for_reviewed_layer",
+        "available_provider_rate_reconstruction",
+        "available_with_exception_path_lower_bounds",
+        "unavailable_provider_aggregate",
+        "unresolved",
+      ] as const,
+      `${label}.selectedTrialCostAllocationStatus`,
+    ),
+    selectedOutcomeCostAllocationStatus: exact(
+      item.selectedOutcomeCostAllocationStatus,
+      [
+        "available",
+        "available_lower_bound",
+        "available_provider_rate_reconstruction",
+        "unavailable",
+        "unavailable_provider_aggregate",
+      ] as const,
+      `${label}.selectedOutcomeCostAllocationStatus`,
+    ),
+
+    selectedCleanSuccessCostUsd: nullableDecimal(
+      item.selectedCleanSuccessCostUsd,
+      `${label}.selectedCleanSuccessCostUsd`,
+    ),
+    selectedNormalFailureCostUsd: nullableDecimal(
+      item.selectedNormalFailureCostUsd,
+      `${label}.selectedNormalFailureCostUsd`,
+    ),
+    selectedExceptionFailureCostUsd: nullableDecimal(
+      item.selectedExceptionFailureCostUsd,
+      `${label}.selectedExceptionFailureCostUsd`,
+    ),
+    selectedExceptionWithSuccessSignalCostUsd: nullableDecimal(
+      item.selectedExceptionWithSuccessSignalCostUsd,
+      `${label}.selectedExceptionWithSuccessSignalCostUsd`,
+    ),
+    knownAllocatedCostUsd: nullableDecimal(
+      item.knownAllocatedCostUsd,
+      `${label}.knownAllocatedCostUsd`,
+    ),
+    unallocatedKnownCostUsd: nullableDecimal(
+      item.unallocatedKnownCostUsd,
+      `${label}.unallocatedKnownCostUsd`,
+    ),
+    unquantifiedAdditionalCostStatus: exact(
+      item.unquantifiedAdditionalCostStatus,
+      [
+        "none",
+        "not_evaluated_current_reconciliation",
+        "possible_additional_exception_path_spend",
+      ] as const,
+      `${label}.unquantifiedAdditionalCostStatus`,
+    ),
+  });
 
   if (
-    historicalHarnessRecordedCostUsd !== historical.recordedCostUsd
-    || historicalReviewedCostBasis !== historical.costBasis
-    || historicalReviewedCostUsd !== historicalReviewedCost(historical)
+    arm.historicalHarnessRecordedCostUsd
+      !== historical.recordedCostUsd
+    || arm.historicalReviewedCostBasis
+      !== historical.costBasis
+    || arm.historicalReviewedCostUsd
+      !== historicalReviewedCost(historical)
   ) {
     throw new Error(
       `${label} historical cost bridge does not match the frozen arm`,
     );
   }
 
-  const openaiExpected =
-    OPENAI_EXPECTATIONS[
-      historical.armId as keyof typeof OPENAI_EXPECTATIONS
-    ];
-
-  if (openaiExpected) {
-    if (
-      historical.provider !== "openai"
-      || providerBilledCostUsd !== openaiExpected.providerBilledCostUsd
-      || providerBillingReconciliationStatus !== "exact_arm_total"
-      || providerSelectedRunLabel
-        !== openaiExpected.providerSelectedRunLabel
-      || selectedCostBasis !== "provider_billed"
-      || selectedCostConfidence !== "exact_provider_arm_total"
-      || selectedCostUsd !== openaiExpected.providerBilledCostUsd
-      || selectedCostPerAttemptUsd
-        !== openaiExpected.selectedCostPerAttemptUsd
-      || selectedCostPerCleanSuccessUsd
-        !== openaiExpected.selectedCostPerCleanSuccessUsd
-      || selectedCostPerAnySuccessUsd
-        !== openaiExpected.selectedCostPerAnySuccessUsd
-      || selectedTrialCostAllocationStatus
-        !== "unavailable_provider_aggregate"
-      || selectedOutcomeCostAllocationStatus
-        !== "unavailable_provider_aggregate"
-    ) {
+  for (const [field, value] of [
+    ["selectedCostUsd", arm.selectedCostUsd],
+    ["selectedCostPerAttemptUsd", arm.selectedCostPerAttemptUsd],
+    [
+      "selectedCostPerCleanSuccessUsd",
+      arm.selectedCostPerCleanSuccessUsd,
+    ],
+    [
+      "selectedCostPerAnySuccessUsd",
+      arm.selectedCostPerAnySuccessUsd,
+    ],
+  ] as const) {
+    if (!isNonnegativeDecimal(value)) {
       throw new Error(
-        `${label} OpenAI provider-billed selection is invalid`,
-      );
-    }
-  } else {
-    if (
-      providerBilledCostUsd !== null
-      || providerBillingReconciliationStatus
-        !== "not_available_in_current_provider_layer"
-      || providerSelectedRunLabel !== null
-      || selectedCostBasis !== historical.costBasis
-      || selectedCostConfidence !== historical.costConfidence
-      || selectedCostUsd !== historicalReviewedCost(historical)
-      || selectedTrialCostAllocationStatus
-        !== historical.trialAllocationStatus
-      || selectedOutcomeCostAllocationStatus
-        !== historical.outcomeCostAllocationStatus
-    ) {
-      throw new Error(
-        `${label} non-provider selected-cost bridge is invalid`,
+        `${label}.${field} must be nonnegative`,
       );
     }
   }
 
   if (
     !decimalRatioMatches(
-      selectedCostUsd,
+      arm.selectedCostUsd,
       historical.trialCount,
-      selectedCostPerAttemptUsd,
+      arm.selectedCostPerAttemptUsd,
     )
     || !decimalRatioMatches(
-      selectedCostUsd,
+      arm.selectedCostUsd,
       historical.cleanSuccessCount,
-      selectedCostPerCleanSuccessUsd,
+      arm.selectedCostPerCleanSuccessUsd,
     )
     || !decimalRatioMatches(
-      selectedCostUsd,
+      arm.selectedCostUsd,
       historical.successCount,
-      selectedCostPerAnySuccessUsd,
+      arm.selectedCostPerAnySuccessUsd,
     )
   ) {
     throw new Error(
@@ -616,22 +1221,73 @@ function validateCurrentArm(
     );
   }
 
+  if (arm.currentReconciliationStatus === "historical_fallback") {
+    validateHistoricalFallback(
+      arm,
+      historical,
+      label,
+    );
+  } else {
+    validateReconciledArm(arm, label);
+  }
+
+  return arm;
+}
+
+function validateRelationCounts(
+  value: unknown,
+  label: string,
+): CurrentSelectedCostRelationCounts {
+  const item = record(value, label);
+
+  assertExactKeys(
+    item,
+    [
+      "exact",
+      "estimate",
+      "lowerBound",
+      "historicalFallback",
+    ],
+    label,
+  );
+
   return Object.freeze({
-    ...historical,
-    historicalHarnessRecordedCostUsd,
-    historicalReviewedCostBasis,
-    historicalReviewedCostUsd,
-    providerBilledCostUsd,
-    providerBillingReconciliationStatus,
-    providerSelectedRunLabel,
-    selectedCostBasis,
-    selectedCostConfidence,
-    selectedCostPerAnySuccessUsd,
-    selectedCostPerAttemptUsd,
-    selectedCostPerCleanSuccessUsd,
-    selectedCostUsd,
-    selectedOutcomeCostAllocationStatus,
-    selectedTrialCostAllocationStatus,
+    exact: nonnegativeInteger(
+      item.exact,
+      `${label}.exact`,
+    ),
+    estimate: nonnegativeInteger(
+      item.estimate,
+      `${label}.estimate`,
+    ),
+    lowerBound: nonnegativeInteger(
+      item.lowerBound,
+      `${label}.lowerBound`,
+    ),
+    historicalFallback: nonnegativeInteger(
+      item.historicalFallback,
+      `${label}.historicalFallback`,
+    ),
+  });
+}
+
+function relationCountsForArms(
+  arms: readonly CurrentReviewedPhase3Arm[],
+): CurrentSelectedCostRelationCounts {
+  return Object.freeze({
+    exact: arms.filter(
+      (arm) => arm.selectedCostRelation === "exact",
+    ).length,
+    estimate: arms.filter(
+      (arm) => arm.selectedCostRelation === "estimate",
+    ).length,
+    lowerBound: arms.filter(
+      (arm) => arm.selectedCostRelation === "lower_bound",
+    ).length,
+    historicalFallback: arms.filter(
+      (arm) =>
+        arm.selectedCostRelation === "historical_fallback",
+    ).length,
   });
 }
 
@@ -643,153 +1299,274 @@ function validateSelectedCostEvidence(
   const label = `${scopeId}.selectedCostEvidence`;
   const item = record(value, label);
 
-  const expectedKeys = [
-    "historicalReviewedArmSumCostUsd",
-    "historicalSourceScopeCostUsd",
-    "note",
-    "outcomeAllocationStatus",
-    "providerBillingCoverageStatus",
-    "providerReconciledArmCount",
-    "providerReconciledArmIds",
-    "providerReconciledCostUsd",
-    "selectedCostBasis",
-    "selectedCostUsd",
-    "sourceScopeReconciliationAdjustmentUsd",
-    "sourceScopeTransformedSelectedCostUsd",
-    "trialAllocationStatus",
-  ];
-
-  assertExactKeys(item, expectedKeys, label);
-
-  const historicalReviewedArmSumCostUsd = decimal(
-    item.historicalReviewedArmSumCostUsd,
-    `${label}.historicalReviewedArmSumCostUsd`,
-  );
-  const historicalSourceScopeCostUsd = decimal(
-    item.historicalSourceScopeCostUsd,
-    `${label}.historicalSourceScopeCostUsd`,
-  );
-  const note = text(item.note, `${label}.note`);
-  const outcomeAllocationStatus = exact(
-    item.outcomeAllocationStatus,
-    ["mixed_by_arm"] as const,
-    `${label}.outcomeAllocationStatus`,
-  );
-  const providerBillingCoverageStatus = exact(
-    item.providerBillingCoverageStatus,
-    ["partial_by_arm"] as const,
-    `${label}.providerBillingCoverageStatus`,
-  );
-  const providerReconciledArmCount = nonnegativeInteger(
-    item.providerReconciledArmCount,
-    `${label}.providerReconciledArmCount`,
+  assertExactKeys(
+    item,
+    [
+      "currentReconciledArmCount",
+      "currentReconciledArmIds",
+      "currentReconciledCostUsd",
+      "currentReconciliationCoverageStatus",
+      "exactProviderBilledArmCount",
+      "exactProviderBilledArmIds",
+      "exactProviderBilledCostUsd",
+      "historicalReviewedArmSumCostUsd",
+      "historicalSourceScopeCostUsd",
+      "note",
+      "outcomeAllocationStatus",
+      "selectedCostBasis",
+      "selectedCostRelation",
+      "selectedCostRelationCounts",
+      "selectedCostUsd",
+      "sourceScopeReconciliationAdjustmentUsd",
+      "sourceScopeTransformedSelectedCostUsd",
+      "trialAllocationStatus",
+      "unquantifiedAdditionalCostArmCount",
+      "unquantifiedAdditionalCostArmIds",
+    ],
+    label,
   );
 
-  if (
-    !Array.isArray(item.providerReconciledArmIds)
-    || item.providerReconciledArmIds.some(
-      (armId) => typeof armId !== "string",
-    )
-  ) {
-    throw new Error(
-      `${label}.providerReconciledArmIds must be a string array`,
-    );
-  }
+  const evidence: CurrentSelectedCostEvidence =
+    Object.freeze({
+      currentReconciledArmCount: nonnegativeInteger(
+        item.currentReconciledArmCount,
+        `${label}.currentReconciledArmCount`,
+      ),
+      currentReconciledArmIds: stringArray(
+        item.currentReconciledArmIds,
+        `${label}.currentReconciledArmIds`,
+      ),
+      currentReconciledCostUsd: decimal(
+        item.currentReconciledCostUsd,
+        `${label}.currentReconciledCostUsd`,
+      ),
+      currentReconciliationCoverageStatus: exact(
+        item.currentReconciliationCoverageStatus,
+        ["partial_by_arm"] as const,
+        `${label}.currentReconciliationCoverageStatus`,
+      ),
 
-  const providerReconciledArmIds = Object.freeze([
-    ...item.providerReconciledArmIds,
-  ] as string[]);
+      exactProviderBilledArmCount: nonnegativeInteger(
+        item.exactProviderBilledArmCount,
+        `${label}.exactProviderBilledArmCount`,
+      ),
+      exactProviderBilledArmIds: stringArray(
+        item.exactProviderBilledArmIds,
+        `${label}.exactProviderBilledArmIds`,
+      ),
+      exactProviderBilledCostUsd: decimal(
+        item.exactProviderBilledCostUsd,
+        `${label}.exactProviderBilledCostUsd`,
+      ),
 
-  const providerReconciledCostUsd = decimal(
-    item.providerReconciledCostUsd,
-    `${label}.providerReconciledCostUsd`,
-  );
-  const selectedCostBasis = exact(
-    item.selectedCostBasis,
-    ["mixed_best_available_arm_evidence"] as const,
-    `${label}.selectedCostBasis`,
-  );
-  const selectedCostUsd = decimal(
-    item.selectedCostUsd,
-    `${label}.selectedCostUsd`,
-  );
-  const sourceScopeReconciliationAdjustmentUsd = decimal(
-    item.sourceScopeReconciliationAdjustmentUsd,
-    `${label}.sourceScopeReconciliationAdjustmentUsd`,
-  );
-  const sourceScopeTransformedSelectedCostUsd = decimal(
-    item.sourceScopeTransformedSelectedCostUsd,
-    `${label}.sourceScopeTransformedSelectedCostUsd`,
-  );
-  const trialAllocationStatus = exact(
-    item.trialAllocationStatus,
-    ["mixed_by_arm"] as const,
-    `${label}.trialAllocationStatus`,
-  );
+      historicalReviewedArmSumCostUsd: decimal(
+        item.historicalReviewedArmSumCostUsd,
+        `${label}.historicalReviewedArmSumCostUsd`,
+      ),
+      historicalSourceScopeCostUsd: decimal(
+        item.historicalSourceScopeCostUsd,
+        `${label}.historicalSourceScopeCostUsd`,
+      ),
+
+      note: text(item.note, `${label}.note`),
+
+      outcomeAllocationStatus: exact(
+        item.outcomeAllocationStatus,
+        ["mixed_by_arm"] as const,
+        `${label}.outcomeAllocationStatus`,
+      ),
+      selectedCostBasis: exact(
+        item.selectedCostBasis,
+        ["mixed_best_available_arm_evidence"] as const,
+        `${label}.selectedCostBasis`,
+      ),
+      selectedCostRelation: exact(
+        item.selectedCostRelation,
+        ["mixed_by_arm"] as const,
+        `${label}.selectedCostRelation`,
+      ),
+      selectedCostRelationCounts: validateRelationCounts(
+        item.selectedCostRelationCounts,
+        `${label}.selectedCostRelationCounts`,
+      ),
+      selectedCostUsd: decimal(
+        item.selectedCostUsd,
+        `${label}.selectedCostUsd`,
+      ),
+
+      sourceScopeReconciliationAdjustmentUsd: decimal(
+        item.sourceScopeReconciliationAdjustmentUsd,
+        `${label}.sourceScopeReconciliationAdjustmentUsd`,
+      ),
+      sourceScopeTransformedSelectedCostUsd: decimal(
+        item.sourceScopeTransformedSelectedCostUsd,
+        `${label}.sourceScopeTransformedSelectedCostUsd`,
+      ),
+
+      trialAllocationStatus: exact(
+        item.trialAllocationStatus,
+        ["mixed_by_arm"] as const,
+        `${label}.trialAllocationStatus`,
+      ),
+
+      unquantifiedAdditionalCostArmCount:
+        nonnegativeInteger(
+          item.unquantifiedAdditionalCostArmCount,
+          `${label}.unquantifiedAdditionalCostArmCount`,
+        ),
+      unquantifiedAdditionalCostArmIds: stringArray(
+        item.unquantifiedAdditionalCostArmIds,
+        `${label}.unquantifiedAdditionalCostArmIds`,
+      ),
+    });
 
   const expected = SCOPE_EXPECTATIONS[scopeId];
 
   if (
-    historicalReviewedArmSumCostUsd
+    evidence.selectedCostUsd !== expected.selectedCostUsd
+    || evidence.historicalReviewedArmSumCostUsd
       !== expected.historicalReviewedArmSumCostUsd
-    || historicalSourceScopeCostUsd
+    || evidence.historicalSourceScopeCostUsd
       !== expected.historicalSourceScopeCostUsd
-    || selectedCostUsd !== expected.selectedCostUsd
-    || sourceScopeReconciliationAdjustmentUsd
+    || evidence.sourceScopeReconciliationAdjustmentUsd
       !== expected.sourceScopeReconciliationAdjustmentUsd
-    || sourceScopeTransformedSelectedCostUsd
+    || evidence.sourceScopeTransformedSelectedCostUsd
       !== expected.sourceScopeTransformedSelectedCostUsd
-    || providerReconciledArmCount !== 2
-    || !sameJson(
-      providerReconciledArmIds,
-      ["router-gpt-5.4", "router-gpt-5.5"],
-    )
-    || providerReconciledCostUsd !== "78.3968475"
   ) {
     throw new Error(
-      `${label} does not match the reviewed selected-cost contract`,
+      `${label} does not match the reviewed v3 scope anchors`,
     );
   }
 
   if (
     !decimalSumEquals(
       arms.map((arm) => arm.selectedCostUsd),
-      selectedCostUsd,
+      evidence.selectedCostUsd,
+    )
+    || !decimalSumEquals(
+      [
+        evidence.selectedCostUsd,
+        evidence.sourceScopeReconciliationAdjustmentUsd,
+      ],
+      evidence.sourceScopeTransformedSelectedCostUsd,
     )
   ) {
     throw new Error(
-      `${label}.selectedCostUsd does not equal the exact arm sum`,
+      `${label} selected arithmetic arm sum is invalid`,
     );
   }
 
-  const providerArmCosts = arms
-    .filter((arm) => arm.selectedCostBasis === "provider_billed")
-    .map((arm) => arm.selectedCostUsd);
+  const reconciledArms = arms.filter(
+    (arm) =>
+      arm.currentReconciliationStatus === "reconciled",
+  );
+  const reconciledIds = reconciledArms
+    .map((arm) => arm.armId)
+    .sort();
 
   if (
-    providerArmCosts.length !== 2
-    || !decimalSumEquals(providerArmCosts, providerReconciledCostUsd)
+    evidence.currentReconciledArmCount
+      !== reconciledArms.length
+    || !sameJson(
+      evidence.currentReconciledArmIds,
+      reconciledIds,
+    )
+    || !sameJson(
+      reconciledIds,
+      EXPECTED_RECONCILED_ARM_IDS,
+    )
+    || !decimalSumEquals(
+      reconciledArms.map(
+        (arm) => arm.selectedCostUsd,
+      ),
+      evidence.currentReconciledCostUsd,
+    )
+    || evidence.currentReconciledCostUsd
+      !== "251.5579261372"
   ) {
     throw new Error(
-      `${label} provider-reconciled cost does not reconcile`,
+      `${label} current reconciled subtotal is invalid`,
     );
   }
 
-  return Object.freeze({
-    historicalReviewedArmSumCostUsd,
-    historicalSourceScopeCostUsd,
-    note,
-    outcomeAllocationStatus,
-    providerBillingCoverageStatus,
-    providerReconciledArmCount,
-    providerReconciledArmIds,
-    providerReconciledCostUsd,
-    selectedCostBasis,
-    selectedCostUsd,
-    sourceScopeReconciliationAdjustmentUsd,
-    sourceScopeTransformedSelectedCostUsd,
-    trialAllocationStatus,
-  });
+  const billedArms = arms.filter(
+    (arm) => arm.providerBilledCostUsd !== null,
+  );
+  const billedIds = billedArms
+    .map((arm) => arm.armId)
+    .sort();
+
+  if (
+    evidence.exactProviderBilledArmCount
+      !== billedArms.length
+    || !sameJson(
+      evidence.exactProviderBilledArmIds,
+      billedIds,
+    )
+    || !sameJson(
+      billedIds,
+      EXPECTED_EXACT_PROVIDER_BILLED_ARM_IDS,
+    )
+    || !decimalSumEquals(
+      billedArms.map(
+        (arm) => arm.providerBilledCostUsd as string,
+      ),
+      evidence.exactProviderBilledCostUsd,
+    )
+    || evidence.exactProviderBilledCostUsd
+      !== "78.3968475"
+  ) {
+    throw new Error(
+      `${label} exact provider-billed subtotal is invalid`,
+    );
+  }
+
+  const derivedRelationCounts =
+    relationCountsForArms(arms);
+
+  if (
+    !sameJson(
+      evidence.selectedCostRelationCounts,
+      derivedRelationCounts,
+    )
+    || derivedRelationCounts.exact !== 4
+    || derivedRelationCounts.estimate !== 2
+    || derivedRelationCounts.lowerBound !== 2
+    || derivedRelationCounts.historicalFallback
+      !== expected.historicalFallbackCount
+  ) {
+    throw new Error(
+      `${label} selected-cost relation counts are invalid`,
+    );
+  }
+
+  const unquantifiedIds = arms
+    .filter(
+      (arm) =>
+        arm.unquantifiedAdditionalCostStatus
+          === "possible_additional_exception_path_spend",
+    )
+    .map((arm) => arm.armId)
+    .sort();
+
+  if (
+    evidence.unquantifiedAdditionalCostArmCount
+      !== unquantifiedIds.length
+    || !sameJson(
+      evidence.unquantifiedAdditionalCostArmIds,
+      unquantifiedIds,
+    )
+    || !sameJson(
+      unquantifiedIds,
+      EXPECTED_UNQUANTIFIED_ADDITIONAL_COST_ARM_IDS,
+    )
+  ) {
+    throw new Error(
+      `${label} unquantified additional-cost membership is invalid`,
+    );
+  }
+
+  return evidence;
 }
 
 function validateScope(
@@ -797,34 +1574,41 @@ function validateScope(
   scopeId: CurrentReviewedPhase3ScopeId,
 ): CurrentReviewedPhase3Scope {
   const item = record(value, scopeId);
-  const historical = PHASE3_REVIEWED_COMPARISON.scopes[scopeId];
+  const historical =
+    PHASE3_REVIEWED_COMPARISON.scopes[scopeId];
 
-  const expectedKeys = [
-    "scopeId",
-    "displayName",
-    "presentationKind",
-    "snapshotDate",
-    "armCount",
-    "trialCount",
-    "successCount",
-    "passRate",
-    "arms",
-    "historicalCostEvidence",
-    "historicalOutcomeCostCoverage",
-    "selectedCostEvidence",
-  ];
-
-  assertExactKeys(item, expectedKeys, scopeId);
+  assertExactKeys(
+    item,
+    [
+      "scopeId",
+      "displayName",
+      "presentationKind",
+      "snapshotDate",
+      "armCount",
+      "trialCount",
+      "successCount",
+      "passRate",
+      "arms",
+      "historicalCostEvidence",
+      "historicalOutcomeCostCoverage",
+      "selectedCostEvidence",
+    ],
+    scopeId,
+  );
 
   if (
     item.scopeId !== historical.scopeId
     || item.displayName !== historical.displayName
-    || item.presentationKind !== historical.presentationKind
+    || item.presentationKind
+      !== historical.presentationKind
     || item.snapshotDate !== historical.snapshotDate
     || item.armCount !== historical.armCount
     || item.trialCount !== historical.trialCount
     || item.successCount !== historical.successCount
-    || item.passRate !== historical.passRate
+    || finiteNumber(
+      item.passRate,
+      `${scopeId}.passRate`,
+    ) !== historical.passRate
   ) {
     throw new Error(
       `${scopeId} does not preserve frozen reviewed scope identity`,
@@ -832,7 +1616,10 @@ function validateScope(
   }
 
   if (
-    !sameJson(item.historicalCostEvidence, historical.costEvidence)
+    !sameJson(
+      item.historicalCostEvidence,
+      historical.costEvidence,
+    )
     || !sameJson(
       item.historicalOutcomeCostCoverage,
       historical.outcomeCostCoverage,
@@ -844,16 +1631,23 @@ function validateScope(
   }
 
   if (!Array.isArray(item.arms)) {
-    throw new Error(`${scopeId}.arms must be an array`);
+    throw new Error(
+      `${scopeId}.arms must be an array`,
+    );
   }
 
   if (item.arms.length !== historical.arms.length) {
-    throw new Error(`${scopeId} arm membership changed`);
+    throw new Error(
+      `${scopeId} arm membership changed`,
+    );
   }
 
   const arms = item.arms.map((raw, index) => {
     const historicalArm = historical.arms[index];
-    const rawArm = record(raw, `${scopeId}.arms[${index}]`);
+    const rawArm = record(
+      raw,
+      `${scopeId}.arms[${index}]`,
+    );
 
     if (rawArm.armId !== historicalArm.armId) {
       throw new Error(
@@ -868,11 +1662,12 @@ function validateScope(
     );
   });
 
-  const selectedCostEvidence = validateSelectedCostEvidence(
-    item.selectedCostEvidence,
-    scopeId,
-    arms,
-  );
+  const selectedCostEvidence =
+    validateSelectedCostEvidence(
+      item.selectedCostEvidence,
+      scopeId,
+      arms,
+    );
 
   return Object.freeze({
     scopeId,
@@ -885,15 +1680,22 @@ function validateScope(
     passRate: historical.passRate,
     arms: Object.freeze(arms),
     historicalCostEvidence: historical.costEvidence,
-    historicalOutcomeCostCoverage: historical.outcomeCostCoverage,
+    historicalOutcomeCostCoverage:
+      historical.outcomeCostCoverage,
     selectedCostEvidence,
   });
 }
 
 export type CurrentSelectedOutcomeCostEvidence =
   | Readonly<{
-      status: "available";
-      evidenceBasis: "historical_reviewed_selected_cost";
+      status:
+        | "available"
+        | "available_lower_bound"
+        | "available_provider_rate_reconstruction";
+      evidenceBasis:
+        | "historical_reviewed_selected_cost"
+        | "provider_rate_reconstruction"
+        | "provider_rate_reconstruction_lower_bound";
       adjustedCleanSuccessCostUsd: string;
       adjustedFailureOrIncompleteCostUsd: string;
       adjustedExceptionSuccessSignalCostUsd: string;
@@ -901,10 +1703,9 @@ export type CurrentSelectedOutcomeCostEvidence =
       nonproductiveOrUncleanSpendShare: number;
     }>
   | Readonly<{
-      status: Exclude<
-        CurrentSelectedOutcomeCostAllocationStatus,
-        "available"
-      >;
+      status:
+        | "unavailable"
+        | "unavailable_provider_aggregate";
       evidenceBasis: null;
       adjustedCleanSuccessCostUsd: null;
       adjustedFailureOrIncompleteCostUsd: null;
@@ -913,20 +1714,15 @@ export type CurrentSelectedOutcomeCostEvidence =
       nonproductiveOrUncleanSpendShare: null;
     }>;
 
-/**
- * Return outcome-cost evidence only when it belongs to the selected cost.
- *
- * Current provider aggregates are never redistributed across historical
- * trials or outcomes. Historical outcome-cost fields can coexist on the
- * reviewed arm for provenance, but they are not selected-cost allocation
- * evidence unless the selected cost is the same historical reviewed basis.
- */
 export function getCurrentSelectedOutcomeCostEvidence(
   arm: CurrentReviewedPhase3Arm,
 ): CurrentSelectedOutcomeCostEvidence {
   const status = arm.selectedOutcomeCostAllocationStatus;
 
-  if (status !== "available") {
+  if (
+    status === "unavailable"
+    || status === "unavailable_provider_aggregate"
+  ) {
     return Object.freeze({
       status,
       evidenceBasis: null,
@@ -938,51 +1734,107 @@ export function getCurrentSelectedOutcomeCostEvidence(
     });
   }
 
-  if (
-    arm.selectedTrialCostAllocationStatus
-      !== "available_for_reviewed_layer"
-    || arm.selectedCostBasis
-      !== arm.historicalReviewedCostBasis
-    || arm.selectedCostUsd
-      !== arm.historicalReviewedCostUsd
-  ) {
-    throw new Error(
-      `${arm.armId} selected outcome allocation is not owned by the selected cost`,
-    );
+  if (status === "available") {
+    if (
+      arm.currentReconciliationStatus
+        !== "historical_fallback"
+      || arm.selectedCostBasis
+        !== arm.historicalReviewedCostBasis
+      || arm.selectedCostUsd
+        !== arm.historicalReviewedCostUsd
+      || arm.selectedTrialCostAllocationStatus
+        !== "available_for_reviewed_layer"
+      || arm.adjustedCleanSuccessCostUsd === null
+      || arm.adjustedFailureOrIncompleteCostUsd === null
+      || arm.adjustedExceptionSuccessSignalCostUsd === null
+      || arm.failureOrIncompleteSpendShare === null
+      || arm.nonproductiveOrUncleanSpendShare === null
+    ) {
+      throw new Error(
+        `${arm.armId} historical selected outcome allocation is invalid`,
+      );
+    }
+
+    return Object.freeze({
+      status: "available",
+      evidenceBasis: "historical_reviewed_selected_cost",
+      adjustedCleanSuccessCostUsd:
+        arm.adjustedCleanSuccessCostUsd,
+      adjustedFailureOrIncompleteCostUsd:
+        arm.adjustedFailureOrIncompleteCostUsd,
+      adjustedExceptionSuccessSignalCostUsd:
+        arm.adjustedExceptionSuccessSignalCostUsd,
+      failureOrIncompleteSpendShare:
+        arm.failureOrIncompleteSpendShare,
+      nonproductiveOrUncleanSpendShare:
+        arm.nonproductiveOrUncleanSpendShare,
+    });
   }
 
   if (
-    arm.adjustedCleanSuccessCostUsd === null
-    || arm.adjustedFailureOrIncompleteCostUsd === null
-    || arm.adjustedExceptionSuccessSignalCostUsd === null
-    || arm.failureOrIncompleteSpendShare === null
-    || arm.nonproductiveOrUncleanSpendShare === null
+    arm.selectedCleanSuccessCostUsd === null
+    || arm.selectedNormalFailureCostUsd === null
+    || arm.selectedExceptionFailureCostUsd === null
+    || arm.selectedExceptionWithSuccessSignalCostUsd === null
   ) {
     throw new Error(
-      `${arm.armId} selected outcome allocation is incomplete`,
+      `${arm.armId} current selected outcome allocation is incomplete`,
+    );
+  }
+
+  const failureOrIncomplete =
+    sumDecimalStrings([
+      arm.selectedNormalFailureCostUsd,
+      arm.selectedExceptionFailureCostUsd,
+    ]);
+
+  const nonproductiveOrUnclean =
+    sumDecimalStrings([
+      failureOrIncomplete,
+      arm.selectedExceptionWithSuccessSignalCostUsd,
+    ]);
+
+  const selected = Number(arm.selectedCostUsd);
+  const failure = Number(failureOrIncomplete);
+  const nonproductive = Number(nonproductiveOrUnclean);
+
+  if (
+    !Number.isFinite(selected)
+    || selected <= 0
+    || !Number.isFinite(failure)
+    || !Number.isFinite(nonproductive)
+  ) {
+    throw new Error(
+      `${arm.armId} current selected outcome shares are invalid`,
     );
   }
 
   return Object.freeze({
-    status: "available",
-    evidenceBasis: "historical_reviewed_selected_cost",
+    status,
+    evidenceBasis:
+      status === "available_lower_bound"
+        ? "provider_rate_reconstruction_lower_bound"
+        : "provider_rate_reconstruction",
     adjustedCleanSuccessCostUsd:
-      arm.adjustedCleanSuccessCostUsd,
+      arm.selectedCleanSuccessCostUsd,
     adjustedFailureOrIncompleteCostUsd:
-      arm.adjustedFailureOrIncompleteCostUsd,
+      failureOrIncomplete,
     adjustedExceptionSuccessSignalCostUsd:
-      arm.adjustedExceptionSuccessSignalCostUsd,
+      arm.selectedExceptionWithSuccessSignalCostUsd,
     failureOrIncompleteSpendShare:
-      arm.failureOrIncompleteSpendShare,
+      failure / selected,
     nonproductiveOrUncleanSpendShare:
-      arm.nonproductiveOrUncleanSpendShare,
+      nonproductive / selected,
   });
 }
 
 export function validatePhase3CurrentReviewedComparison(
   value: unknown,
 ): Phase3CurrentReviewedComparison {
-  const item = record(value, "current reviewed comparison");
+  const item = record(
+    value,
+    "current reviewed comparison",
+  );
 
   assertExactKeys(
     item,
@@ -1006,8 +1858,10 @@ export function validatePhase3CurrentReviewedComparison(
     );
   }
 
-  if (item.reviewedAt !== "2026-08-21") {
-    throw new Error("current reviewed comparison reviewedAt is invalid");
+  if (item.reviewedAt !== "2026-08-24") {
+    throw new Error(
+      "current reviewed comparison reviewedAt is invalid",
+    );
   }
 
   if (item.historicalReviewedAt !== "2026-08-05") {
@@ -1016,13 +1870,21 @@ export function validatePhase3CurrentReviewedComparison(
     );
   }
 
-  const generator = record(item.generator, "generator");
-  assertExactKeys(generator, ["name", "version"], "generator");
+  const generator = record(
+    item.generator,
+    "generator",
+  );
+
+  assertExactKeys(
+    generator,
+    ["name", "version"],
+    "generator",
+  );
 
   if (
     generator.name
-      !== "scripts/generate_phase3_current_reviewed_comparison.py"
-    || generator.version !== "1.0.0"
+      !== "scripts/generate_phase3_current_reviewed_comparison_v3.py"
+    || generator.version !== "2.0.0"
   ) {
     throw new Error(
       "current reviewed comparison generator identity is invalid",
@@ -1030,7 +1892,10 @@ export function validatePhase3CurrentReviewedComparison(
   }
 
   const inputs = validateInputs(item.inputs);
-  const scopesRaw = record(item.scopes, "scopes");
+  const scopesRaw = record(
+    item.scopes,
+    "scopes",
+  );
 
   assertExactKeys(
     scopesRaw,
@@ -1048,8 +1913,12 @@ export function validatePhase3CurrentReviewedComparison(
   );
 
   if (
-    core.arms.some((arm) => arm.armId === "router-kimi-k3")
-    || !extended.arms.some((arm) => arm.armId === "router-kimi-k3")
+    core.arms.some(
+      (arm) => arm.armId === "router-kimi-k3",
+    )
+    || !extended.arms.some(
+      (arm) => arm.armId === "router-kimi-k3",
+    )
   ) {
     throw new Error(
       "current reviewed Kimi K3 scope membership is invalid",
@@ -1059,12 +1928,12 @@ export function validatePhase3CurrentReviewedComparison(
   return Object.freeze({
     schemaVersion:
       PHASE3_CURRENT_REVIEWED_COMPARISON_SCHEMA_VERSION,
-    reviewedAt: "2026-08-21",
+    reviewedAt: "2026-08-24",
     historicalReviewedAt: "2026-08-05",
     generator: Object.freeze({
       name:
-        "scripts/generate_phase3_current_reviewed_comparison.py",
-      version: "1.0.0",
+        "scripts/generate_phase3_current_reviewed_comparison_v3.py",
+      version: "2.0.0",
     }),
     inputs,
     scopes: Object.freeze({
@@ -1091,7 +1960,11 @@ export function selectCurrentReviewedPhase3Scope(
   const defaultScopeId: CurrentReviewedPhase3ScopeId =
     "phase3-extended";
 
-  if (value === null || value === undefined || value === "") {
+  if (
+    value === null
+    || value === undefined
+    || value === ""
+  ) {
     return Object.freeze({
       scopeId: defaultScopeId,
       scope: getCurrentReviewedPhase3Scope(defaultScopeId),
@@ -1112,7 +1985,10 @@ export function selectCurrentReviewedPhase3Scope(
     });
   }
 
-  if (value === "phase3-core" || value === "phase3-extended") {
+  if (
+    value === "phase3-core"
+    || value === "phase3-extended"
+  ) {
     return Object.freeze({
       scopeId: value,
       scope: getCurrentReviewedPhase3Scope(value),

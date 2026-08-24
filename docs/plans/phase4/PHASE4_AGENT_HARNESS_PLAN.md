@@ -109,6 +109,19 @@ Therefore Phase 4 must be careful not to present results as pure model rankings.
 5. Normalize metrics across harnesses.
 6. Add harness-specific failure labels where necessary.
 7. Keep cost accounting explicit.
+8. Record routing alias separately from canonical backend/provider model
+   identity. If one arm invokes multiple cost-bearing provider models, preserve
+   that model composition rather than collapsing it to one pricing identity.
+9. Define the provider-evidence source and expected cache/pricing semantics
+   before paid execution.
+10. Reconcile harness-recorded or reconstructed cost against provider-side
+    evidence after canary, smoke, and scored execution, preserving both the
+    original estimate and the reviewed current interpretation.
+
+Provider reconciliation should report evidence scope explicitly. An exact
+run/arm bill, a provider-day aggregate, a provider-month total, a
+pricing-derived estimate, and an internal harness estimate are not equivalent
+forms of evidence.
 
 ## Output paths
 
@@ -197,6 +210,11 @@ For each candidate harness:
 4. Confirm verifier scoring.
 5. Confirm no secrets leak into artifacts.
 6. Confirm cost tracking or document why not available.
+7. Confirm the recorded model identity is sufficient to map the run to the
+   canonical provider model, or ordered set of cost-bearing provider models,
+   rather than only a harness/router alias.
+8. Capture the expected provider pricing/cache semantics and identify the
+   provider evidence that will later be used to check the benchmark estimate.
 
 Recommended canary task:
 

@@ -1,3 +1,7 @@
+import type {
+  CurrentSelectedCostRelation,
+} from "./current-cost-relation";
+
 export type ChartScope = "phase3-core" | "phase3-extended";
 
 export type ChartXAxisMetric =
@@ -34,7 +38,10 @@ export type ChartEvidenceAmount =
       status: "available";
       decimalUsd: string;
       value: number;
-      evidenceBasis: "reviewed_adjusted_outcome_cost";
+      evidenceBasis:
+        | "historical_reviewed_selected_cost"
+        | "provider_rate_reconstruction"
+        | "provider_rate_reconstruction_lower_bound";
     }>
   | Readonly<{
       status: "unavailable";
@@ -59,6 +66,8 @@ export type ChartArmDatum = Readonly<{
   cleanSuccessCount: number;
   recordedCostUsd: string;
   selectedCostUsd: string;
+  selectedCostRelation: CurrentSelectedCostRelation;
+  selectedEfficiencyRelation: CurrentSelectedCostRelation;
   historicalReviewedCostUsd: string;
   providerBilledCostUsd: string | null;
   reviewedComparableCostUsd: string | null;
@@ -67,23 +76,33 @@ export type ChartArmDatum = Readonly<{
   costBasis:
     | "adjusted_known_cost"
     | "qualified_retained_rate_estimate"
-    | "provider_billed";
+    | "provider_billed"
+    | "provider_rate_reconstructed_retained_usage"
+    | "provider_rate_reconstructed_retained_usage_lower_bound"
+    | "provider_rate_reconstructed_selected_run";
   costBasisLabel:
     | "Adjusted known cost"
     | "Qualified retained-rate estimate"
-    | "Provider-billed arm total";
+    | "Provider-billed arm total"
+    | "Provider-rate reconstructed retained usage"
+    | "Provider-rate retained-usage lower bound"
+    | "Provider-rate reconstructed selected-run estimate";
   costSources: readonly string[];
   costConfidence: string;
   pricingProvenanceStatus: "historical_reviewed_layer" | "incomplete";
   armRunAllocationConfidence: "reviewed_core_layer" | "low";
   trialAllocationStatus:
     | "available_for_reviewed_layer"
+    | "available_provider_rate_reconstruction"
+    | "available_with_exception_path_lower_bounds"
     | "unresolved"
     | "unavailable_provider_aggregate";
   billingReconciliationStatus:
     | "exact_arm_total"
-    | "not_available_in_current_provider_layer";
-  providerSelectedRunLabel: string | null;
+    | "provider_invoice_unavailable"
+    | "same_day_model_aggregate_not_run_isolated"
+    | "not_available_in_current_reconciliation_layer";
+  currentSelectedRunLabel: string | null;
   providerLogExclusivityStatus: "not_proven" | null;
   accountingGapUsd: string;
   missingRecordedCostCount: number;
@@ -149,7 +168,10 @@ export type AccessibleChartRow = Readonly<{
   passRate: number;
   xMetric: ChartXAxisMetric;
   xMetricValue: ChartMetricValue;
+  xMetricRelation: CurrentSelectedCostRelation | null;
   selectedCostUsd: string;
+  selectedCostRelation: CurrentSelectedCostRelation;
+  selectedEfficiencyRelation: CurrentSelectedCostRelation;
   historicalReviewedCostUsd: string;
   providerBilledCostUsd: string | null;
   costBasis: ChartArmDatum["costBasis"];
@@ -160,7 +182,7 @@ export type AccessibleChartRow = Readonly<{
   armRunAllocationConfidence: ChartArmDatum["armRunAllocationConfidence"];
   trialAllocationStatus: ChartArmDatum["trialAllocationStatus"];
   billingReconciliationStatus: ChartArmDatum["billingReconciliationStatus"];
-  providerSelectedRunLabel: string | null;
+  currentSelectedRunLabel: string | null;
   providerLogExclusivityStatus: ChartArmDatum["providerLogExclusivityStatus"];
   accountingGapUsd: string;
   failureIncompleteSpend: ChartEvidenceAmount;
@@ -300,6 +322,15 @@ export function metricValueForArm(
   return arm.recordedCostPerAttempt;
 }
 
+export function metricRelationForArm(
+  arm: Pick<ChartArmDatum, "selectedEfficiencyRelation">,
+  metric: ChartXAxisMetric,
+): CurrentSelectedCostRelation | null {
+  return metric === "recorded_cost_per_attempt"
+    ? null
+    : arm.selectedEfficiencyRelation;
+}
+
 export function deriveMetricEligibility(
   arms: readonly ChartArmDatum[],
   metric: ChartXAxisMetric,
@@ -416,7 +447,10 @@ export function buildAccessibleChartRows(
     passRate: arm.passRate,
     xMetric: metric,
     xMetricValue: metricValueForArm(arm, metric),
+    xMetricRelation: metricRelationForArm(arm, metric),
     selectedCostUsd: arm.selectedCostUsd,
+    selectedCostRelation: arm.selectedCostRelation,
+    selectedEfficiencyRelation: arm.selectedEfficiencyRelation,
     historicalReviewedCostUsd: arm.historicalReviewedCostUsd,
     providerBilledCostUsd: arm.providerBilledCostUsd,
     costBasis: arm.costBasis,
@@ -427,7 +461,7 @@ export function buildAccessibleChartRows(
     armRunAllocationConfidence: arm.armRunAllocationConfidence,
     trialAllocationStatus: arm.trialAllocationStatus,
     billingReconciliationStatus: arm.billingReconciliationStatus,
-    providerSelectedRunLabel: arm.providerSelectedRunLabel,
+    currentSelectedRunLabel: arm.currentSelectedRunLabel,
     providerLogExclusivityStatus: arm.providerLogExclusivityStatus,
     accountingGapUsd: arm.accountingGapUsd,
     failureIncompleteSpend: arm.failureIncompleteSpend,

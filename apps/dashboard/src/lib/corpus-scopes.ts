@@ -47,8 +47,8 @@ export type CorpusScope = Readonly<{
   selectedCostUsd: number | null;
   historicalReviewedCostUsd: number | null;
   selectedCostBasis: "mixed_best_available_arm_evidence" | null;
-  providerReconciledArmCount: number | null;
-  providerReconciledCostUsd: number | null;
+  currentReconciledArmCount: number | null;
+  currentReconciledCostUsd: number | null;
   currentCostReviewedAt: string | null;
   selectedCostDescription: string | null;
 
@@ -139,12 +139,12 @@ export const CORPUS_SCOPES: Readonly<Record<CorpusScopeId, CorpusScope>> = Objec
     ),
     selectedCostBasis:
       CURRENT_REVIEWED_CORE.selectedCostEvidence.selectedCostBasis,
-    providerReconciledArmCount:
+    currentReconciledArmCount:
       CURRENT_REVIEWED_CORE.selectedCostEvidence
-        .providerReconciledArmCount,
-    providerReconciledCostUsd: reviewedDecimal(
+        .currentReconciledArmCount,
+    currentReconciledCostUsd: reviewedDecimal(
       CURRENT_REVIEWED_CORE.selectedCostEvidence
-        .providerReconciledCostUsd,
+        .currentReconciledCostUsd,
       "phase3-core provider-reconciled selected cost",
     ),
     currentCostReviewedAt:
@@ -153,7 +153,7 @@ export const CORPUS_SCOPES: Readonly<Record<CorpusScopeId, CorpusScope>> = Objec
       `Current selected arm-sum cost is $${Number(
         CURRENT_REVIEWED_CORE.selectedCostEvidence.selectedCostUsd,
       ).toFixed(6)} using mixed best-available arm evidence. `
-      + `${CURRENT_REVIEWED_CORE.selectedCostEvidence.providerReconciledArmCount}/${REVIEWED_CORE.armCount} arms use exact provider-billed reconciliation; provider aggregates are not redistributed to trials or outcomes.`,
+      + `${CURRENT_REVIEWED_CORE.selectedCostEvidence.currentReconciledArmCount}/${REVIEWED_CORE.armCount} arms have current generalized reconciliation; ${CURRENT_REVIEWED_CORE.selectedCostEvidence.exactProviderBilledArmCount}/${REVIEWED_CORE.armCount} arms have exact provider-billed totals. Provider aggregates are not redistributed to trials or outcomes.`,
 
     adjustedKnownCostUsd: reviewedDecimal(
       REVIEWED_CORE.costEvidence.adjustedKnownCostUsd,
@@ -189,12 +189,12 @@ export const CORPUS_SCOPES: Readonly<Record<CorpusScopeId, CorpusScope>> = Objec
     ),
     selectedCostBasis:
       CURRENT_REVIEWED_EXTENDED.selectedCostEvidence.selectedCostBasis,
-    providerReconciledArmCount:
+    currentReconciledArmCount:
       CURRENT_REVIEWED_EXTENDED.selectedCostEvidence
-        .providerReconciledArmCount,
-    providerReconciledCostUsd: reviewedDecimal(
+        .currentReconciledArmCount,
+    currentReconciledCostUsd: reviewedDecimal(
       CURRENT_REVIEWED_EXTENDED.selectedCostEvidence
-        .providerReconciledCostUsd,
+        .currentReconciledCostUsd,
       "phase3-extended provider-reconciled selected cost",
     ),
     currentCostReviewedAt:
@@ -203,7 +203,7 @@ export const CORPUS_SCOPES: Readonly<Record<CorpusScopeId, CorpusScope>> = Objec
       `Current selected arm-sum cost is $${Number(
         CURRENT_REVIEWED_EXTENDED.selectedCostEvidence.selectedCostUsd,
       ).toFixed(6)} using mixed best-available arm evidence. `
-      + `${CURRENT_REVIEWED_EXTENDED.selectedCostEvidence.providerReconciledArmCount}/${REVIEWED_EXTENDED.armCount} arms use exact provider-billed reconciliation; provider aggregates are not redistributed to trials or outcomes.`,
+      + `${CURRENT_REVIEWED_EXTENDED.selectedCostEvidence.currentReconciledArmCount}/${REVIEWED_EXTENDED.armCount} arms have current generalized reconciliation; ${CURRENT_REVIEWED_EXTENDED.selectedCostEvidence.exactProviderBilledArmCount}/${REVIEWED_EXTENDED.armCount} arms have exact provider-billed totals. Provider aggregates are not redistributed to trials or outcomes.`,
 
     adjustedKnownCostUsd: null,
     qualifiedAdjustedCostEstimateUsd: reviewedDecimal(
@@ -230,8 +230,8 @@ export const CORPUS_SCOPES: Readonly<Record<CorpusScopeId, CorpusScope>> = Objec
     selectedCostUsd: null,
     historicalReviewedCostUsd: null,
     selectedCostBasis: null,
-    providerReconciledArmCount: null,
-    providerReconciledCostUsd: null,
+    currentReconciledArmCount: null,
+    currentReconciledCostUsd: null,
     currentCostReviewedAt: null,
     selectedCostDescription: null,
     adjustedKnownCostUsd: null,
@@ -256,8 +256,8 @@ export const CORPUS_SCOPES: Readonly<Record<CorpusScopeId, CorpusScope>> = Objec
     selectedCostUsd: null,
     historicalReviewedCostUsd: null,
     selectedCostBasis: null,
-    providerReconciledArmCount: null,
-    providerReconciledCostUsd: null,
+    currentReconciledArmCount: null,
+    currentReconciledCostUsd: null,
     currentCostReviewedAt: null,
     selectedCostDescription: null,
     adjustedKnownCostUsd: null,

@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  formatCurrentCostRelation,
+} from "../lib/current-cost-presentation";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, type KeyboardEvent } from "react";
@@ -9,6 +13,7 @@ import {
   clearChartArmIds,
   clearProviderFamilies,
   deriveCostPerformanceChartView,
+  metricRelationForArm,
   metricValueForArm,
   selectAllChartArmIds,
   selectAllProviderFamilies,
@@ -78,15 +83,30 @@ function statusLabel(value: string | null): string {
   return value?.replaceAll("_", " ") ?? "not separately qualified in G1";
 }
 
-function metricValueText(value: ChartMetricValue): string {
-  if (value.status === "unavailable") return `Unavailable — ${value.reason}`;
-  return `$${value.decimalUsd}${value.qualification ? ` — ${value.qualification}` : ""}`;
+function metricValueText(
+  value: ChartMetricValue,
+  relation: ChartArmDatum["selectedEfficiencyRelation"] | null,
+): string {
+  if (value.status === "unavailable") {
+    return `Unavailable — ${value.reason}`;
+  }
+
+  const amount = formatCurrentCostRelation(
+    `$${value.decimalUsd}`,
+    relation,
+  );
+
+  return `${amount}${value.qualification ? ` — ${value.qualification}` : ""}`;
 }
 
 function failureSpendText(arm: ChartArmDatum): string {
   const spend = arm.failureIncompleteSpend;
+
   return spend.status === "available"
-    ? `$${spend.decimalUsd}`
+    ? formatCurrentCostRelation(
+        `$${spend.decimalUsd}`,
+        arm.selectedCostRelation,
+      )
     : `Unavailable — ${spend.reason}`;
 }
 
@@ -100,11 +120,19 @@ function hasMaterialQualification(arm: ChartArmDatum): boolean {
     || arm.qualificationText !== null;
 }
 
-function pointAriaLabel(point: ChartPlotPoint, metric: ChartXAxisMetric): string {
+function pointAriaLabel(
+  point: ChartPlotPoint,
+  metric: ChartXAxisMetric,
+): string {
   const qualification = hasMaterialQualification(point.arm)
     ? " Reviewed cost evidence has a confidence or accounting qualification."
     : "";
-  return `${point.arm.displayName}, ${point.arm.providerFamilyLabel}. ${metricLabel(metric)} $${point.xDecimalUsd}. Pass rate ${formatPercent(point.passRate)}, ${point.arm.successCount} of ${point.arm.trialCount} successes.${qualification}`;
+  const amount = formatCurrentCostRelation(
+    `$${point.xDecimalUsd}`,
+    metricRelationForArm(point.arm, metric),
+  );
+
+  return `${point.arm.displayName}, ${point.arm.providerFamilyLabel}. ${metricLabel(metric)} ${amount}. Pass rate ${formatPercent(point.passRate)}, ${point.arm.successCount} of ${point.arm.trialCount} successes.${qualification}`;
 }
 
 export function CostPerformanceChart({
@@ -452,6 +480,8 @@ export function CostPerformanceChart({
           {activePoint ? (() => {
             const arm = activePoint.arm;
             const metricValue = metricValueForArm(arm, xMetric);
+            const metricRelation =
+              metricRelationForArm(arm, xMetric);
             return (
               <>
                 <p className="cost-performance-detail-label">Selected reviewed arm</p>
@@ -463,11 +493,19 @@ export function CostPerformanceChart({
                     <div><dt>Reviewed provider value</dt><dd className="mono">{arm.reviewedProvider}</dd></div>
                   ) : null}
                   <div><dt>{selectedMetricLabel}</dt><dd>{metricValue.status === "available"
-                    ? <Link href={arm.costProvenanceHref}>{metricValueText(metricValue)}</Link>
-                    : metricValueText(metricValue)}</dd></div>
+                    ? <Link href={arm.costProvenanceHref}>{metricValueText(metricValue, metricRelation)}</Link>
+                    : metricValueText(metricValue, metricRelation)}</dd></div>
                   <div><dt>Reviewed pass rate</dt><dd>{formatPercent(arm.passRate)} · {arm.successCount} / {arm.trialCount} successes</dd></div>
                   <div><dt>Cost basis</dt><dd>{arm.costBasisLabel} <span className="mono">{arm.costBasis}</span></dd></div>
-                  <div><dt>Selected cost total</dt><dd>${arm.selectedCostUsd}</dd></div>
+                  <div>
+                    <dt>Selected cost total</dt>
+                    <dd>
+                      {formatCurrentCostRelation(
+                        `$${arm.selectedCostUsd}`,
+                        arm.selectedCostRelation,
+                      )}
+                    </dd>
+                  </div>
                   {arm.selectedCostUsd !== arm.historicalReviewedCostUsd ? (
                     <div><dt>Historical reviewed cost total</dt><dd><Link href={arm.costProvenanceHref}>${arm.historicalReviewedCostUsd}</Link></dd></div>
                   ) : null}
@@ -477,8 +515,8 @@ export function CostPerformanceChart({
                   <div><dt>Historical arm/run allocation</dt><dd>{statusLabel(arm.armRunAllocationConfidence)}</dd></div>
                   <div><dt>Selected trial allocation</dt><dd>{statusLabel(arm.trialAllocationStatus)}</dd></div>
                   <div><dt>Provider billing reconciliation</dt><dd>{statusLabel(arm.billingReconciliationStatus)}</dd></div>
-                  {arm.providerSelectedRunLabel ? (
-                    <div><dt>Provider-reconciled run</dt><dd className="mono">{arm.providerSelectedRunLabel}</dd></div>
+                  {arm.currentSelectedRunLabel ? (
+                    <div><dt>Current reconciliation run</dt><dd className="mono">{arm.currentSelectedRunLabel}</dd></div>
                   ) : null}
                   <div><dt>Provider-log exclusivity</dt><dd>{statusLabel(arm.providerLogExclusivityStatus)}</dd></div>
                   <div><dt>Failure / incomplete spend</dt><dd>{arm.failureIncompleteSpend.status === "available"
