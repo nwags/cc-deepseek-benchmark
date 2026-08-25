@@ -8,6 +8,7 @@ class TokenRate:
     input_cache_miss_usd_per_million: float
     output_usd_per_million: float
     input_cache_hit_usd_per_million: float | None = None
+    harbor_aggregate_reconstruction_safe: bool = False
 
 
 RATES: dict[str, TokenRate] = {
@@ -17,13 +18,43 @@ RATES: dict[str, TokenRate] = {
     "claude-fable-5": TokenRate(10.00, 50.00, 1.00),
 
     # Validated DeepSeek cache-aware rates from Phase 1 / Phase 2 aggregation.
-    "deepseek-v4-pro": TokenRate(0.435, 0.87, 0.003625),
-    "deepseek-v4-pro[1m]": TokenRate(0.435, 0.87, 0.003625),
-    "deepseek-v4-flash": TokenRate(0.14, 0.28, 0.0028),
+    "deepseek-v4-pro": TokenRate(
+        0.435,
+        0.87,
+        0.003625,
+        harbor_aggregate_reconstruction_safe=True,
+    ),
+    "deepseek-v4-pro[1m]": TokenRate(
+        0.435,
+        0.87,
+        0.003625,
+        harbor_aggregate_reconstruction_safe=True,
+    ),
+    "deepseek-v4-flash": TokenRate(
+        0.14,
+        0.28,
+        0.0028,
+        harbor_aggregate_reconstruction_safe=True,
+    ),
     # Z.AI / GLM published API rates, prices per 1M tokens.
     "glm-5.1": TokenRate(1.40, 4.40, 0.26),
     "glm-5.2": TokenRate(1.40, 4.40, 0.26),
 }
+
+
+def harbor_aggregate_reconstruction_safe(model: str) -> bool:
+    """Whether Harbor's aggregate token triple is sufficient for repricing.
+
+    Harbor Claude Code reports prompt tokens as provider input tokens plus
+    cache-read tokens plus cache-creation tokens, while cached_tokens contains
+    only cache-read tokens. A model is safe here only when that collapsed
+    representation preserves every pricing class needed for reconstruction.
+    """
+    rate = RATES.get(model)
+    return bool(
+        rate is not None
+        and rate.harbor_aggregate_reconstruction_safe
+    )
 
 
 def estimate_cost_usd(

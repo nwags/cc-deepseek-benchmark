@@ -27,6 +27,7 @@ python -m py_compile scripts/lib/canonical_publication.py
 python -m py_compile scripts/lib/live_artifacts.py
 python -m py_compile scripts/lib/live_supervision.py
 python -m py_compile scripts/lib/live_verification.py
+python -m py_compile scripts/lib/evidence_qualification.py
 python -m py_compile scripts/lib/path_safety.py
 python -m py_compile scripts/lib/phase3_freeze.py
 python -m py_compile scripts/lib/publication_fingerprint.py

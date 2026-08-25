@@ -5,6 +5,11 @@
 > provider/runner lessons; it is not current authorization to restart Phase 3
 > smoke or full-sweep execution. Current successor guidance is
 > `docs/guides/PROJECT_HANDOFF_AND_FUTURE_ROADMAP.md`.
+>
+> For future Canary/Smoke telemetry qualification and full-sweep promotion,
+> use `docs/methodology/USAGE_AND_COST_EVIDENCE_MODEL.md`. Canary and Smoke
+> are evidence-authority gates for both usage and cost, not only execution
+> sanity checks.
 
 Status: planning document for the first Phase 3 smoke wave.
 
