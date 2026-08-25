@@ -126,7 +126,7 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
   return (
     <AppShell
       title={`Cross-phase: ${phaseDisplayLabel("phase3", selection.scopeId)}`}
-      description={`File-backed reporting view for frozen Phase 1/2 baselines and the ${selectedScope.displayName.toLowerCase()} using the current-reviewed 2026-08-24 selected-cost layer with historical Phase 3 evidence retained separately.`}
+      description={`File-backed reporting view for frozen Phase 1/2 baselines and the ${selectedScope.displayName.toLowerCase()} using the current-reviewed 2026-08-25 selected-cost layer with historical Phase 3 evidence retained separately.`}
     >
       <CorpusScopeSelector pathname="/cross-phase" selectedScopeId={selection.scopeId} />
       {selection.warningMessage ? (
@@ -153,7 +153,7 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
         {" "}<Link href={`/cost-coverage?scope=${selection.scopeId}`}>Open Cost Coverage with this scope</Link>.
         <details>
           <summary>Traceable current and historical sources</summary>
-          <p className="mono">results/phase3/reporting/phase3_current_reviewed_comparison_20260824.json</p>
+          <p className="mono">results/phase3/reporting/phase3_current_reviewed_comparison_20260825.json</p>
           <p className="mono">results/phase3/reporting/phase3_extended_reviewed_comparison_20260805.json</p>
         </details>
       </section>

@@ -166,9 +166,39 @@ function selectedMetricQualification(
     arm.selectedCostBasis
       === "provider_rate_reconstructed_retained_usage_lower_bound"
   ) {
+    const uncertainty =
+      arm.unquantifiedAdditionalCostStatus
+        === "possible_additional_exception_path_spend"
+        ? "possible additional exception-path spend is not quantified"
+        : arm.unquantifiedAdditionalCostStatus
+            === "possible_additional_unresolved_trial_spend"
+          ? "possible additional unresolved-trial spend is not quantified"
+          : "additional spend uncertainty is retained in the reviewed evidence";
+
     return [
       "Lower-bound provider-rate reconstruction from verified retained usage",
-      "possible additional exception-path spend is not quantified",
+      uncertainty,
+    ].join("; ");
+  }
+
+  if (
+    arm.selectedCostBasis
+      === "provider_rate_reconstructed_retained_usage_partial"
+  ) {
+    return [
+      "Partial provider-rate reconstruction from retained selected-run usage",
+      "unresolved selected-run spend and cache classification uncertainty remain",
+    ].join("; ");
+  }
+
+  if (
+    arm.selectedCostBasis
+      === "provider_rate_reconstructed_selected_run_request_tier"
+  ) {
+    return [
+      "Estimated selected-run provider-rate reconstruction",
+      "request-level pricing tier was verified",
+      "provider invoice unavailable",
     ].join("; ");
   }
 
@@ -176,10 +206,21 @@ function selectedMetricQualification(
     arm.selectedCostBasis
       === "provider_rate_reconstructed_selected_run"
   ) {
-    return [
+    const qualifications = [
       "Estimated selected-run provider-rate reconstruction",
-      "same-day provider aggregate cross-check is not run-isolated",
-    ].join("; ");
+      "provider-context evidence, if present, is retained separately and is not added to selected cost",
+    ];
+
+    if (
+      arm.selectedCostConfidence
+        === "medium_qualified_pricing_provenance"
+    ) {
+      qualifications.push(
+        "pricing-source provenance incomplete",
+      );
+    }
+
+    return qualifications.join("; ");
   }
 
   if (
@@ -192,7 +233,10 @@ function selectedMetricQualification(
     ].join("; ");
   }
 
-  if (arm.selectedCostRelation === "historical_fallback") {
+  if (
+    arm.selectedCostRelation
+      === "historical_fallback"
+  ) {
     return [
       "Historical reviewed adjusted-known fallback",
       "current provider-family reconciliation is unavailable",
@@ -247,14 +291,14 @@ function failureIncompleteSpendForArm(
     getCurrentSelectedOutcomeCostEvidence(arm);
 
   if (
-    outcomeEvidence.status === "unavailable"
+    outcomeEvidence.status === "unavailable_no_reviewed_outcome_join"
     || outcomeEvidence.status === "unavailable_provider_aggregate"
   ) {
     const reason =
       outcomeEvidence.status
         === "unavailable_provider_aggregate"
         ? "The current selected provider-billed arm total is aggregate-only; failure/incomplete spend is unavailable and historical adjusted outcome spend is not reallocated."
-        : "Current selected outcome-cost allocation is unavailable for this arm; failure/incomplete spend is not treated as zero.";
+        : "The current selected arm cost has no reviewed outcome-cost join; failure/incomplete spend is unavailable and is not treated as zero.";
 
     return Object.freeze({
       status: "unavailable",
@@ -318,10 +362,43 @@ function qualificationForArm(
     arm.selectedCostBasis
       === "provider_rate_reconstructed_retained_usage_lower_bound"
   ) {
+    const uncertainty =
+      arm.unquantifiedAdditionalCostStatus
+        === "possible_additional_exception_path_spend"
+        ? "possible additional exception-path spend remains unquantified"
+        : arm.unquantifiedAdditionalCostStatus
+            === "possible_additional_unresolved_trial_spend"
+          ? "possible additional unresolved-trial spend remains unquantified"
+          : "additional spend uncertainty remains qualified";
+
     return [
       "Lower-bound provider-rate reconstruction from verified retained usage",
       "known retained spend is allocated",
-      "possible additional exception-path spend remains unquantified",
+      uncertainty,
+    ].join("; ");
+  }
+
+  if (
+    arm.selectedCostBasis
+      === "provider_rate_reconstructed_retained_usage_partial"
+  ) {
+    return [
+      "Partial selected-run provider-rate reconstruction",
+      "known retained spend is allocated",
+      "unresolved selected-run spend remains",
+      "cache classification uncertainty prevents strict lower-bound treatment",
+    ].join("; ");
+  }
+
+  if (
+    arm.selectedCostBasis
+      === "provider_rate_reconstructed_selected_run_request_tier"
+  ) {
+    return [
+      "Estimated selected-run provider-rate reconstruction",
+      "request-level pricing tier verified",
+      "current trial and outcome allocation available",
+      "provider invoice unavailable",
     ].join("; ");
   }
 
@@ -329,11 +406,30 @@ function qualificationForArm(
     arm.selectedCostBasis
       === "provider_rate_reconstructed_selected_run"
   ) {
-    return [
+    const qualifications = [
       "Estimated selected-run provider-rate reconstruction",
-      "same-day provider aggregate cross-check is not run-isolated",
-      "same-day provider excess is context only and is not added to selected cost",
-    ].join("; ");
+      "provider-context evidence is retained separately and is not added to selected cost",
+    ];
+
+    if (
+      arm.selectedOutcomeCostAllocationStatus
+        === "unavailable_no_reviewed_outcome_join"
+    ) {
+      qualifications.push(
+        "reviewed outcome-cost join unavailable",
+      );
+    }
+
+    if (
+      arm.selectedCostConfidence
+        === "medium_qualified_pricing_provenance"
+    ) {
+      qualifications.push(
+        "pricing-source provenance incomplete",
+      );
+    }
+
+    return qualifications.join("; ");
   }
 
   if (
@@ -363,7 +459,10 @@ function qualificationForArm(
     return qualifications.join("; ");
   }
 
-  if (arm.selectedCostRelation === "historical_fallback") {
+  if (
+    arm.selectedCostRelation
+      === "historical_fallback"
+  ) {
     return [
       "Historical reviewed fallback",
       "current provider-family reconciliation is unavailable",
@@ -446,6 +545,37 @@ function assertMatchingReviewedInputs(
   return selections;
 }
 
+function costBasisLabelForArm(
+  arm: CurrentReviewedPhase3Arm,
+):
+  | "Adjusted known cost"
+  | "Qualified retained-rate estimate"
+  | "Provider-billed arm total"
+  | "Provider-rate reconstructed retained usage"
+  | "Provider-rate retained-usage lower bound"
+  | "Provider-rate retained-usage partial estimate"
+  | "Provider-rate reconstructed selected-run estimate"
+  | "Provider-rate reconstructed request-tier estimate" {
+  switch (arm.selectedCostBasis) {
+    case "provider_billed":
+      return "Provider-billed arm total";
+    case "qualified_retained_rate_estimate":
+      return "Qualified retained-rate estimate";
+    case "provider_rate_reconstructed_retained_usage":
+      return "Provider-rate reconstructed retained usage";
+    case "provider_rate_reconstructed_retained_usage_lower_bound":
+      return "Provider-rate retained-usage lower bound";
+    case "provider_rate_reconstructed_retained_usage_partial":
+      return "Provider-rate retained-usage partial estimate";
+    case "provider_rate_reconstructed_selected_run":
+      return "Provider-rate reconstructed selected-run estimate";
+    case "provider_rate_reconstructed_selected_run_request_tier":
+      return "Provider-rate reconstructed request-tier estimate";
+    case "adjusted_known_cost":
+      return "Adjusted known cost";
+  }
+}
+
 export function buildCostPerformanceChartArms(
   scope: CurrentReviewedPhase3Scope,
   runSelectionScope: ReviewedRunSelectionScope,
@@ -519,22 +649,7 @@ export function buildCostPerformanceChartArms(
       qualifiedRetainedRateCostUsd:
         arm.qualifiedRetainedRateCostUsd,
       costBasis: arm.selectedCostBasis,
-      costBasisLabel:
-        arm.selectedCostBasis === "provider_billed"
-          ? "Provider-billed arm total"
-          : arm.selectedCostBasis
-              === "qualified_retained_rate_estimate"
-            ? "Qualified retained-rate estimate"
-            : arm.selectedCostBasis
-                === "provider_rate_reconstructed_retained_usage"
-              ? "Provider-rate reconstructed retained usage"
-              : arm.selectedCostBasis
-                  === "provider_rate_reconstructed_retained_usage_lower_bound"
-                ? "Provider-rate retained-usage lower bound"
-                : arm.selectedCostBasis
-                    === "provider_rate_reconstructed_selected_run"
-                  ? "Provider-rate reconstructed selected-run estimate"
-                  : "Adjusted known cost",
+      costBasisLabel: costBasisLabelForArm(arm),
       costSources: Object.freeze(
         arm.selectedCostBasis === "provider_billed"
           ? ["sanitized_provider_billing_reconciliation"]

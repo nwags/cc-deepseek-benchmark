@@ -25,7 +25,7 @@ const currentCanonical = JSON.parse(
   await readFile(
     resolve(
       here,
-      "../../../../results/phase3/reporting/phase3_current_reviewed_comparison_20260824.json",
+      "../../../../results/phase3/reporting/phase3_current_reviewed_comparison_20260825.json",
     ),
     "utf8",
   ),
@@ -34,7 +34,7 @@ const currentCanonical = JSON.parse(
 const currentGeneratedSource = await readFile(
   resolve(
     here,
-    "../generated/phase3-current-reviewed-comparison-data-v3.ts",
+    "../generated/phase3-current-reviewed-comparison-data-v4.ts",
   ),
   "utf8",
 );
@@ -76,7 +76,7 @@ const currentLoaderSource = (
   )
 )
   .replace(
-    '"../generated/phase3-current-reviewed-comparison-data-v3"',
+    '"../generated/phase3-current-reviewed-comparison-data-v4"',
     `"${currentGeneratedModuleUrl}"`,
   )
   .replace(
@@ -106,7 +106,7 @@ function armFor(scope, armId) {
 }
 
 test(
-  "generated v3 dashboard module exactly matches canonical current-reviewed JSON",
+  "generated v4 dashboard module exactly matches canonical current-reviewed JSON",
   () => {
     assert.deepEqual(
       currentGeneratedSnapshot,
@@ -161,7 +161,7 @@ test(
 );
 
 test(
-  "current-reviewed v3 loader exposes mixed-evidence scope anchors without calling them global lower bounds",
+  "current-reviewed v4 loader exposes complete-by-arm mixed-evidence scope anchors",
   () => {
     const core =
       getCurrentReviewedPhase3Scope("phase3-core");
@@ -170,11 +170,11 @@ test(
 
     assert.equal(
       PHASE3_CURRENT_REVIEWED_COMPARISON.schemaVersion,
-      "phase3-current-reviewed-comparison-v3",
+      "phase3-current-reviewed-comparison-v4",
     );
     assert.equal(
       PHASE3_CURRENT_REVIEWED_COMPARISON.reviewedAt,
-      "2026-08-24",
+      "2026-08-25",
     );
     assert.equal(
       PHASE3_CURRENT_REVIEWED_COMPARISON.historicalReviewedAt,
@@ -183,11 +183,11 @@ test(
 
     assert.equal(
       core.selectedCostEvidence.selectedCostUsd,
-      "510.405678806867",
+      "316.8790274572",
     );
     assert.equal(
       extended.selectedCostEvidence.selectedCostUsd,
-      "541.219998206867",
+      "343.4494304572",
     );
 
     for (const scope of [core, extended]) {
@@ -196,12 +196,17 @@ test(
         "mixed_by_arm",
       );
       assert.equal(
+        scope.selectedCostEvidence
+          .currentReconciliationCoverageStatus,
+        "complete_by_arm",
+      );
+      assert.equal(
         scope.selectedCostEvidence.currentReconciledArmCount,
-        8,
+        scope.armCount,
       );
       assert.equal(
         scope.selectedCostEvidence.currentReconciledCostUsd,
-        "251.5579261372",
+        scope.selectedCostEvidence.selectedCostUsd,
       );
       assert.equal(
         scope.selectedCostEvidence.exactProviderBilledArmCount,
@@ -217,6 +222,10 @@ test(
         [
           "router-anthropic-opus",
           "router-anthropic-sonnet",
+          "router-gemini-flash",
+          "router-glm-5.1",
+          "router-grok-build-0.1",
+          "router-qwen-3.7-plus",
         ],
       );
     }
@@ -225,9 +234,9 @@ test(
       core.selectedCostEvidence.selectedCostRelationCounts,
       {
         exact: 4,
-        estimate: 2,
-        lowerBound: 2,
-        historicalFallback: 7,
+        estimate: 6,
+        lowerBound: 5,
+        historicalFallback: 0,
       },
     );
 
@@ -236,9 +245,9 @@ test(
         .selectedCostRelationCounts,
       {
         exact: 4,
-        estimate: 2,
-        lowerBound: 2,
-        historicalFallback: 8,
+        estimate: 7,
+        lowerBound: 5,
+        historicalFallback: 0,
       },
     );
 
@@ -478,55 +487,85 @@ test(
 );
 
 test(
-  "unreconciled arms are explicit historical fallbacks rather than silently current-reconciled",
+  "newly audited provider arms are current-reconciled without fabricating unavailable allocation",
   () => {
     const scope =
       getCurrentReviewedPhase3Scope("phase3-extended");
 
-    const gemini =
+    for (const arm of scope.arms) {
+      assert.equal(
+        arm.currentReconciliationStatus,
+        "reconciled",
+      );
+      assert.ok(arm.currentSelectedRunLabel);
+      assert.ok(arm.currentProviderModels.length > 0);
+      assert.ok(arm.currentRoutingAliases.length > 0);
+      assert.ok(arm.providerEvidenceAudit);
+    }
+
+    const geminiPro =
       armFor(scope, "router-gemini-3.1-pro");
+    assert.equal(geminiPro.selectedCostUsd, "19.6968138");
+    assert.equal(geminiPro.selectedCostRelation, "estimate");
+    assert.equal(
+      geminiPro.selectedCostBasis,
+      "provider_rate_reconstructed_selected_run_request_tier",
+    );
+    assert.equal(
+      geminiPro.currentUnresolvedTrialCount,
+      0,
+    );
+    assert.match(
+      geminiPro.providerEvidenceAudit.trajectoryEvidenceStatus,
+      /930_requests/,
+    );
+
+    const glm51 =
+      armFor(scope, "router-glm-5.1");
+    assert.equal(glm51.selectedCostUsd, "5.3316552");
+    assert.equal(glm51.selectedCostRelation, "estimate");
+    assert.equal(
+      glm51.selectedCostBasis,
+      "provider_rate_reconstructed_retained_usage_partial",
+    );
+    assert.equal(glm51.completeTrialCostCount, 55);
+    assert.equal(glm51.currentUnresolvedTrialCount, 5);
+
+    const glmOutcome =
+      getCurrentSelectedOutcomeCostEvidence(glm51);
+    assert.equal(
+      glmOutcome.status,
+      "available_partial_estimate",
+    );
+    assert.equal(
+      glmOutcome.evidenceBasis,
+      "provider_rate_reconstruction_partial_estimate",
+    );
+
     const kimi =
       armFor(scope, "router-kimi-k3");
-
+    assert.equal(kimi.selectedCostUsd, "26.570403");
+    assert.equal(kimi.selectedCostRelation, "estimate");
+    assert.equal(kimi.completeTrialCostCount, 60);
+    assert.equal(kimi.currentUnresolvedTrialCount, 0);
     assert.equal(
-      gemini.currentReconciliationStatus,
-      "historical_fallback",
+      kimi.selectedOutcomeCostAllocationStatus,
+      "unavailable_no_reviewed_outcome_join",
     );
-    assert.equal(
-      gemini.selectedCostRelation,
-      "historical_fallback",
-    );
-    assert.equal(
-      gemini.selectedCostUsd,
-      gemini.historicalReviewedCostUsd,
-    );
-    assert.equal(gemini.currentSelectedRunLabel, null);
-    assert.deepEqual(gemini.currentProviderModels, []);
-    assert.deepEqual(gemini.currentRoutingAliases, []);
-
-    const geminiOutcome =
-      getCurrentSelectedOutcomeCostEvidence(gemini);
-
-    assert.equal(geminiOutcome.status, "available");
-    assert.equal(
-      geminiOutcome.evidenceBasis,
-      "historical_reviewed_selected_cost",
-    );
-
-    assert.equal(
-      kimi.currentReconciliationStatus,
-      "historical_fallback",
-    );
-    assert.equal(
-      kimi.selectedCostRelation,
-      "historical_fallback",
-    );
-    assert.equal(kimi.selectedCostUsd, "30.8143194");
 
     const kimiOutcome =
       getCurrentSelectedOutcomeCostEvidence(kimi);
+    assert.equal(
+      kimiOutcome.status,
+      "unavailable_no_reviewed_outcome_join",
+    );
+    assert.equal(kimiOutcome.evidenceBasis, null);
 
-    assert.equal(kimiOutcome.status, "unavailable");
+    const qwen =
+      armFor(scope, "router-qwen-3.7-plus");
+    assert.equal(qwen.selectedCostUsd, "2.50442432");
+    assert.equal(qwen.selectedCostRelation, "lower_bound");
+    assert.equal(qwen.currentUnresolvedTrialCount, 1);
   },
 );
 
@@ -559,7 +598,7 @@ test(
         validatePhase3CurrentReviewedComparison(
           wrongContext,
         ),
-      /selected-run provider-rate estimate/i,
+      /provider-context|selected-run provider-rate estimate/i,
     );
 
     const wrongProviderAllocation = clone();

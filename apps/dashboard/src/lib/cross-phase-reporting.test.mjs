@@ -13,7 +13,7 @@ const snapshot = JSON.parse(
   await readFile(
     resolve(
       here,
-      "../../../../results/phase3/reporting/phase3_current_reviewed_comparison_20260824.json",
+      "../../../../results/phase3/reporting/phase3_current_reviewed_comparison_20260825.json",
     ),
     "utf8",
   ),
@@ -207,27 +207,28 @@ test(
 
     assert.equal(
       kimi.comparison_cost_usd,
-      30.8143194,
+      26.570403,
     );
     assert.equal(
       kimi.comparison_cost_per_clean_success_usd,
       Number(
-        "0.7003254409090909090909090909",
+        "0.6038727954545454545454545455",
       ),
     );
     assert.equal(
       kimi.comparison_cost_basis,
-      "qualified_retained_rate_estimate",
+      "provider_rate_reconstructed_selected_run",
     );
     assert.equal(
       kimi.comparison_cost_relation,
-      "historical_fallback",
+      "estimate",
     );
     assert.equal(
       kimi.comparison_efficiency_relation,
-      "historical_fallback",
+      "estimate",
     );
 
+    // Historical reviewed/provider-log context remains separate.
     assert.equal(
       kimi.historical_reviewed_cost_usd,
       30.8143194,
@@ -239,11 +240,11 @@ test(
 
     assert.equal(
       kimi.selected_trial_allocation_status,
-      "unresolved",
+      "available_provider_rate_reconstruction",
     );
     assert.equal(
       kimi.selected_outcome_allocation_status,
-      "unavailable",
+      "unavailable_no_reviewed_outcome_join",
     );
     assert.equal(
       kimi.provider_billed_cost_usd,
@@ -276,7 +277,7 @@ test(
 
     assert.equal(
       extendedSummary.comparison_cost_usd,
-      541.219998206867,
+      343.4494304572,
     );
     assert.equal(
       extendedSummary.historical_reviewed_cost_usd,
@@ -301,7 +302,7 @@ test(
     assert.equal(
       extendedSummary
         .comparison_cost_per_clean_success_usd,
-      541.219998206867
+      343.4494304572
         / extendedCleanSuccesses,
     );
 
@@ -331,7 +332,7 @@ test(
 
     assert.equal(
       coreSummary.comparison_cost_usd,
-      510.405678806867,
+      316.8790274572,
     );
     assert.equal(
       coreSummary.historical_reviewed_cost_usd,

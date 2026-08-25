@@ -160,7 +160,7 @@ export function CostPerformanceChartTable({
                       </Link>
                     </div>
                   ) : null}
-                  <div>Selected sources: {row.costSources.join(", ")}</div>
+                  <div>Evidence source tags: {row.costSources.join(", ")}</div>
                 </td>
                 <td>
                   <div>Cost confidence: {row.costConfidence}</div>
