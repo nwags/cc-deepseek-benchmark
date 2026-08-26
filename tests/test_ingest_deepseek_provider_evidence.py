@@ -295,7 +295,7 @@ def test_unsupported_same_day_totals_stay_excluded():
     }
 
 
-def test_script_has_only_guarded_rollback_write_surface():
+def test_script_has_only_guarded_provider_write_surface():
     source = SCRIPT.read_text(
         encoding="utf-8"
     )
@@ -306,7 +306,6 @@ def test_script_has_only_guarded_rollback_write_surface():
         r"\btruncate\b",
         r"\bdrop\s+table\b",
         r"\balter\s+table\b",
-        r"\.commit\s*\(",
     )
 
     for pattern in forbidden:
@@ -323,11 +322,30 @@ def test_script_has_only_guarded_rollback_write_surface():
         == 8
     )
 
+    assert (
+        source.count(
+            "connection.commit()"
+        )
+        == 1
+    )
+
     assert "--rollback-only" in source
-    assert "--apply" not in source
+    assert "--apply" in source
     assert "connection.rollback()" in source
     assert (
         "second_connection_zero_persistence"
+        in source
+    )
+    assert (
+        "second_connection_verification"
+        in source
+    )
+    assert (
+        'diagnostics.commit_state = "unknown"'
+        in source
+    )
+    assert (
+        'diagnostics.commit_state = "committed"'
         in source
     )
 
@@ -357,22 +375,30 @@ def test_cli_requires_exactly_one_explicit_mode():
         is True
     )
 
-    with pytest.raises(SystemExit):
+    assert (
         ingest.parse_args(
-            [
-                "--plan",
-                "--check-only",
-            ]
-        )
+            ["--apply"]
+        ).apply
+        is True
+    )
 
-    with pytest.raises(SystemExit):
-        ingest.parse_args(
-            [
-                "--check-only",
-                "--rollback-only",
-            ]
-        )
+    incompatible = (
+        ("--plan", "--check-only"),
+        ("--plan", "--rollback-only"),
+        ("--plan", "--apply"),
+        ("--check-only", "--rollback-only"),
+        ("--check-only", "--apply"),
+        ("--rollback-only", "--apply"),
+    )
 
+    for left, right in incompatible:
+        with pytest.raises(SystemExit):
+            ingest.parse_args(
+                [
+                    left,
+                    right,
+                ]
+            )
 
 
 def test_failure_payload_does_not_expose_exception_message():
@@ -479,16 +505,28 @@ class _FakeCursor:
 
 
 class _FakeConnection:
-    def __init__(self):
+    def __init__(
+        self,
+        *,
+        commit_error=None,
+    ):
         self.cursor_instance = _FakeCursor()
         self.rollback_calls = 0
+        self.commit_calls = 0
         self.close_calls = 0
+        self.commit_error = commit_error
 
     def cursor(self):
         return self.cursor_instance
 
     def rollback(self):
         self.rollback_calls += 1
+
+    def commit(self):
+        self.commit_calls += 1
+
+        if self.commit_error is not None:
+            raise self.commit_error
 
     def close(self):
         self.close_calls += 1
@@ -822,3 +860,526 @@ def test_rollback_only_rolls_back_and_proves_zero_persistence(
 
     assert observer.rollback_calls == 1
     assert observer.close_calls == 1
+
+
+
+def test_apply_permanent_commits_once_and_verifies_second_connection(
+    monkeypatch,
+):
+    plan = ingest.build_plan()
+
+    transaction = _FakeConnection()
+    observer = _FakeConnection()
+
+    connections = iter(
+        (
+            transaction,
+            observer,
+        )
+    )
+
+    class _FakePsycopg:
+        @staticmethod
+        def connect(
+            db_url,
+            autocommit=False,
+        ):
+            assert db_url == "synthetic-db-url"
+            assert autocommit is False
+            return next(connections)
+
+    monkeypatch.setitem(
+        sys.modules,
+        "psycopg",
+        _FakePsycopg,
+    )
+
+    zero = {
+        table: 0
+        for table in ingest.TARGET_TABLES
+    }
+
+    arm_ids = {
+        "router-deepseek-flash":
+            "00000000-0000-0000-0000-000000000001",
+        "router-deepseek-pro":
+            "00000000-0000-0000-0000-000000000002",
+    }
+
+    exact_state = {
+        "state": "exact_deepseek_state",
+        "counts":
+            dict(plan["write_counts"]),
+        "resolved_arm_run_ids":
+            arm_ids,
+        "reconciliation_verification": {
+            "transaction_counts":
+                dict(plan["write_counts"]),
+        },
+        "provider_verification": {
+            "source_rows": "pass",
+        },
+    }
+
+    states = iter(
+        (
+            {
+                "state": "deepseek_empty",
+                "counts": zero,
+            },
+            exact_state,
+        )
+    )
+
+    monkeypatch.setattr(
+        ingest,
+        "inspect_target_state",
+        lambda cursor, supplied_plan:
+            next(states),
+    )
+
+    monkeypatch.setattr(
+        ingest,
+        "acquire_ingestion_lock",
+        lambda cursor: None,
+    )
+
+    monkeypatch.setattr(
+        ingest,
+        "resolve_arm_runs",
+        lambda cursor, supplied_plan:
+            arm_ids,
+    )
+
+    inserted = []
+
+    monkeypatch.setattr(
+        ingest,
+        "insert_plan",
+        lambda cursor, supplied_plan, supplied_ids:
+            inserted.append(supplied_ids),
+    )
+
+    reconciliation_verification = {
+        "transaction_counts":
+            dict(plan["write_counts"]),
+    }
+
+    provider_verification = {
+        "source_rows": "pass",
+        "pricing_rows": "pass",
+        "usage_evidence_rows": "pass",
+        "cost_evidence_rows": "pass",
+        "reconciliation_source_links": "pass",
+    }
+
+    monkeypatch.setattr(
+        ingest,
+        "verify_inserted_state",
+        lambda cursor, supplied_plan, supplied_ids:
+            reconciliation_verification,
+    )
+
+    monkeypatch.setattr(
+        ingest,
+        "verify_provider_evidence_details",
+        lambda cursor, supplied_plan, supplied_ids:
+            provider_verification,
+    )
+
+    diagnostics = ingest.Diagnostics()
+
+    result = ingest.apply_permanent(
+        plan,
+        "synthetic-db-url",
+        diagnostics,
+    )
+
+    assert result["status"] == "applied"
+    assert result["mode"] == "apply"
+    assert (
+        result["commit_state"]
+        == "committed"
+    )
+    assert (
+        result["target_state"]
+        == "exact_deepseek_state"
+    )
+    assert (
+        result["persisted_counts"]
+        == plan["write_counts"]
+    )
+    assert (
+        result["resolved_arm_run_ids"]
+        == arm_ids
+    )
+
+    assert inserted == [arm_ids]
+
+    assert transaction.commit_calls == 1
+    assert transaction.rollback_calls == 0
+    assert transaction.close_calls == 1
+
+    assert observer.commit_calls == 0
+    assert observer.rollback_calls == 1
+    assert observer.close_calls == 1
+
+
+def test_apply_permanent_refuses_existing_exact_state(
+    monkeypatch,
+):
+    plan = ingest.build_plan()
+    transaction = _FakeConnection()
+
+    class _FakePsycopg:
+        @staticmethod
+        def connect(
+            db_url,
+            autocommit=False,
+        ):
+            return transaction
+
+    monkeypatch.setitem(
+        sys.modules,
+        "psycopg",
+        _FakePsycopg,
+    )
+
+    monkeypatch.setattr(
+        ingest,
+        "acquire_ingestion_lock",
+        lambda cursor: None,
+    )
+
+    monkeypatch.setattr(
+        ingest,
+        "inspect_target_state",
+        lambda cursor, supplied_plan: {
+            "state": "exact_deepseek_state",
+            "counts":
+                dict(plan["write_counts"]),
+        },
+    )
+
+    diagnostics = ingest.Diagnostics()
+
+    with pytest.raises(
+        ingest.IntegrationSafetyError
+    ):
+        ingest.apply_permanent(
+            plan,
+            "synthetic-db-url",
+            diagnostics,
+        )
+
+    assert (
+        diagnostics.target_state
+        == "exact_deepseek_state"
+    )
+    assert (
+        diagnostics.commit_state
+        == "not_committed"
+    )
+    assert transaction.commit_calls == 0
+    assert transaction.rollback_calls == 1
+    assert transaction.close_calls == 1
+
+
+def test_apply_permanent_refuses_partial_state(
+    monkeypatch,
+):
+    plan = ingest.build_plan()
+    transaction = _FakeConnection()
+
+    class _FakePsycopg:
+        @staticmethod
+        def connect(
+            db_url,
+            autocommit=False,
+        ):
+            return transaction
+
+    monkeypatch.setitem(
+        sys.modules,
+        "psycopg",
+        _FakePsycopg,
+    )
+
+    monkeypatch.setattr(
+        ingest,
+        "acquire_ingestion_lock",
+        lambda cursor: None,
+    )
+
+    monkeypatch.setattr(
+        ingest,
+        "inspect_target_state",
+        lambda cursor, supplied_plan: {
+            "state":
+                "partial_or_unexpected",
+            "counts": {
+                table: (
+                    1
+                    if table
+                    == "benchmark_provider_evidence_sources"
+                    else 0
+                )
+                for table in ingest.TARGET_TABLES
+            },
+        },
+    )
+
+    diagnostics = ingest.Diagnostics()
+
+    with pytest.raises(
+        ingest.IntegrationSafetyError
+    ):
+        ingest.apply_permanent(
+            plan,
+            "synthetic-db-url",
+            diagnostics,
+        )
+
+    assert (
+        diagnostics.target_state
+        == "partial_or_unexpected"
+    )
+    assert (
+        diagnostics.commit_state
+        == "not_committed"
+    )
+    assert transaction.commit_calls == 0
+    assert transaction.rollback_calls == 1
+    assert transaction.close_calls == 1
+
+
+def test_apply_permanent_preserves_ambiguous_commit_state(
+    monkeypatch,
+):
+    plan = ingest.build_plan()
+
+    transaction = _FakeConnection(
+        commit_error=RuntimeError(
+            "synthetic ambiguous commit failure"
+        )
+    )
+
+    class _FakePsycopg:
+        @staticmethod
+        def connect(
+            db_url,
+            autocommit=False,
+        ):
+            return transaction
+
+    monkeypatch.setitem(
+        sys.modules,
+        "psycopg",
+        _FakePsycopg,
+    )
+
+    arm_ids = {
+        "router-deepseek-flash":
+            "00000000-0000-0000-0000-000000000001",
+        "router-deepseek-pro":
+            "00000000-0000-0000-0000-000000000002",
+    }
+
+    monkeypatch.setattr(
+        ingest,
+        "inspect_target_state",
+        lambda cursor, supplied_plan: {
+            "state": "deepseek_empty",
+            "counts": {
+                table: 0
+                for table in ingest.TARGET_TABLES
+            },
+        },
+    )
+
+    monkeypatch.setattr(
+        ingest,
+        "acquire_ingestion_lock",
+        lambda cursor: None,
+    )
+
+    monkeypatch.setattr(
+        ingest,
+        "resolve_arm_runs",
+        lambda cursor, supplied_plan:
+            arm_ids,
+    )
+
+    monkeypatch.setattr(
+        ingest,
+        "insert_plan",
+        lambda cursor, supplied_plan, supplied_ids:
+            None,
+    )
+
+    monkeypatch.setattr(
+        ingest,
+        "verify_inserted_state",
+        lambda cursor, supplied_plan, supplied_ids: {
+            "transaction_counts":
+                dict(plan["write_counts"]),
+        },
+    )
+
+    monkeypatch.setattr(
+        ingest,
+        "verify_provider_evidence_details",
+        lambda cursor, supplied_plan, supplied_ids: {
+            "source_rows": "pass",
+        },
+    )
+
+    diagnostics = ingest.Diagnostics()
+
+    with pytest.raises(
+        RuntimeError,
+        match="synthetic ambiguous commit failure",
+    ):
+        ingest.apply_permanent(
+            plan,
+            "synthetic-db-url",
+            diagnostics,
+        )
+
+    assert transaction.commit_calls == 1
+    assert transaction.rollback_calls == 1
+    assert transaction.close_calls == 1
+
+    assert (
+        diagnostics.commit_state
+        == "unknown"
+    )
+
+
+def test_apply_permanent_preserves_committed_state_if_postcommit_check_fails(
+    monkeypatch,
+):
+    plan = ingest.build_plan()
+
+    transaction = _FakeConnection()
+    observer = _FakeConnection()
+
+    connections = iter(
+        (
+            transaction,
+            observer,
+        )
+    )
+
+    class _FakePsycopg:
+        @staticmethod
+        def connect(
+            db_url,
+            autocommit=False,
+        ):
+            return next(connections)
+
+    monkeypatch.setitem(
+        sys.modules,
+        "psycopg",
+        _FakePsycopg,
+    )
+
+    arm_ids = {
+        "router-deepseek-flash":
+            "00000000-0000-0000-0000-000000000001",
+        "router-deepseek-pro":
+            "00000000-0000-0000-0000-000000000002",
+    }
+
+    states = iter(
+        (
+            {
+                "state": "deepseek_empty",
+                "counts": {
+                    table: 0
+                    for table in ingest.TARGET_TABLES
+                },
+            },
+            {
+                "state":
+                    "partial_or_unexpected",
+                "counts": {
+                    table: 0
+                    for table in ingest.TARGET_TABLES
+                },
+            },
+        )
+    )
+
+    monkeypatch.setattr(
+        ingest,
+        "inspect_target_state",
+        lambda cursor, supplied_plan:
+            next(states),
+    )
+
+    monkeypatch.setattr(
+        ingest,
+        "acquire_ingestion_lock",
+        lambda cursor: None,
+    )
+
+    monkeypatch.setattr(
+        ingest,
+        "resolve_arm_runs",
+        lambda cursor, supplied_plan:
+            arm_ids,
+    )
+
+    monkeypatch.setattr(
+        ingest,
+        "insert_plan",
+        lambda cursor, supplied_plan, supplied_ids:
+            None,
+    )
+
+    monkeypatch.setattr(
+        ingest,
+        "verify_inserted_state",
+        lambda cursor, supplied_plan, supplied_ids: {
+            "transaction_counts":
+                dict(plan["write_counts"]),
+        },
+    )
+
+    monkeypatch.setattr(
+        ingest,
+        "verify_provider_evidence_details",
+        lambda cursor, supplied_plan, supplied_ids: {
+            "source_rows": "pass",
+        },
+    )
+
+    diagnostics = ingest.Diagnostics()
+
+    with pytest.raises(
+        ingest.IntegrationSafetyError,
+        match="second-connection verification",
+    ):
+        ingest.apply_permanent(
+            plan,
+            "synthetic-db-url",
+            diagnostics,
+        )
+
+    assert transaction.commit_calls == 1
+    assert transaction.rollback_calls == 0
+    assert transaction.close_calls == 1
+
+    assert observer.rollback_calls == 1
+    assert observer.close_calls == 1
+
+    assert (
+        diagnostics.commit_state
+        == "committed"
+    )
+    assert (
+        diagnostics.target_state
+        == "partial_or_unexpected"
+    )

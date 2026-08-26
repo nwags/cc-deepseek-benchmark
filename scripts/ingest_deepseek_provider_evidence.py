@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plan or check DeepSeek Phase 3 provider-evidence ingestion readiness."""
+"""Plan, verify, or apply DeepSeek Phase 3 provider-evidence ingestion."""
 
 from __future__ import annotations
 
@@ -2507,6 +2507,189 @@ def check_only(
     return result
 
 
+def apply_permanent(
+    plan: Mapping[str, Any],
+    db_url: str,
+    diagnostics: Diagnostics,
+) -> dict[str, Any]:
+    import psycopg
+
+    connection: Any = None
+
+    try:
+        diagnostics.enter(
+            "transaction_connection"
+        )
+        connection = psycopg.connect(
+            db_url,
+            autocommit=False,
+        )
+
+        with connection.cursor() as cursor:
+            diagnostics.enter(
+                "advisory_lock"
+            )
+            acquire_ingestion_lock(
+                cursor
+            )
+
+            diagnostics.enter(
+                "target_state_preflight"
+            )
+            state = inspect_target_state(
+                cursor,
+                plan,
+            )
+            diagnostics.target_state = (
+                state["state"]
+            )
+
+            if (
+                state["state"]
+                == "exact_deepseek_state"
+            ):
+                raise IntegrationSafetyError(
+                    "reviewed DeepSeek provider evidence "
+                    "is already applied"
+                )
+
+            if (
+                state["state"]
+                != "deepseek_empty"
+            ):
+                raise IntegrationSafetyError(
+                    "DeepSeek provider evidence target "
+                    "is partially or unexpectedly populated"
+                )
+
+            diagnostics.enter(
+                "canonical_run_resolution"
+            )
+            arm_run_ids = resolve_arm_runs(
+                cursor,
+                plan,
+            )
+
+            diagnostics.enter(
+                "transactional_insert"
+            )
+            insert_plan(
+                cursor,
+                plan,
+                arm_run_ids,
+            )
+
+            diagnostics.enter(
+                "transactional_verification"
+            )
+            reconciliation_verification = (
+                verify_inserted_state(
+                    cursor,
+                    plan,
+                    arm_run_ids,
+                )
+            )
+            provider_verification = (
+                verify_provider_evidence_details(
+                    cursor,
+                    plan,
+                    arm_run_ids,
+                )
+            )
+
+        diagnostics.enter("commit")
+        diagnostics.commit_state = "unknown"
+        connection.commit()
+        diagnostics.commit_state = "committed"
+
+    except Exception:
+        if (
+            connection is not None
+            and diagnostics.commit_state
+            != "committed"
+        ):
+            try:
+                connection.rollback()
+            except Exception:
+                pass
+        raise
+
+    finally:
+        if connection is not None:
+            connection.close()
+
+    diagnostics.enter(
+        "second_connection_verification"
+    )
+
+    observer = psycopg.connect(
+        db_url,
+        autocommit=False,
+    )
+
+    try:
+        with observer.cursor() as cursor:
+            cursor.execute(
+                "set transaction read only"
+            )
+
+            persisted_state = (
+                inspect_target_state(
+                    cursor,
+                    plan,
+                )
+            )
+
+        observer.rollback()
+
+    finally:
+        observer.close()
+
+    diagnostics.target_state = (
+        persisted_state["state"]
+    )
+
+    if (
+        persisted_state["state"]
+        != "exact_deepseek_state"
+    ):
+        raise IntegrationSafetyError(
+            "committed DeepSeek provider evidence "
+            "failed second-connection verification"
+        )
+
+    return {
+        "status": "applied",
+        "mode": "apply",
+        "commit_state":
+            diagnostics.commit_state,
+        "target_state":
+            persisted_state["state"],
+        "checks": {
+            "reviewed_input_hashes": "pass",
+            "advisory_lock": "pass",
+            "provider_scoped_empty_preflight":
+                "pass",
+            "canonical_run_resolution": "pass",
+            "transactional_insert": "pass",
+            "transactional_verification": "pass",
+            "commit": "pass",
+            "second_connection_verification":
+                "pass",
+        },
+        "resolved_arm_run_ids":
+            arm_run_ids,
+        "verification": {
+            "reconciliations":
+                reconciliation_verification,
+            "provider_evidence":
+                provider_verification,
+        },
+        "persisted_counts":
+            persisted_state["counts"],
+    }
+
+
 def rollback_only(
     plan: Mapping[str, Any],
     db_url: str,
@@ -2713,6 +2896,18 @@ def parse_args(
         ),
     )
 
+    group.add_argument(
+        "--apply",
+        action="store_true",
+        help=(
+            "Permanently insert the reviewed DeepSeek "
+            "provider evidence only from an empty "
+            "DeepSeek target, verify it transactionally, "
+            "commit once, and verify again from a "
+            "second connection."
+        ),
+    )
+
     return parser.parse_args(argv)
 
 
@@ -2766,8 +2961,10 @@ def main(
         mode = "plan"
     elif args.check_only:
         mode = "check-only"
-    else:
+    elif args.rollback_only:
         mode = "rollback-only"
+    else:
+        mode = "apply"
 
     try:
         diagnostics.enter("plan")
@@ -2795,8 +2992,14 @@ def main(
                 db_url,
                 diagnostics,
             )
-        else:
+        elif args.rollback_only:
             result = rollback_only(
+                plan,
+                db_url,
+                diagnostics,
+            )
+        else:
+            result = apply_permanent(
                 plan,
                 db_url,
                 diagnostics,
