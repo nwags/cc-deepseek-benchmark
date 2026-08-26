@@ -22,6 +22,7 @@ python -m py_compile scripts/publish_phase3_run.py
 python -m py_compile scripts/apply_live_supervision_migration.py
 python -m py_compile scripts/verify_live_supervision_postgres.py
 python -m py_compile scripts/verify_provider_evidence_postgres.py
+python -m py_compile scripts/ingest_openai_provider_evidence.py
 python -m py_compile scripts/lib/live_events.py
 python -m py_compile scripts/lib/live_db.py
 python -m py_compile scripts/lib/canonical_publication.py
