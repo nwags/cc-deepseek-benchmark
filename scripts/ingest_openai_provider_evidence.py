@@ -128,6 +128,8 @@ class MissingEnvironmentError(RuntimeError):
 @dataclass
 class Diagnostics:
     stage: str = "arguments"
+    commit_state: str = "not_committed"
+    target_state: str | None = None
     zero_persistence_counts: dict[str, int] = field(
         default_factory=dict
     )
@@ -908,6 +910,562 @@ def verify_inserted_state(
     }
 
 
+
+INGESTION_LOCK_NAME = (
+    "cc-deepseek-bench:openai-provider-evidence-ingestion:v1"
+)
+
+
+def acquire_ingestion_lock(cursor: Any) -> None:
+    cursor.execute(
+        """
+        select pg_advisory_xact_lock(
+            hashtextextended(%s, 0)
+        )
+        """,
+        (INGESTION_LOCK_NAME,),
+    )
+    cursor.fetchone()
+
+
+def verify_provider_evidence_details(
+    cursor: Any,
+    plan: Mapping[str, Any],
+    arm_run_ids: Mapping[str, str],
+) -> dict[str, str]:
+    expected_sources = {
+        source["source_key"]: source
+        for source in plan["sources"]
+    }
+
+    cursor.execute(
+        """
+        select
+            provider,
+            evidence_kind,
+            source_scope,
+            provider_reference,
+            source_sha256,
+            source_format,
+            integrity_status,
+            arm_run_id is null,
+            artifact_id is null,
+            source_uri is null
+        from benchmark.benchmark_provider_evidence_sources
+        order by provider_reference
+        """
+    )
+    source_rows = cursor.fetchall()
+
+    if len(source_rows) != len(expected_sources):
+        raise IntegrationSafetyError(
+            "provider source row count verification failed"
+        )
+
+    sources_by_sha = {
+        str(row[4]): row
+        for row in source_rows
+    }
+
+    for source in expected_sources.values():
+        row = sources_by_sha.get(source["source_sha256"])
+        if row is None:
+            raise IntegrationSafetyError(
+                "reviewed provider source sha256 is missing"
+            )
+
+        expected = (
+            source["provider"],
+            source["evidence_kind"],
+            source["source_scope"],
+            source["provider_reference"],
+            source["source_sha256"],
+            source["source_format"],
+            source["integrity_status"],
+            True,
+            True,
+            True,
+        )
+
+        if tuple(row) != expected:
+            raise IntegrationSafetyError(
+                "provider source provenance verification failed"
+            )
+
+    requested_ids = list(arm_run_ids.values())
+
+    cursor.execute(
+        """
+        select
+            arm_run.arm_id,
+            source.source_sha256,
+            evidence.provider_model,
+            evidence.ordinary_input_tokens,
+            evidence.cache_read_input_tokens,
+            evidence.cache_creation_input_tokens,
+            evidence.output_tokens,
+            evidence.request_count,
+            evidence.allocation_scope,
+            evidence.completeness_status,
+            evidence.trial_id is null
+        from benchmark.benchmark_provider_usage_evidence evidence
+        join benchmark.benchmark_provider_evidence_sources source
+          on source.id = evidence.source_id
+        join benchmark.benchmark_arm_runs arm_run
+          on arm_run.id = evidence.arm_run_id
+        where evidence.arm_run_id = any(%s::uuid[])
+        order by arm_run.arm_id
+        """,
+        (requested_ids,),
+    )
+    usage_rows = cursor.fetchall()
+
+    if len(usage_rows) != len(ARM_CONTRACT):
+        raise IntegrationSafetyError(
+            "provider usage evidence row count verification failed"
+        )
+
+    usage_source_sha = expected_sources["usage"]["source_sha256"]
+
+    for row in usage_rows:
+        arm_id = str(row[0])
+        expected = ARM_CONTRACT.get(arm_id)
+
+        if expected is None:
+            raise IntegrationSafetyError(
+                "unexpected arm in provider usage evidence"
+            )
+
+        if str(row[1]) != usage_source_sha:
+            raise IntegrationSafetyError(
+                "provider usage evidence source verification failed"
+            )
+        if row[2] != expected["provider_model"]:
+            raise IntegrationSafetyError(
+                "provider usage model verification failed"
+            )
+        if int(row[3]) != expected["uncached_input_tokens"]:
+            raise IntegrationSafetyError(
+                "provider usage ordinary input verification failed"
+            )
+        if int(row[4]) != expected["cached_input_tokens"]:
+            raise IntegrationSafetyError(
+                "provider usage cache-read verification failed"
+            )
+        if row[5] is not None:
+            raise IntegrationSafetyError(
+                "provider usage cache-creation must remain NULL"
+            )
+        if int(row[6]) != expected["output_tokens"]:
+            raise IntegrationSafetyError(
+                "provider usage output verification failed"
+            )
+        if int(row[7]) != expected["request_count"]:
+            raise IntegrationSafetyError(
+                "provider usage request count verification failed"
+            )
+        if row[8] != "exact_arm_run":
+            raise IntegrationSafetyError(
+                "provider usage allocation verification failed"
+            )
+        if row[9] != "complete":
+            raise IntegrationSafetyError(
+                "provider usage completeness verification failed"
+            )
+        if row[10] is not True:
+            raise IntegrationSafetyError(
+                "provider usage unexpectedly has trial allocation"
+            )
+
+    cursor.execute(
+        """
+        select
+            arm_run.arm_id,
+            source.source_sha256,
+            evidence.provider_model,
+            evidence.cost_kind,
+            evidence.amount_usd,
+            evidence.allocation_scope,
+            evidence.completeness_status,
+            evidence.trial_id is null,
+            evidence.pricing_snapshot_id is null
+        from benchmark.benchmark_provider_cost_evidence evidence
+        join benchmark.benchmark_provider_evidence_sources source
+          on source.id = evidence.source_id
+        join benchmark.benchmark_arm_runs arm_run
+          on arm_run.id = evidence.arm_run_id
+        where evidence.arm_run_id = any(%s::uuid[])
+        order by arm_run.arm_id
+        """,
+        (requested_ids,),
+    )
+    cost_rows = cursor.fetchall()
+
+    if len(cost_rows) != len(ARM_CONTRACT):
+        raise IntegrationSafetyError(
+            "provider cost evidence row count verification failed"
+        )
+
+    cost_source_sha = expected_sources["cost"]["source_sha256"]
+
+    for row in cost_rows:
+        arm_id = str(row[0])
+        expected = ARM_CONTRACT.get(arm_id)
+
+        if expected is None:
+            raise IntegrationSafetyError(
+                "unexpected arm in provider cost evidence"
+            )
+
+        if str(row[1]) != cost_source_sha:
+            raise IntegrationSafetyError(
+                "provider cost evidence source verification failed"
+            )
+        if row[2] != expected["provider_model"]:
+            raise IntegrationSafetyError(
+                "provider cost model verification failed"
+            )
+        if row[3] != "provider_arm_run_billed":
+            raise IntegrationSafetyError(
+                "provider cost kind verification failed"
+            )
+        if Decimal(row[4]) != expected[
+            "provider_billed_cost_usd"
+        ]:
+            raise IntegrationSafetyError(
+                "provider cost amount verification failed"
+            )
+        if row[5] != "exact_arm_run":
+            raise IntegrationSafetyError(
+                "provider cost allocation verification failed"
+            )
+        if row[6] != "complete":
+            raise IntegrationSafetyError(
+                "provider cost completeness verification failed"
+            )
+        if row[7] is not True:
+            raise IntegrationSafetyError(
+                "provider cost unexpectedly has trial allocation"
+            )
+        if row[8] is not True:
+            raise IntegrationSafetyError(
+                "provider-billed evidence unexpectedly has pricing snapshot"
+            )
+
+    cursor.execute(
+        """
+        select
+            'usage' as reconciliation_kind,
+            arm_run.arm_id,
+            source.source_sha256,
+            link.evidence_role
+        from benchmark.benchmark_usage_reconciliation_sources link
+        join benchmark.benchmark_usage_reconciliations reconciliation
+          on reconciliation.id = link.reconciliation_id
+        join benchmark.benchmark_arm_runs arm_run
+          on arm_run.id = reconciliation.arm_run_id
+        join benchmark.benchmark_provider_evidence_sources source
+          on source.id = link.source_id
+        where reconciliation.arm_run_id = any(%s::uuid[])
+
+        union all
+
+        select
+            'cost' as reconciliation_kind,
+            arm_run.arm_id,
+            source.source_sha256,
+            link.evidence_role
+        from benchmark.benchmark_cost_reconciliation_sources link
+        join benchmark.benchmark_cost_reconciliations reconciliation
+          on reconciliation.id = link.reconciliation_id
+        join benchmark.benchmark_arm_runs arm_run
+          on arm_run.id = reconciliation.arm_run_id
+        join benchmark.benchmark_provider_evidence_sources source
+          on source.id = link.source_id
+        where reconciliation.arm_run_id = any(%s::uuid[])
+
+        order by reconciliation_kind, arm_id
+        """,
+        (requested_ids, requested_ids),
+    )
+    link_rows = cursor.fetchall()
+
+    expected_links = {
+        (
+            "usage",
+            arm_id,
+            usage_source_sha,
+            "aggregate_usage",
+        )
+        for arm_id in ARM_CONTRACT
+    } | {
+        (
+            "cost",
+            arm_id,
+            cost_source_sha,
+            "billed",
+        )
+        for arm_id in ARM_CONTRACT
+    }
+
+    actual_links = {
+        (
+            str(row[0]),
+            str(row[1]),
+            str(row[2]),
+            str(row[3]),
+        )
+        for row in link_rows
+    }
+
+    if actual_links != expected_links:
+        raise IntegrationSafetyError(
+            "reconciliation source-link verification failed"
+        )
+
+    return {
+        "source_rows": "pass",
+        "usage_evidence_rows": "pass",
+        "cost_evidence_rows": "pass",
+        "reconciliation_source_links": "pass",
+    }
+
+
+def inspect_target_state(
+    cursor: Any,
+    plan: Mapping[str, Any],
+) -> dict[str, Any]:
+    counts = target_table_counts(cursor)
+
+    if not any(counts.values()):
+        return {
+            "state": "empty",
+            "counts": counts,
+        }
+
+    if counts != plan["write_counts"]:
+        return {
+            "state": "partial_or_unexpected",
+            "counts": counts,
+            "reason": "unexpected_table_counts",
+        }
+
+    try:
+        arm_run_ids = resolve_arm_runs(
+            cursor,
+            plan,
+        )
+        reconciliation_verification = verify_inserted_state(
+            cursor,
+            plan,
+            arm_run_ids,
+        )
+        provider_verification = verify_provider_evidence_details(
+            cursor,
+            plan,
+            arm_run_ids,
+        )
+    except Exception as exc:
+        return {
+            "state": "partial_or_unexpected",
+            "counts": counts,
+            "reason": "content_verification_failed",
+            "verification_error_type": type(exc).__name__,
+        }
+
+    return {
+        "state": "exact_openai_state",
+        "counts": counts,
+        "resolved_arm_run_ids": arm_run_ids,
+        "reconciliation_verification": reconciliation_verification,
+        "provider_verification": provider_verification,
+    }
+
+
+def check_only(
+    plan: Mapping[str, Any],
+    db_url: str,
+    diagnostics: Diagnostics,
+) -> dict[str, Any]:
+    import psycopg
+
+    connection = psycopg.connect(
+        db_url,
+        autocommit=False,
+    )
+
+    try:
+        diagnostics.enter("target_state_preflight")
+
+        with connection.cursor() as cursor:
+            state = inspect_target_state(
+                cursor,
+                plan,
+            )
+
+        diagnostics.target_state = state["state"]
+        connection.rollback()
+
+    finally:
+        connection.close()
+
+    if state["state"] == "empty":
+        return {
+            "status": "ready",
+            "mode": "check-only",
+            "commit_state": diagnostics.commit_state,
+            "target_state": state["state"],
+            "counts": state["counts"],
+        }
+
+    if state["state"] == "exact_openai_state":
+        return {
+            "status": "already_applied",
+            "mode": "check-only",
+            "commit_state": diagnostics.commit_state,
+            "target_state": state["state"],
+            "counts": state["counts"],
+            "resolved_arm_run_ids": state[
+                "resolved_arm_run_ids"
+            ],
+        }
+
+    raise IntegrationSafetyError(
+        "provider evidence schema is partially or unexpectedly populated"
+    )
+
+
+def apply_permanent(
+    plan: Mapping[str, Any],
+    db_url: str,
+    diagnostics: Diagnostics,
+) -> dict[str, Any]:
+    import psycopg
+
+    connection: Any = None
+
+    try:
+        diagnostics.enter("transaction_connection")
+        connection = psycopg.connect(
+            db_url,
+            autocommit=False,
+        )
+
+        with connection.cursor() as cursor:
+            diagnostics.enter("advisory_lock")
+            acquire_ingestion_lock(cursor)
+
+            diagnostics.enter("target_state_preflight")
+            state = inspect_target_state(
+                cursor,
+                plan,
+            )
+            diagnostics.target_state = state["state"]
+
+            if state["state"] == "exact_openai_state":
+                raise IntegrationSafetyError(
+                    "reviewed OpenAI provider evidence is already applied"
+                )
+
+            if state["state"] != "empty":
+                raise IntegrationSafetyError(
+                    "provider evidence schema is partially or "
+                    "unexpectedly populated"
+                )
+
+            diagnostics.enter("canonical_run_resolution")
+            arm_run_ids = resolve_arm_runs(
+                cursor,
+                plan,
+            )
+
+            diagnostics.enter("transactional_insert")
+            insert_plan(
+                cursor,
+                plan,
+                arm_run_ids,
+            )
+
+            diagnostics.enter("transactional_verification")
+            reconciliation_verification = verify_inserted_state(
+                cursor,
+                plan,
+                arm_run_ids,
+            )
+            provider_verification = verify_provider_evidence_details(
+                cursor,
+                plan,
+                arm_run_ids,
+            )
+
+        diagnostics.enter("commit")
+        diagnostics.commit_state = "unknown"
+        connection.commit()
+        diagnostics.commit_state = "committed"
+
+    except Exception:
+        if (
+            connection is not None
+            and diagnostics.commit_state != "committed"
+        ):
+            try:
+                connection.rollback()
+            except Exception:
+                pass
+        raise
+
+    finally:
+        if connection is not None:
+            connection.close()
+
+    diagnostics.enter("second_connection_verification")
+
+    observer = psycopg.connect(
+        db_url,
+        autocommit=False,
+    )
+
+    try:
+        with observer.cursor() as cursor:
+            persisted_state = inspect_target_state(
+                cursor,
+                plan,
+            )
+        observer.rollback()
+    finally:
+        observer.close()
+
+    diagnostics.target_state = persisted_state["state"]
+
+    if persisted_state["state"] != "exact_openai_state":
+        raise IntegrationSafetyError(
+            "committed OpenAI provider evidence failed "
+            "second-connection verification"
+        )
+
+    return {
+        "status": "applied",
+        "mode": "apply",
+        "commit_state": diagnostics.commit_state,
+        "target_state": persisted_state["state"],
+        "checks": {
+            "reviewed_input_hashes": "pass",
+            "advisory_lock": "pass",
+            "empty_target_preflight": "pass",
+            "canonical_run_resolution": "pass",
+            "transactional_insert": "pass",
+            "transactional_verification": "pass",
+            "commit": "pass",
+            "second_connection_verification": "pass",
+        },
+        "resolved_arm_run_ids": arm_run_ids,
+        "verification": {
+            "reconciliations": reconciliation_verification,
+            "provider_evidence": provider_verification,
+        },
+        "persisted_counts": persisted_state["counts"],
+    }
+
 def rollback_only(
     plan: Mapping[str, Any],
     db_url: str,
@@ -925,12 +1483,20 @@ def rollback_only(
         )
 
         with connection.cursor() as cursor:
-            diagnostics.enter("empty_target_preflight")
-            before = target_table_counts(cursor)
+            diagnostics.enter("advisory_lock")
+            acquire_ingestion_lock(cursor)
 
-            if any(before.values()):
+            diagnostics.enter("target_state_preflight")
+            state = inspect_target_state(
+                cursor,
+                plan,
+            )
+            diagnostics.target_state = state["state"]
+
+            if state["state"] != "empty":
                 raise IntegrationSafetyError(
-                    "provider evidence target tables are not empty"
+                    "rollback-only ingestion requires an empty "
+                    "provider evidence schema"
                 )
 
             diagnostics.enter("canonical_run_resolution")
@@ -947,7 +1513,12 @@ def rollback_only(
             )
 
             diagnostics.enter("transactional_verification")
-            verification = verify_inserted_state(
+            reconciliation_verification = verify_inserted_state(
+                cursor,
+                plan,
+                arm_run_ids,
+            )
+            provider_verification = verify_provider_evidence_details(
                 cursor,
                 plan,
                 arm_run_ids,
@@ -992,8 +1563,11 @@ def rollback_only(
     return {
         "status": "passed",
         "mode": "rollback-only",
+        "commit_state": diagnostics.commit_state,
+        "target_state": "empty",
         "checks": {
             "reviewed_input_hashes": "pass",
+            "advisory_lock": "pass",
             "canonical_run_resolution": "pass",
             "empty_target_preflight": "pass",
             "transactional_insert": "pass",
@@ -1001,10 +1575,12 @@ def rollback_only(
             "second_connection_zero_persistence": "pass",
         },
         "resolved_arm_run_ids": arm_run_ids,
-        "verification": verification,
+        "verification": {
+            "reconciliations": reconciliation_verification,
+            "provider_evidence": provider_verification,
+        },
         "zero_persistence_counts": after,
     }
-
 
 def parse_args(
     argv: list[str] | None = None,
@@ -1018,11 +1594,29 @@ def parse_args(
         help="Emit the reviewed normalized write plan without a database.",
     )
     group.add_argument(
+        "--check-only",
+        action="store_true",
+        help=(
+            "Inspect the real database and report whether the reviewed "
+            "OpenAI evidence is ready to apply, already applied exactly, "
+            "or unsafe to mutate."
+        ),
+    )
+    group.add_argument(
         "--rollback-only",
         action="store_true",
         help=(
             "Insert and verify the reviewed plan inside a PostgreSQL "
             "transaction, then roll it back and prove zero persistence."
+        ),
+    )
+    group.add_argument(
+        "--apply",
+        action="store_true",
+        help=(
+            "Permanently insert the reviewed OpenAI provider evidence "
+            "only from an empty target state, verify it transactionally, "
+            "commit once, and verify again from a second connection."
         ),
     )
 
@@ -1040,16 +1634,20 @@ def failure_payload(
         "mode": mode,
         "failed_stage": diagnostics.stage,
         "error_type": type(exc).__name__,
+        "commit_state": diagnostics.commit_state,
         "zero_persistence_counts": dict(
             diagnostics.zero_persistence_counts
         ),
     }
 
-    sqlstate = getattr(exc, "sqlstate", None)
-    text = str(sqlstate or "")
+    if diagnostics.target_state is not None:
+        result["target_state"] = diagnostics.target_state
 
-    if len(text) == 5 and text.isalnum():
-        result["sqlstate"] = text.upper()
+    sqlstate = getattr(exc, "sqlstate", None)
+    value = str(sqlstate or "")
+
+    if len(value) == 5 and value.isalnum():
+        result["sqlstate"] = value.upper()
 
     return result
 
@@ -1060,7 +1658,14 @@ def main(
     args = parse_args(argv)
     diagnostics = Diagnostics()
 
-    mode = "plan" if args.plan else "rollback-only"
+    if args.plan:
+        mode = "plan"
+    elif args.check_only:
+        mode = "check-only"
+    elif args.rollback_only:
+        mode = "rollback-only"
+    else:
+        mode = "apply"
 
     try:
         diagnostics.enter("plan")
@@ -1074,11 +1679,24 @@ def main(
         if not db_url:
             raise MissingEnvironmentError()
 
-        result = rollback_only(
-            plan,
-            db_url,
-            diagnostics,
-        )
+        if args.check_only:
+            result = check_only(
+                plan,
+                db_url,
+                diagnostics,
+            )
+        elif args.rollback_only:
+            result = rollback_only(
+                plan,
+                db_url,
+                diagnostics,
+            )
+        else:
+            result = apply_permanent(
+                plan,
+                db_url,
+                diagnostics,
+            )
 
     except Exception as exc:
         print(
