@@ -223,8 +223,8 @@ ESSENTIAL_COLUMNS: Mapping[str, frozenset[str]] = {
         {
             "derived_blocker_codes",
             "effective_can_advance",
-            "usage_reconciliation_current",
-            "cost_reconciliation_current",
+            "usage_reconciliation_is_current",
+            "cost_reconciliation_is_current",
         }
     ),
 }

@@ -989,3 +989,28 @@ def test_failure_payload_reports_index_collision_without_db_details():
         "benchmark.idx_provider_usage_arm_run"
     ]
     assert payload["commit_state"] == "not_committed"
+
+
+def test_promotion_gate_current_columns_match_reviewed_migration():
+    required = migration.ESSENTIAL_COLUMNS[
+        "v_evidence_promotion_gate"
+    ]
+
+    expected = {
+        "usage_reconciliation_is_current",
+        "cost_reconciliation_is_current",
+    }
+    stale = {
+        "usage_reconciliation_current",
+        "cost_reconciliation_current",
+    }
+
+    assert expected.issubset(required)
+    assert required.isdisjoint(stale)
+
+    sql = migration.MIGRATION_011_PATH.read_text(
+        encoding="utf-8"
+    )
+
+    for column_name in expected:
+        assert column_name in sql
