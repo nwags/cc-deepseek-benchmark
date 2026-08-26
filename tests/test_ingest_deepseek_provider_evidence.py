@@ -295,13 +295,12 @@ def test_unsupported_same_day_totals_stay_excluded():
     }
 
 
-def test_script_has_no_database_write_surface():
+def test_script_has_only_guarded_rollback_write_surface():
     source = SCRIPT.read_text(
         encoding="utf-8"
     )
 
     forbidden = (
-        r"\binsert\s+into\b",
         r"\bupdate\s+benchmark\.",
         r"\bdelete\s+from\b",
         r"\btruncate\b",
@@ -317,11 +316,23 @@ def test_script_has_no_database_write_surface():
             flags=re.IGNORECASE,
         )
 
+    assert (
+        source.lower().count(
+            "insert into benchmark."
+        )
+        == 8
+    )
+
+    assert "--rollback-only" in source
     assert "--apply" not in source
-    assert "--rollback-only" not in source
+    assert "connection.rollback()" in source
+    assert (
+        "second_connection_zero_persistence"
+        in source
+    )
 
 
-def test_cli_requires_exactly_one_read_only_mode():
+def test_cli_requires_exactly_one_explicit_mode():
     with pytest.raises(SystemExit):
         ingest.parse_args([])
 
@@ -339,6 +350,13 @@ def test_cli_requires_exactly_one_read_only_mode():
         is True
     )
 
+    assert (
+        ingest.parse_args(
+            ["--rollback-only"]
+        ).rollback_only
+        is True
+    )
+
     with pytest.raises(SystemExit):
         ingest.parse_args(
             [
@@ -346,6 +364,15 @@ def test_cli_requires_exactly_one_read_only_mode():
                 "--check-only",
             ]
         )
+
+    with pytest.raises(SystemExit):
+        ingest.parse_args(
+            [
+                "--check-only",
+                "--rollback-only",
+            ]
+        )
+
 
 
 def test_failure_payload_does_not_expose_exception_message():
@@ -597,3 +624,201 @@ def test_check_only_refuses_nonempty_target(
     )
     assert connection.rollback_calls == 1
     assert connection.close_calls == 1
+
+
+def test_target_state_classifier_reports_exact_deepseek_state(
+    monkeypatch,
+):
+    plan = ingest.build_plan()
+
+    arm_ids = {
+        "router-deepseek-flash":
+            "00000000-0000-0000-0000-000000000001",
+        "router-deepseek-pro":
+            "00000000-0000-0000-0000-000000000002",
+    }
+
+    monkeypatch.setattr(
+        ingest,
+        "target_table_counts",
+        lambda cursor, supplied_plan:
+            dict(plan["write_counts"]),
+    )
+    monkeypatch.setattr(
+        ingest,
+        "resolve_arm_runs",
+        lambda cursor, supplied_plan:
+            arm_ids,
+    )
+    monkeypatch.setattr(
+        ingest,
+        "verify_inserted_state",
+        lambda cursor, supplied_plan, supplied_ids: {
+            "transaction_counts":
+                dict(plan["write_counts"]),
+        },
+    )
+    monkeypatch.setattr(
+        ingest,
+        "verify_provider_evidence_details",
+        lambda cursor, supplied_plan, supplied_ids: {
+            "source_rows": "pass",
+        },
+    )
+
+    state = ingest.inspect_target_state(
+        object(),
+        plan,
+    )
+
+    assert (
+        state["state"]
+        == "exact_deepseek_state"
+    )
+    assert (
+        state["resolved_arm_run_ids"]
+        == arm_ids
+    )
+
+
+def test_rollback_only_rolls_back_and_proves_zero_persistence(
+    monkeypatch,
+):
+    plan = ingest.build_plan()
+
+    transaction = _FakeConnection()
+    observer = _FakeConnection()
+
+    connections = iter(
+        (
+            transaction,
+            observer,
+        )
+    )
+
+    class _FakePsycopg:
+        @staticmethod
+        def connect(
+            db_url,
+            autocommit=False,
+        ):
+            assert (
+                db_url
+                == "synthetic-db-url"
+            )
+            assert autocommit is False
+            return next(connections)
+
+    monkeypatch.setitem(
+        sys.modules,
+        "psycopg",
+        _FakePsycopg,
+    )
+
+    states = iter(
+        (
+            {
+                "state": "deepseek_empty",
+                "counts": {
+                    table: 0
+                    for table in ingest.TARGET_TABLES
+                },
+            },
+            {
+                "state": "exact_deepseek_state",
+                "counts":
+                    dict(plan["write_counts"]),
+                "reconciliation_verification": {
+                    "transaction_counts":
+                        dict(plan["write_counts"]),
+                },
+                "provider_verification": {
+                    "source_rows": "pass",
+                },
+            },
+        )
+    )
+
+    monkeypatch.setattr(
+        ingest,
+        "acquire_ingestion_lock",
+        lambda cursor: None,
+    )
+
+    monkeypatch.setattr(
+        ingest,
+        "inspect_target_state",
+        lambda cursor, supplied_plan:
+            next(states),
+    )
+
+    arm_ids = {
+        "router-deepseek-flash":
+            "00000000-0000-0000-0000-000000000001",
+        "router-deepseek-pro":
+            "00000000-0000-0000-0000-000000000002",
+    }
+
+    monkeypatch.setattr(
+        ingest,
+        "resolve_arm_runs",
+        lambda cursor, supplied_plan:
+            arm_ids,
+    )
+
+    inserted = []
+
+    monkeypatch.setattr(
+        ingest,
+        "insert_plan",
+        lambda cursor, supplied_plan, supplied_ids:
+            inserted.append(
+                (
+                    supplied_plan,
+                    supplied_ids,
+                )
+            ),
+    )
+
+    zero = {
+        table: 0
+        for table in ingest.TARGET_TABLES
+    }
+
+    monkeypatch.setattr(
+        ingest,
+        "target_table_counts",
+        lambda cursor, supplied_plan:
+            dict(zero),
+    )
+
+    diagnostics = ingest.Diagnostics()
+
+    result = ingest.rollback_only(
+        plan,
+        "synthetic-db-url",
+        diagnostics,
+    )
+
+    assert result["status"] == "passed"
+    assert result["mode"] == "rollback-only"
+    assert (
+        result["target_state"]
+        == "deepseek_empty"
+    )
+    assert (
+        result["commit_state"]
+        == "not_committed"
+    )
+    assert result[
+        "zero_persistence_counts"
+    ] == zero
+
+    assert len(inserted) == 1
+    assert inserted[0][1] == arm_ids
+
+    assert transaction.rollback_calls == 1
+    assert transaction.close_calls == 1
+
+    assert observer.rollback_calls == 1
+    assert observer.close_calls == 1

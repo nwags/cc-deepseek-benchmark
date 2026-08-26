@@ -8,7 +8,7 @@ import csv
 import hashlib
 import json
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Mapping
@@ -136,6 +136,11 @@ TARGET_TABLES = (
 )
 
 
+INGESTION_LOCK_NAME = (
+    "cc-deepseek-bench:deepseek-provider-evidence-ingestion:v1"
+)
+
+
 class EvidencePlanError(RuntimeError):
     pass
 
@@ -153,6 +158,9 @@ class Diagnostics:
     stage: str = "arguments"
     commit_state: str = "not_committed"
     target_state: str | None = None
+    zero_persistence_counts: dict[str, int] = field(
+        default_factory=dict
+    )
 
     def enter(self, stage: str) -> None:
         self.stage = stage
@@ -992,11 +1000,49 @@ def inspect_target_state(
             "counts": counts,
         }
 
+    if counts != plan["write_counts"]:
+        return {
+            "state": "partial_or_unexpected",
+            "counts": counts,
+            "reason": "unexpected_table_counts",
+        }
+
+    try:
+        arm_run_ids = resolve_arm_runs(
+            cursor,
+            plan,
+        )
+        reconciliation_verification = (
+            verify_inserted_state(
+                cursor,
+                plan,
+                arm_run_ids,
+            )
+        )
+        provider_verification = (
+            verify_provider_evidence_details(
+                cursor,
+                plan,
+                arm_run_ids,
+            )
+        )
+    except Exception as exc:
+        return {
+            "state": "partial_or_unexpected",
+            "counts": counts,
+            "reason": "content_verification_failed",
+            "verification_error_type":
+                type(exc).__name__,
+        }
+
     return {
-        "state": "partial_or_unexpected",
+        "state": "exact_deepseek_state",
         "counts": counts,
-        "reason":
-            "existing_deepseek_evidence_or_reconciliation_rows",
+        "resolved_arm_run_ids": arm_run_ids,
+        "reconciliation_verification":
+            reconciliation_verification,
+        "provider_verification":
+            provider_verification,
     }
 
 
@@ -1162,6 +1208,1192 @@ def resolve_arm_runs(
     return resolved
 
 
+def acquire_ingestion_lock(
+    cursor: Any,
+) -> None:
+    cursor.execute(
+        """
+        select pg_advisory_xact_lock(
+            hashtextextended(%s, 0)
+        )
+        """,
+        (INGESTION_LOCK_NAME,),
+    )
+    cursor.fetchone()
+
+
+def insert_plan(
+    cursor: Any,
+    plan: Mapping[str, Any],
+    arm_run_ids: Mapping[str, str],
+) -> None:
+    from psycopg.types.json import Jsonb
+
+    source_ids: dict[str, Any] = {}
+    pricing_ids: dict[str, Any] = {}
+    usage_reconciliation_ids: dict[str, Any] = {}
+    cost_reconciliation_ids: dict[str, Any] = {}
+
+    for source in plan["sources"]:
+        cursor.execute(
+            """
+            insert into benchmark.benchmark_provider_evidence_sources (
+                provider,
+                evidence_kind,
+                source_scope,
+                provider_reference,
+                source_sha256,
+                source_format,
+                integrity_status,
+                notes,
+                raw_metadata
+            ) values (
+                %s, %s, %s, %s, %s,
+                %s, %s, %s, %s
+            )
+            returning id
+            """,
+            (
+                source["provider"],
+                source["evidence_kind"],
+                source["source_scope"],
+                source["provider_reference"],
+                source["source_sha256"],
+                source["source_format"],
+                source["integrity_status"],
+                source["notes"],
+                Jsonb(
+                    source.get(
+                        "raw_metadata",
+                        {},
+                    )
+                ),
+            ),
+        )
+        source_ids[source["source_key"]] = (
+            cursor.fetchone()[0]
+        )
+
+    for snapshot in plan["pricing_snapshots"]:
+        cursor.execute(
+            """
+            insert into benchmark.benchmark_provider_pricing_snapshots (
+                source_id,
+                provider,
+                provider_model,
+                currency,
+                effective_from,
+                effective_until,
+                pricing_semantics,
+                pricing_rules,
+                official_source_uri,
+                notes,
+                raw_metadata
+            ) values (
+                %s, %s, %s, %s,
+                %s, %s, %s, %s,
+                %s, %s, %s
+            )
+            returning id
+            """,
+            (
+                source_ids[snapshot["source_key"]],
+                snapshot["provider"],
+                snapshot["provider_model"],
+                snapshot["currency"],
+                snapshot["effective_from"],
+                snapshot["effective_until"],
+                snapshot["pricing_semantics"],
+                Jsonb(snapshot["pricing_rules"]),
+                snapshot["official_source_uri"],
+                snapshot["notes"],
+                Jsonb(
+                    snapshot.get(
+                        "raw_metadata",
+                        {},
+                    )
+                ),
+            ),
+        )
+        pricing_ids[snapshot["pricing_key"]] = (
+            cursor.fetchone()[0]
+        )
+
+    for evidence in plan["provider_usage_evidence"]:
+        cursor.execute(
+            """
+            insert into benchmark.benchmark_provider_usage_evidence (
+                source_id,
+                arm_run_id,
+                trial_id,
+                provider_request_id,
+                provider_model,
+                request_started_at,
+                request_finished_at,
+                ordinary_input_tokens,
+                cache_read_input_tokens,
+                cache_creation_input_tokens,
+                output_tokens,
+                request_count,
+                allocation_scope,
+                completeness_status,
+                notes,
+                raw_metadata
+            ) values (
+                %s, %s::uuid, %s::uuid, %s,
+                %s, %s, %s,
+                %s, %s, %s, %s, %s,
+                %s, %s, %s, %s
+            )
+            """,
+            (
+                source_ids[evidence["source_key"]],
+                evidence["arm_run_id"],
+                evidence["trial_id"],
+                evidence["provider_request_id"],
+                evidence["provider_model"],
+                evidence["request_started_at"],
+                evidence["request_finished_at"],
+                evidence["ordinary_input_tokens"],
+                evidence["cache_read_input_tokens"],
+                evidence[
+                    "cache_creation_input_tokens"
+                ],
+                evidence["output_tokens"],
+                evidence["request_count"],
+                evidence["allocation_scope"],
+                evidence["completeness_status"],
+                evidence["notes"],
+                Jsonb(evidence["raw_metadata"]),
+            ),
+        )
+
+    for evidence in plan["provider_cost_evidence"]:
+        pricing_snapshot_id = None
+        pricing_key = evidence[
+            "pricing_snapshot_key"
+        ]
+        if pricing_key is not None:
+            pricing_snapshot_id = (
+                pricing_ids[pricing_key]
+            )
+
+        cursor.execute(
+            """
+            insert into benchmark.benchmark_provider_cost_evidence (
+                source_id,
+                arm_run_id,
+                trial_id,
+                pricing_snapshot_id,
+                provider_model,
+                cost_kind,
+                amount_usd,
+                currency,
+                allocation_scope,
+                completeness_status,
+                notes,
+                raw_metadata
+            ) values (
+                %s, %s::uuid, %s::uuid, %s::uuid,
+                %s, %s, %s, %s,
+                %s, %s, %s, %s
+            )
+            """,
+            (
+                source_ids[evidence["source_key"]],
+                evidence["arm_run_id"],
+                evidence["trial_id"],
+                pricing_snapshot_id,
+                evidence["provider_model"],
+                evidence["cost_kind"],
+                Decimal(evidence["amount_usd"]),
+                evidence["currency"],
+                evidence["allocation_scope"],
+                evidence["completeness_status"],
+                evidence["notes"],
+                Jsonb(evidence["raw_metadata"]),
+            ),
+        )
+
+    for reconciliation in plan[
+        "usage_reconciliations"
+    ]:
+        arm_id = reconciliation["arm_id"]
+
+        cursor.execute(
+            """
+            insert into benchmark.benchmark_usage_reconciliations (
+                arm_run_id,
+                reconciliation_version,
+                is_current,
+                harness_name,
+                harness_version,
+                configured_route_model,
+                configured_backend_model,
+                harness_observed_model,
+                provider_observed_model,
+                model_identity_status,
+                harness_input_tokens,
+                harness_cache_tokens,
+                harness_output_tokens,
+                provider_ordinary_input_tokens,
+                provider_cache_read_input_tokens,
+                provider_cache_creation_input_tokens,
+                provider_output_tokens,
+                provider_request_count,
+                matched_provider_request_count,
+                unallocated_provider_request_count,
+                provider_evidence_visible,
+                selected_usage_authority,
+                validation_status,
+                limitation_codes,
+                notes,
+                raw_metadata
+            ) values (
+                %s::uuid, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s::text[], %s, %s
+            )
+            returning id
+            """,
+            (
+                arm_run_ids[arm_id],
+                reconciliation[
+                    "reconciliation_version"
+                ],
+                reconciliation["is_current"],
+                reconciliation["harness_name"],
+                reconciliation["harness_version"],
+                reconciliation[
+                    "configured_route_model"
+                ],
+                reconciliation[
+                    "configured_backend_model"
+                ],
+                reconciliation[
+                    "harness_observed_model"
+                ],
+                reconciliation[
+                    "provider_observed_model"
+                ],
+                reconciliation[
+                    "model_identity_status"
+                ],
+                reconciliation[
+                    "harness_input_tokens"
+                ],
+                reconciliation[
+                    "harness_cache_tokens"
+                ],
+                reconciliation[
+                    "harness_output_tokens"
+                ],
+                reconciliation[
+                    "provider_ordinary_input_tokens"
+                ],
+                reconciliation[
+                    "provider_cache_read_input_tokens"
+                ],
+                reconciliation[
+                    "provider_cache_creation_input_tokens"
+                ],
+                reconciliation[
+                    "provider_output_tokens"
+                ],
+                reconciliation[
+                    "provider_request_count"
+                ],
+                reconciliation[
+                    "matched_provider_request_count"
+                ],
+                reconciliation[
+                    "unallocated_provider_request_count"
+                ],
+                reconciliation[
+                    "provider_evidence_visible"
+                ],
+                reconciliation[
+                    "selected_usage_authority"
+                ],
+                reconciliation[
+                    "validation_status"
+                ],
+                reconciliation[
+                    "limitation_codes"
+                ],
+                reconciliation["notes"],
+                Jsonb(
+                    reconciliation.get(
+                        "raw_metadata",
+                        {},
+                    )
+                ),
+            ),
+        )
+
+        usage_reconciliation_ids[arm_id] = (
+            cursor.fetchone()[0]
+        )
+
+    for link in plan[
+        "usage_reconciliation_source_links"
+    ]:
+        cursor.execute(
+            """
+            insert into benchmark.benchmark_usage_reconciliation_sources (
+                reconciliation_id,
+                source_id,
+                evidence_role
+            ) values (%s, %s, %s)
+            """,
+            (
+                usage_reconciliation_ids[
+                    link["arm_id"]
+                ],
+                source_ids[
+                    link["source_key"]
+                ],
+                link["evidence_role"],
+            ),
+        )
+
+    for reconciliation in plan[
+        "cost_reconciliations"
+    ]:
+        arm_id = reconciliation["arm_id"]
+        pricing_snapshot_id = pricing_ids[
+            reconciliation["pricing_snapshot_key"]
+        ]
+
+        cursor.execute(
+            """
+            insert into benchmark.benchmark_cost_reconciliations (
+                arm_run_id,
+                reconciliation_version,
+                is_current,
+                harness_name,
+                harness_version,
+                harness_reported_cost_usd,
+                provider_billed_cost_usd,
+                provider_rate_reconstructed_cost_usd,
+                selected_cost_usd,
+                selected_cost_basis,
+                selected_cost_relation,
+                validation_status,
+                provider_evidence_visible,
+                pricing_snapshot_id,
+                limitation_codes,
+                notes,
+                raw_metadata
+            ) values (
+                %s::uuid, %s, %s,
+                %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s::uuid,
+                %s::text[], %s, %s
+            )
+            returning id
+            """,
+            (
+                arm_run_ids[arm_id],
+                reconciliation[
+                    "reconciliation_version"
+                ],
+                reconciliation["is_current"],
+                reconciliation["harness_name"],
+                reconciliation["harness_version"],
+                Decimal(
+                    reconciliation[
+                        "harness_reported_cost_usd"
+                    ]
+                ),
+                reconciliation[
+                    "provider_billed_cost_usd"
+                ],
+                Decimal(
+                    reconciliation[
+                        "provider_rate_reconstructed_cost_usd"
+                    ]
+                ),
+                Decimal(
+                    reconciliation[
+                        "selected_cost_usd"
+                    ]
+                ),
+                reconciliation[
+                    "selected_cost_basis"
+                ],
+                reconciliation[
+                    "selected_cost_relation"
+                ],
+                reconciliation[
+                    "validation_status"
+                ],
+                reconciliation[
+                    "provider_evidence_visible"
+                ],
+                pricing_snapshot_id,
+                reconciliation[
+                    "limitation_codes"
+                ],
+                reconciliation["notes"],
+                Jsonb(
+                    reconciliation.get(
+                        "raw_metadata",
+                        {},
+                    )
+                ),
+            ),
+        )
+
+        cost_reconciliation_ids[arm_id] = (
+            cursor.fetchone()[0]
+        )
+
+    for link in plan[
+        "cost_reconciliation_source_links"
+    ]:
+        cursor.execute(
+            """
+            insert into benchmark.benchmark_cost_reconciliation_sources (
+                reconciliation_id,
+                source_id,
+                evidence_role
+            ) values (%s, %s, %s)
+            """,
+            (
+                cost_reconciliation_ids[
+                    link["arm_id"]
+                ],
+                source_ids[
+                    link["source_key"]
+                ],
+                link["evidence_role"],
+            ),
+        )
+
+
+def verify_inserted_state(
+    cursor: Any,
+    plan: Mapping[str, Any],
+    arm_run_ids: Mapping[str, str],
+) -> dict[str, Any]:
+    counts = target_table_counts(
+        cursor,
+        plan,
+    )
+
+    if counts != plan["write_counts"]:
+        raise IntegrationSafetyError(
+            "transactional DeepSeek evidence counts "
+            "do not match reviewed plan"
+        )
+
+    requested_ids = list(
+        arm_run_ids.values()
+    )
+
+    usage_plan = {
+        row["arm_id"]: row
+        for row in plan["usage_reconciliations"]
+    }
+    cost_plan = {
+        row["arm_id"]: row
+        for row in plan["cost_reconciliations"]
+    }
+
+    cursor.execute(
+        """
+        select
+            arm_run.arm_id,
+            usage.reconciliation_version,
+            usage.is_current,
+            usage.harness_name,
+            usage.harness_version,
+            usage.configured_route_model,
+            usage.configured_backend_model,
+            usage.harness_observed_model,
+            usage.provider_observed_model,
+            usage.model_identity_status,
+            usage.harness_input_tokens,
+            usage.harness_cache_tokens,
+            usage.harness_output_tokens,
+            usage.provider_ordinary_input_tokens,
+            usage.provider_cache_read_input_tokens,
+            usage.provider_cache_creation_input_tokens,
+            usage.provider_output_tokens,
+            usage.provider_request_count,
+            usage.matched_provider_request_count,
+            usage.unallocated_provider_request_count,
+            usage.provider_evidence_visible,
+            usage.selected_usage_authority,
+            usage.validation_status,
+            usage.limitation_codes
+        from benchmark.benchmark_usage_reconciliations usage
+        join benchmark.benchmark_arm_runs arm_run
+          on arm_run.id = usage.arm_run_id
+        where usage.arm_run_id = any(%s::uuid[])
+          and usage.is_current
+        order by arm_run.arm_id
+        """,
+        (requested_ids,),
+    )
+
+    usage_rows = cursor.fetchall()
+
+    if len(usage_rows) != len(usage_plan):
+        raise IntegrationSafetyError(
+            "transactional DeepSeek usage "
+            "reconciliations are incomplete"
+        )
+
+    verified_usage: dict[str, Any] = {}
+
+    for row in usage_rows:
+        arm_id = str(row[0])
+        expected = usage_plan.get(arm_id)
+
+        if expected is None:
+            raise IntegrationSafetyError(
+                "unexpected DeepSeek usage reconciliation arm"
+            )
+
+        observed = {
+            "reconciliation_version": row[1],
+            "is_current": row[2],
+            "harness_name": row[3],
+            "harness_version": row[4],
+            "configured_route_model": row[5],
+            "configured_backend_model": row[6],
+            "harness_observed_model": row[7],
+            "provider_observed_model": row[8],
+            "model_identity_status": row[9],
+            "harness_input_tokens": row[10],
+            "harness_cache_tokens": row[11],
+            "harness_output_tokens": row[12],
+            "provider_ordinary_input_tokens": row[13],
+            "provider_cache_read_input_tokens": row[14],
+            "provider_cache_creation_input_tokens": row[15],
+            "provider_output_tokens": row[16],
+            "provider_request_count": row[17],
+            "matched_provider_request_count": row[18],
+            "unallocated_provider_request_count": row[19],
+            "provider_evidence_visible": row[20],
+            "selected_usage_authority": row[21],
+            "validation_status": row[22],
+            "limitation_codes": list(row[23]),
+        }
+
+        for key, value in observed.items():
+            if value != expected[key]:
+                raise IntegrationSafetyError(
+                    f"{arm_id} usage reconciliation "
+                    f"verification failed: {key}"
+                )
+
+        verified_usage[arm_id] = {
+            "selected_usage_authority":
+                row[21],
+            "validation_status":
+                row[22],
+        }
+
+    cursor.execute(
+        """
+        select
+            arm_run.arm_id,
+            cost.reconciliation_version,
+            cost.is_current,
+            cost.harness_name,
+            cost.harness_version,
+            cost.harness_reported_cost_usd,
+            cost.provider_billed_cost_usd,
+            cost.provider_rate_reconstructed_cost_usd,
+            cost.selected_cost_usd,
+            cost.selected_cost_basis,
+            cost.selected_cost_relation,
+            cost.validation_status,
+            cost.provider_evidence_visible,
+            cost.limitation_codes,
+            pricing.provider,
+            pricing.provider_model
+        from benchmark.benchmark_cost_reconciliations cost
+        join benchmark.benchmark_arm_runs arm_run
+          on arm_run.id = cost.arm_run_id
+        left join benchmark.benchmark_provider_pricing_snapshots pricing
+          on pricing.id = cost.pricing_snapshot_id
+        where cost.arm_run_id = any(%s::uuid[])
+          and cost.is_current
+        order by arm_run.arm_id
+        """,
+        (requested_ids,),
+    )
+
+    cost_rows = cursor.fetchall()
+
+    if len(cost_rows) != len(cost_plan):
+        raise IntegrationSafetyError(
+            "transactional DeepSeek cost "
+            "reconciliations are incomplete"
+        )
+
+    verified_cost: dict[str, Any] = {}
+
+    for row in cost_rows:
+        arm_id = str(row[0])
+        expected = cost_plan.get(arm_id)
+
+        if expected is None:
+            raise IntegrationSafetyError(
+                "unexpected DeepSeek cost reconciliation arm"
+            )
+
+        numeric_fields = {
+            "harness_reported_cost_usd":
+                row[5],
+            "provider_rate_reconstructed_cost_usd":
+                row[7],
+            "selected_cost_usd":
+                row[8],
+        }
+
+        for key, value in numeric_fields.items():
+            if Decimal(value) != Decimal(
+                expected[key]
+            ):
+                raise IntegrationSafetyError(
+                    f"{arm_id} cost reconciliation "
+                    f"verification failed: {key}"
+                )
+
+        if row[6] is not None:
+            raise IntegrationSafetyError(
+                f"{arm_id} provider billed cost "
+                "must remain NULL"
+            )
+
+        scalar_checks = {
+            "reconciliation_version": row[1],
+            "is_current": row[2],
+            "harness_name": row[3],
+            "harness_version": row[4],
+            "selected_cost_basis": row[9],
+            "selected_cost_relation": row[10],
+            "validation_status": row[11],
+            "provider_evidence_visible": row[12],
+            "limitation_codes": list(row[13]),
+        }
+
+        for key, value in scalar_checks.items():
+            if value != expected[key]:
+                raise IntegrationSafetyError(
+                    f"{arm_id} cost reconciliation "
+                    f"verification failed: {key}"
+                )
+
+        backend_model = ARM_CONTRACT[
+            arm_id
+        ]["backend_model"]
+
+        if (
+            row[14] != "deepseek"
+            or row[15] != backend_model
+        ):
+            raise IntegrationSafetyError(
+                f"{arm_id} pricing snapshot linkage "
+                "verification failed"
+            )
+
+        verified_cost[arm_id] = {
+            "selected_cost_usd":
+                str(row[8]),
+            "selected_cost_basis":
+                row[9],
+            "selected_cost_relation":
+                row[10],
+            "validation_status":
+                row[11],
+        }
+
+    return {
+        "transaction_counts": counts,
+        "usage_reconciliations":
+            verified_usage,
+        "cost_reconciliations":
+            verified_cost,
+    }
+
+
+def verify_provider_evidence_details(
+    cursor: Any,
+    plan: Mapping[str, Any],
+    arm_run_ids: Mapping[str, str],
+) -> dict[str, str]:
+    expected_sources = {
+        row["source_key"]: row
+        for row in plan["sources"]
+    }
+
+    cursor.execute(
+        """
+        select
+            provider,
+            evidence_kind,
+            source_scope,
+            provider_reference,
+            source_sha256,
+            source_format,
+            integrity_status,
+            notes,
+            arm_run_id is null,
+            artifact_id is null,
+            source_uri is null,
+            raw_metadata
+        from benchmark.benchmark_provider_evidence_sources
+        where provider = 'deepseek'
+        order by source_sha256
+        """
+    )
+
+    source_rows = cursor.fetchall()
+
+    if len(source_rows) != len(expected_sources):
+        raise IntegrationSafetyError(
+            "DeepSeek evidence source row count "
+            "verification failed"
+        )
+
+    by_sha = {
+        str(row[4]): row
+        for row in source_rows
+    }
+
+    for source in expected_sources.values():
+        row = by_sha.get(
+            source["source_sha256"]
+        )
+
+        if row is None:
+            raise IntegrationSafetyError(
+                "reviewed DeepSeek evidence source "
+                "SHA-256 is missing"
+            )
+
+        expected_tuple = (
+            source["provider"],
+            source["evidence_kind"],
+            source["source_scope"],
+            source["provider_reference"],
+            source["source_sha256"],
+            source["source_format"],
+            source["integrity_status"],
+            source["notes"],
+            True,
+            True,
+            True,
+            source.get(
+                "raw_metadata",
+                {},
+            ),
+        )
+
+        if tuple(row) != expected_tuple:
+            raise IntegrationSafetyError(
+                "DeepSeek evidence source provenance "
+                "verification failed"
+            )
+
+    pricing_plan = {
+        row["provider_model"]: row
+        for row in plan["pricing_snapshots"]
+    }
+
+    cursor.execute(
+        """
+        select
+            source.source_sha256,
+            pricing.provider,
+            pricing.provider_model,
+            pricing.currency,
+            pricing.effective_from,
+            pricing.effective_until,
+            pricing.pricing_semantics,
+            pricing.pricing_rules,
+            pricing.official_source_uri,
+            pricing.notes,
+            pricing.raw_metadata
+        from benchmark.benchmark_provider_pricing_snapshots pricing
+        join benchmark.benchmark_provider_evidence_sources source
+          on source.id = pricing.source_id
+        where pricing.provider = 'deepseek'
+        order by pricing.provider_model
+        """
+    )
+
+    pricing_rows = cursor.fetchall()
+
+    if len(pricing_rows) != len(pricing_plan):
+        raise IntegrationSafetyError(
+            "DeepSeek pricing row count verification failed"
+        )
+
+    pricing_source_sha = expected_sources[
+        "deepseek_repository_pricing"
+    ]["source_sha256"]
+
+    for row in pricing_rows:
+        provider_model = str(row[2])
+        expected = pricing_plan.get(
+            provider_model
+        )
+
+        if expected is None:
+            raise IntegrationSafetyError(
+                "unexpected DeepSeek pricing model"
+            )
+
+        observed = (
+            str(row[0]),
+            row[1],
+            row[2],
+            row[3],
+            row[4],
+            row[5],
+            row[6],
+            row[7],
+            row[8],
+            row[9],
+            row[10],
+        )
+
+        expected_tuple = (
+            pricing_source_sha,
+            expected["provider"],
+            expected["provider_model"],
+            expected["currency"],
+            expected["effective_from"],
+            expected["effective_until"],
+            expected["pricing_semantics"],
+            expected["pricing_rules"],
+            expected["official_source_uri"],
+            expected["notes"],
+            expected.get(
+                "raw_metadata",
+                {},
+            ),
+        )
+
+        if observed != expected_tuple:
+            raise IntegrationSafetyError(
+                "DeepSeek pricing snapshot verification failed"
+            )
+
+    usage_plan = {
+        row["provider_model"]: row
+        for row in plan[
+            "provider_usage_evidence"
+        ]
+    }
+
+    cursor.execute(
+        """
+        select
+            source.source_sha256,
+            evidence.arm_run_id is null,
+            evidence.trial_id is null,
+            evidence.provider_request_id,
+            evidence.provider_model,
+            evidence.request_started_at,
+            evidence.request_finished_at,
+            evidence.ordinary_input_tokens,
+            evidence.cache_read_input_tokens,
+            evidence.cache_creation_input_tokens,
+            evidence.output_tokens,
+            evidence.request_count,
+            evidence.allocation_scope,
+            evidence.completeness_status,
+            evidence.notes,
+            evidence.raw_metadata
+        from benchmark.benchmark_provider_usage_evidence evidence
+        join benchmark.benchmark_provider_evidence_sources source
+          on source.id = evidence.source_id
+        where source.provider = 'deepseek'
+        order by evidence.provider_model
+        """
+    )
+
+    usage_rows = cursor.fetchall()
+
+    if len(usage_rows) != len(usage_plan):
+        raise IntegrationSafetyError(
+            "DeepSeek provider usage row count "
+            "verification failed"
+        )
+
+    usage_source_sha = expected_sources[
+        "deepseek_provider_reconciliation"
+    ]["source_sha256"]
+
+    for row in usage_rows:
+        provider_model = str(row[4])
+        expected = usage_plan.get(
+            provider_model
+        )
+
+        if expected is None:
+            raise IntegrationSafetyError(
+                "unexpected DeepSeek provider usage model"
+            )
+
+        observed = (
+            str(row[0]),
+            row[1],
+            row[2],
+            row[3],
+            row[4],
+            row[5],
+            row[6],
+            row[7],
+            row[8],
+            row[9],
+            row[10],
+            row[11],
+            row[12],
+            row[13],
+            row[14],
+            row[15],
+        )
+
+        expected_tuple = (
+            usage_source_sha,
+            True,
+            True,
+            expected["provider_request_id"],
+            expected["provider_model"],
+            expected["request_started_at"],
+            expected["request_finished_at"],
+            expected["ordinary_input_tokens"],
+            expected["cache_read_input_tokens"],
+            expected[
+                "cache_creation_input_tokens"
+            ],
+            expected["output_tokens"],
+            expected["request_count"],
+            expected["allocation_scope"],
+            expected["completeness_status"],
+            expected["notes"],
+            expected["raw_metadata"],
+        )
+
+        if observed != expected_tuple:
+            raise IntegrationSafetyError(
+                "DeepSeek provider usage verification failed"
+            )
+
+    cost_plan = {
+        row["provider_model"]: row
+        for row in plan[
+            "provider_cost_evidence"
+        ]
+    }
+
+    cursor.execute(
+        """
+        select
+            source.source_sha256,
+            evidence.arm_run_id is null,
+            evidence.trial_id is null,
+            evidence.pricing_snapshot_id is null,
+            evidence.provider_model,
+            evidence.cost_kind,
+            evidence.amount_usd,
+            evidence.currency,
+            evidence.allocation_scope,
+            evidence.completeness_status,
+            evidence.notes,
+            evidence.raw_metadata
+        from benchmark.benchmark_provider_cost_evidence evidence
+        join benchmark.benchmark_provider_evidence_sources source
+          on source.id = evidence.source_id
+        where source.provider = 'deepseek'
+        order by evidence.provider_model
+        """
+    )
+
+    cost_rows = cursor.fetchall()
+
+    if len(cost_rows) != len(cost_plan):
+        raise IntegrationSafetyError(
+            "DeepSeek provider cost row count "
+            "verification failed"
+        )
+
+    for row in cost_rows:
+        provider_model = str(row[4])
+        expected = cost_plan.get(
+            provider_model
+        )
+
+        if expected is None:
+            raise IntegrationSafetyError(
+                "unexpected DeepSeek provider cost model"
+            )
+
+        if str(row[0]) != usage_source_sha:
+            raise IntegrationSafetyError(
+                "DeepSeek provider cost source "
+                "verification failed"
+            )
+        if (
+            row[1] is not True
+            or row[2] is not True
+            or row[3] is not True
+        ):
+            raise IntegrationSafetyError(
+                "DeepSeek smoke cost evidence "
+                "must remain unallocated"
+            )
+        if row[4] != expected["provider_model"]:
+            raise IntegrationSafetyError(
+                "DeepSeek provider cost model "
+                "verification failed"
+            )
+        if row[5] != expected["cost_kind"]:
+            raise IntegrationSafetyError(
+                "DeepSeek provider cost kind "
+                "verification failed"
+            )
+        if Decimal(row[6]) != Decimal(
+            expected["amount_usd"]
+        ):
+            raise IntegrationSafetyError(
+                "DeepSeek provider cost amount "
+                "verification failed"
+            )
+
+        scalar = (
+            row[7],
+            row[8],
+            row[9],
+            row[10],
+            row[11],
+        )
+        expected_scalar = (
+            expected["currency"],
+            expected["allocation_scope"],
+            expected["completeness_status"],
+            expected["notes"],
+            expected["raw_metadata"],
+        )
+
+        if scalar != expected_scalar:
+            raise IntegrationSafetyError(
+                "DeepSeek provider cost detail "
+                "verification failed"
+            )
+
+    requested_ids = list(
+        arm_run_ids.values()
+    )
+
+    cursor.execute(
+        """
+        select
+            'usage' as reconciliation_kind,
+            arm_run.arm_id,
+            source.source_sha256,
+            link.evidence_role
+        from benchmark.benchmark_usage_reconciliation_sources link
+        join benchmark.benchmark_usage_reconciliations reconciliation
+          on reconciliation.id = link.reconciliation_id
+        join benchmark.benchmark_arm_runs arm_run
+          on arm_run.id = reconciliation.arm_run_id
+        join benchmark.benchmark_provider_evidence_sources source
+          on source.id = link.source_id
+        where reconciliation.arm_run_id = any(%s::uuid[])
+
+        union all
+
+        select
+            'cost' as reconciliation_kind,
+            arm_run.arm_id,
+            source.source_sha256,
+            link.evidence_role
+        from benchmark.benchmark_cost_reconciliation_sources link
+        join benchmark.benchmark_cost_reconciliations reconciliation
+          on reconciliation.id = link.reconciliation_id
+        join benchmark.benchmark_arm_runs arm_run
+          on arm_run.id = reconciliation.arm_run_id
+        join benchmark.benchmark_provider_evidence_sources source
+          on source.id = link.source_id
+        where reconciliation.arm_run_id = any(%s::uuid[])
+
+        order by reconciliation_kind, arm_id, evidence_role
+        """,
+        (
+            requested_ids,
+            requested_ids,
+        ),
+    )
+
+    actual_links = {
+        (
+            str(row[0]),
+            str(row[1]),
+            str(row[2]),
+            str(row[3]),
+        )
+        for row in cursor.fetchall()
+    }
+
+    source_sha_by_key = {
+        row["source_key"]:
+            row["source_sha256"]
+        for row in plan["sources"]
+    }
+
+    expected_links = {
+        (
+            "usage",
+            link["arm_id"],
+            source_sha_by_key[
+                link["source_key"]
+            ],
+            link["evidence_role"],
+        )
+        for link in plan[
+            "usage_reconciliation_source_links"
+        ]
+    } | {
+        (
+            "cost",
+            link["arm_id"],
+            source_sha_by_key[
+                link["source_key"]
+            ],
+            link["evidence_role"],
+        )
+        for link in plan[
+            "cost_reconciliation_source_links"
+        ]
+    }
+
+    if actual_links != expected_links:
+        raise IntegrationSafetyError(
+            "DeepSeek reconciliation source-link "
+            "verification failed"
+        )
+
+    return {
+        "source_rows": "pass",
+        "pricing_rows": "pass",
+        "usage_evidence_rows": "pass",
+        "cost_evidence_rows": "pass",
+        "reconciliation_source_links": "pass",
+    }
+
+
 def check_only(
     plan: Mapping[str, Any],
     db_url: str,
@@ -1192,44 +2424,249 @@ def check_only(
                 state["state"]
             )
 
-            if state["state"] != "deepseek_empty":
-                connection.rollback()
+            if state["state"] == "deepseek_empty":
+                diagnostics.enter(
+                    "canonical_run_resolution"
+                )
+
+                resolved = resolve_arm_runs(
+                    cursor,
+                    plan,
+                )
+
+                result = {
+                    "status": "ready",
+                    "mode": "check-only",
+                    "commit_state":
+                        diagnostics.commit_state,
+                    "target_state":
+                        state["state"],
+                    "counts": state["counts"],
+                    "resolved_arm_run_ids":
+                        resolved,
+                    "checks": {
+                        "reviewed_input_hashes": "pass",
+                        "provider_scoped_target_empty":
+                            "pass",
+                        "canonical_run_resolution":
+                            "pass",
+                        "selected_run_token_geometry":
+                            "pass",
+                        "selected_run_rate_reconstruction":
+                            "pass",
+                        "read_only_transaction":
+                            "pass",
+                    },
+                }
+
+            elif (
+                state["state"]
+                == "exact_deepseek_state"
+            ):
+                result = {
+                    "status": "already_applied",
+                    "mode": "check-only",
+                    "commit_state":
+                        diagnostics.commit_state,
+                    "target_state":
+                        state["state"],
+                    "counts":
+                        state["counts"],
+                    "resolved_arm_run_ids":
+                        state[
+                            "resolved_arm_run_ids"
+                        ],
+                    "checks": {
+                        "reviewed_input_hashes":
+                            "pass",
+                        "exact_content_verification":
+                            "pass",
+                        "read_only_transaction":
+                            "pass",
+                    },
+                }
+
+            else:
                 raise IntegrationSafetyError(
                     "DeepSeek provider evidence target is "
                     "partially or unexpectedly populated"
                 )
 
-            diagnostics.enter(
-                "canonical_run_resolution"
-            )
-
-            resolved = resolve_arm_runs(
-                cursor,
-                plan,
-            )
-
         connection.rollback()
+
+    except Exception:
+        try:
+            connection.rollback()
+        except Exception:
+            pass
+        raise
 
     finally:
         connection.close()
 
+    return result
+
+
+def rollback_only(
+    plan: Mapping[str, Any],
+    db_url: str,
+    diagnostics: Diagnostics,
+) -> dict[str, Any]:
+    import psycopg
+
+    connection: Any = None
+
+    try:
+        diagnostics.enter(
+            "transaction_connection"
+        )
+        connection = psycopg.connect(
+            db_url,
+            autocommit=False,
+        )
+
+        with connection.cursor() as cursor:
+            diagnostics.enter(
+                "advisory_lock"
+            )
+            acquire_ingestion_lock(
+                cursor
+            )
+
+            diagnostics.enter(
+                "target_state_preflight"
+            )
+            state = inspect_target_state(
+                cursor,
+                plan,
+            )
+            diagnostics.target_state = (
+                state["state"]
+            )
+
+            if (
+                state["state"]
+                != "deepseek_empty"
+            ):
+                raise IntegrationSafetyError(
+                    "rollback-only DeepSeek ingestion "
+                    "requires an empty DeepSeek target"
+                )
+
+            diagnostics.enter(
+                "canonical_run_resolution"
+            )
+            arm_run_ids = resolve_arm_runs(
+                cursor,
+                plan,
+            )
+
+            diagnostics.enter(
+                "transactional_insert"
+            )
+            insert_plan(
+                cursor,
+                plan,
+                arm_run_ids,
+            )
+
+            diagnostics.enter(
+                "transactional_verification"
+            )
+            inserted_state = (
+                inspect_target_state(
+                    cursor,
+                    plan,
+                )
+            )
+
+            if (
+                inserted_state["state"]
+                != "exact_deepseek_state"
+            ):
+                raise IntegrationSafetyError(
+                    "transactional DeepSeek insertion "
+                    "did not match the reviewed exact state"
+                )
+
+        diagnostics.enter("rollback")
+        connection.rollback()
+
+    except Exception:
+        if connection is not None:
+            try:
+                connection.rollback()
+            except Exception:
+                pass
+        raise
+
+    finally:
+        if connection is not None:
+            connection.close()
+
+    diagnostics.enter(
+        "second_connection_zero_persistence"
+    )
+
+    observer = psycopg.connect(
+        db_url,
+        autocommit=False,
+    )
+
+    try:
+        with observer.cursor() as cursor:
+            cursor.execute(
+                "set transaction read only"
+            )
+            after = target_table_counts(
+                cursor,
+                plan,
+            )
+        observer.rollback()
+    finally:
+        observer.close()
+
+    diagnostics.zero_persistence_counts.update(
+        after
+    )
+
+    if any(after.values()):
+        raise IntegrationSafetyError(
+            "rollback-only DeepSeek ingestion "
+            "left persistent DeepSeek state"
+        )
+
     return {
-        "status": "ready",
-        "mode": "check-only",
+        "status": "passed",
+        "mode": "rollback-only",
         "commit_state":
             diagnostics.commit_state,
-        "target_state":
-            diagnostics.target_state,
-        "counts": state["counts"],
-        "resolved_arm_run_ids": resolved,
+        "target_state": "deepseek_empty",
         "checks": {
             "reviewed_input_hashes": "pass",
-            "provider_scoped_target_empty": "pass",
+            "advisory_lock": "pass",
+            "provider_scoped_empty_preflight":
+                "pass",
             "canonical_run_resolution": "pass",
-            "selected_run_token_geometry": "pass",
-            "selected_run_rate_reconstruction": "pass",
-            "read_only_transaction": "pass",
+            "transactional_insert": "pass",
+            "transactional_verification": "pass",
+            "rollback": "pass",
+            "second_connection_zero_persistence":
+                "pass",
         },
+        "resolved_arm_run_ids":
+            arm_run_ids,
+        "verification": {
+            "reconciliations":
+                inserted_state[
+                    "reconciliation_verification"
+                ],
+            "provider_evidence":
+                inserted_state[
+                    "provider_verification"
+                ],
+        },
+        "zero_persistence_counts": after,
     }
 
 
@@ -1265,6 +2702,17 @@ def parse_args(
         ),
     )
 
+    group.add_argument(
+        "--rollback-only",
+        action="store_true",
+        help=(
+            "Insert and verify the reviewed DeepSeek "
+            "evidence inside one PostgreSQL transaction, "
+            "roll it back, then prove zero persistence "
+            "from a second connection."
+        ),
+    )
+
     return parser.parse_args(argv)
 
 
@@ -1283,6 +2731,9 @@ def failure_payload(
             type(exc).__name__,
         "commit_state":
             diagnostics.commit_state,
+        "zero_persistence_counts": dict(
+            diagnostics.zero_persistence_counts
+        ),
     }
 
     if diagnostics.target_state is not None:
@@ -1311,11 +2762,12 @@ def main(
     args = parse_args(argv)
     diagnostics = Diagnostics()
 
-    mode = (
-        "plan"
-        if args.plan
-        else "check-only"
-    )
+    if args.plan:
+        mode = "plan"
+    elif args.check_only:
+        mode = "check-only"
+    else:
+        mode = "rollback-only"
 
     try:
         diagnostics.enter("plan")
@@ -1337,11 +2789,18 @@ def main(
         if not db_url:
             raise MissingEnvironmentError()
 
-        result = check_only(
-            plan,
-            db_url,
-            diagnostics,
-        )
+        if args.check_only:
+            result = check_only(
+                plan,
+                db_url,
+                diagnostics,
+            )
+        else:
+            result = rollback_only(
+                plan,
+                db_url,
+                diagnostics,
+            )
 
     except Exception as exc:
         print(
