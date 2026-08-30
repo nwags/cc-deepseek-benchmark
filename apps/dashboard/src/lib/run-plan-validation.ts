@@ -1,5 +1,10 @@
 "Shared run-plan validation logic for the benchmark dashboard.";
 
+import type {
+  PromotionGateLoadStatus,
+  PromotionGateRow,
+} from "./planner-types";
+
 export type RunMode = "canary" | "smoke" | "full";
 export type ProviderFamily =
   | "anthropic"
@@ -36,6 +41,9 @@ export type RunPlanValidationInput = {
   confirmPaidRun: boolean;
   nConcurrent: string | number;
   runnerSlots?: number;
+  promotionGateLoadStatus?: PromotionGateLoadStatus;
+  promotionGates?: readonly PromotionGateRow[];
+  promotionReviewConfirmed?: boolean;
 };
 
 export type RunPlanValidationResult = {
@@ -82,10 +90,191 @@ export function parseHarborConcurrency(value: string | number): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
 }
 
+export function promotionReviewEvidenceKey(input: {
+  selectedArmIds: readonly string[];
+  runMode: RunMode;
+  promotionGateLoadStatus: PromotionGateLoadStatus;
+  promotionGates: readonly PromotionGateRow[];
+}): string {
+  const selectedArmIds = [...new Set(input.selectedArmIds)].sort();
+  const selected = new Set(selectedArmIds);
+
+  const gates = input.promotionGates
+    .filter(
+      (gate) =>
+        selected.has(gate.arm_id)
+        && gate.target_mode === input.runMode,
+    )
+    .map((gate) => ({
+      gate_id: gate.gate_id,
+      arm_id: gate.arm_id,
+      source_arm_run_id: gate.source_arm_run_id,
+      usage_reconciliation_id: gate.usage_reconciliation_id,
+      cost_reconciliation_id: gate.cost_reconciliation_id,
+      source_mode: gate.source_mode,
+      target_mode: gate.target_mode,
+      decision: gate.decision,
+      blocker_codes: [...(gate.blocker_codes ?? [])].sort(),
+      derived_blocker_codes: [
+        ...(gate.derived_blocker_codes ?? []),
+      ].sort(),
+      waiver_reason: gate.waiver_reason,
+      effective_can_advance: gate.effective_can_advance,
+      reviewed_by: gate.reviewed_by,
+      reviewed_at: gate.reviewed_at,
+      usage_validation_status: gate.usage_validation_status,
+      cost_validation_status: gate.cost_validation_status,
+      selected_usage_authority: gate.selected_usage_authority,
+      selected_cost_basis: gate.selected_cost_basis,
+      selected_cost_relation: gate.selected_cost_relation,
+      selected_cost_usd: gate.selected_cost_usd,
+      usage_limitation_codes: [
+        ...(gate.usage_limitation_codes ?? []),
+      ].sort(),
+      cost_limitation_codes: [
+        ...(gate.cost_limitation_codes ?? []),
+      ].sort(),
+    }))
+    .sort((left, right) =>
+      `${left.arm_id}:${left.gate_id}`.localeCompare(
+        `${right.arm_id}:${right.gate_id}`,
+      ),
+    );
+
+  return JSON.stringify({
+    run_mode: input.runMode,
+    load_status: input.promotionGateLoadStatus,
+    selected_arm_ids: selectedArmIds,
+    gates,
+  });
+}
+
 export function validateRunPlan(input: RunPlanValidationInput): RunPlanValidationResult {
   const runnerSlots = input.runnerSlots ?? DEFAULT_RUNNER_SLOTS;
   const harborConcurrency = parseHarborConcurrency(input.nConcurrent);
   const findings: RunPlanFinding[] = [];
+
+  if (
+    input.selectedArms.length > 0
+    && input.promotionGateLoadStatus !== undefined
+  ) {
+    if (input.runMode === "canary") {
+      findings.push({
+        severity: "ok",
+        title: "Canary is the entry evidence stage",
+        detail:
+          "No predecessor promotion gate is required for Canary. Review the resulting provider evidence and qualitative artifacts before planning Smoke.",
+      });
+    } else if (input.promotionGateLoadStatus === "unavailable") {
+      findings.push({
+        severity: "blocker",
+        title: "Promotion evidence unavailable",
+        detail:
+          "The current promotion-gate view could not be read. The Planner remains usable, but Smoke/Full commands are withheld until current promotion evidence can be reviewed.",
+      });
+    } else {
+      const expectedSourceMode = input.runMode === "smoke" ? "canary" : "smoke";
+      let allEvidenceQualified = true;
+
+      for (const arm of input.selectedArms) {
+        const gate = (input.promotionGates ?? []).find(
+          (candidate) =>
+            candidate.arm_id === arm.arm_id
+            && candidate.target_mode === input.runMode,
+        );
+
+        if (!gate) {
+          allEvidenceQualified = false;
+          findings.push({
+            severity: "blocker",
+            title: `Promotion gate missing: ${arm.arm_id}`,
+            detail:
+              `No current ${expectedSourceMode} → ${input.runMode} promotion review exists for this arm.`,
+          });
+          continue;
+        }
+
+        if (gate.source_mode !== expectedSourceMode) {
+          allEvidenceQualified = false;
+          findings.push({
+            severity: "blocker",
+            title: `Promotion transition mismatch: ${arm.arm_id}`,
+            detail:
+              `The current gate is ${gate.source_mode} → ${gate.target_mode}; expected ${expectedSourceMode} → ${input.runMode}.`,
+          });
+          continue;
+        }
+
+        const derivedBlockers = gate.derived_blocker_codes ?? [];
+        const reviewedBlockers = gate.blocker_codes ?? [];
+        const visibleBlockers = [...new Set([...reviewedBlockers, ...derivedBlockers])];
+
+        if (gate.decision === "waived") {
+          allEvidenceQualified = false;
+          findings.push({
+            severity: "blocker",
+            title: `Promotion waiver is not authorization: ${arm.arm_id}`,
+            detail:
+              `Waiver provenance is recorded${gate.waiver_reason ? `: ${gate.waiver_reason}` : "."} `
+              + "The evidence contract intentionally does not convert a waiver into effective advancement.",
+          });
+          continue;
+        }
+
+        if (gate.decision !== "pass") {
+          allEvidenceQualified = false;
+          findings.push({
+            severity: "blocker",
+            title: `Promotion review blocked: ${arm.arm_id}`,
+            detail:
+              visibleBlockers.length > 0
+                ? `Current blocker codes: ${visibleBlockers.join(", ")}.`
+                : "The current reviewed gate decision is blocked.",
+          });
+          continue;
+        }
+
+        if (!gate.effective_can_advance) {
+          allEvidenceQualified = false;
+          findings.push({
+            severity: "blocker",
+            title: `Promotion evidence is stale or inconsistent: ${arm.arm_id}`,
+            detail:
+              visibleBlockers.length > 0
+                ? `Derived blocker codes: ${visibleBlockers.join(", ")}.`
+                : "The reviewed decision says pass, but the fail-closed promotion view does not currently authorize advancement.",
+          });
+          continue;
+        }
+
+        findings.push({
+          severity: "ok",
+          title: `Promotion evidence qualified: ${arm.arm_id}`,
+          detail:
+            `${gate.source_mode} → ${gate.target_mode}; usage=${gate.usage_validation_status}; `
+            + `cost=${gate.cost_validation_status}. Qualitative review is still a separate human step.`,
+        });
+      }
+
+      if (allEvidenceQualified) {
+        if (input.promotionReviewConfirmed) {
+          findings.push({
+            severity: "ok",
+            title: "Human promotion review confirmed",
+            detail:
+              "The operator confirmed review of the displayed promotion evidence and relevant qualitative evidence for this exact arm set and mode.",
+          });
+        } else {
+          findings.push({
+            severity: "blocker",
+            title: "Human promotion review not confirmed",
+            detail:
+              "Evidence qualification alone is not the execution decision. Confirm review of the current evidence and relevant qualitative artifacts before copying the next-stage commands.",
+          });
+        }
+      }
+    }
+  }
 
   if (input.selectedArms.length === 0) {
     findings.push({

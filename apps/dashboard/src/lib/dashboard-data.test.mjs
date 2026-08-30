@@ -460,3 +460,59 @@ test("all-imported eval detail freshness uses the exact unfiltered task populati
   assert.doesNotMatch(captured.sql, /v_valid_|benchmark_invalid_arm_runs/);
   assert.deepEqual(captured.params, ["terminal-bench-2.0:task"]);
 });
+
+
+test("Planner promotion loader reads only current fail-closed gate rows", async () => {
+  const expected = [{
+    gate_id: "gate-1",
+    arm_id: "router-gpt-5.5",
+    source_arm_run_id: "arm-run-1",
+    usage_reconciliation_id: "usage-1",
+    cost_reconciliation_id: "cost-1",
+    source_mode: "canary",
+    target_mode: "smoke",
+    decision: "pass",
+    blocker_codes: [],
+    derived_blocker_codes: [],
+    waiver_reason: null,
+    effective_can_advance: true,
+    reviewed_by: "reviewer",
+    reviewed_at: "2026-08-30T12:00:00Z",
+    usage_validation_status: "validated_exact",
+    cost_validation_status: "validated_exact",
+    selected_usage_authority: "provider_request_usage",
+    selected_cost_basis: "provider_billed",
+    selected_cost_relation: "exact",
+    selected_cost_usd: "1.25",
+    usage_limitation_codes: [],
+    cost_limitation_codes: [],
+  }];
+
+  let captured = "";
+  globalThis.__dashboardQueryHandler = async (sql) => {
+    captured = sql;
+    return expected;
+  };
+
+  const rows = await dashboardData.getCurrentEvidencePromotionGates();
+
+  assert.deepEqual(rows, expected);
+  assert.match(
+    captured,
+    /from benchmark\.v_evidence_promotion_gate gate/,
+  );
+  assert.match(
+    captured,
+    /join benchmark\.benchmark_evidence_promotion_gates stored/,
+  );
+  assert.match(captured, /where stored\.is_current/);
+  assert.match(
+    captured,
+    /order by gate\.arm_id, gate\.target_mode/,
+  );
+  assert.match(captured, /gate\.effective_can_advance/);
+  assert.match(captured, /gate\.derived_blocker_codes/);
+  assert.match(captured, /gate\.usage_reconciliation_id::text/);
+  assert.match(captured, /gate\.cost_reconciliation_id::text/);
+  assert.match(captured, /gate\.selected_cost_usd::text/);
+});
