@@ -1,5 +1,7 @@
 # Dashboard Research Guide
 
+Status: current research guide as of 2026-08-30.
+
 ## Purpose
 
 This guide explains how to use the Claude Code Backend Benchmark dashboard as
@@ -41,13 +43,23 @@ At the time this guide was written:
 - the J2 failure/trajectory snapshot covers the same 960 exact trial IDs;
 - DR-302 provides a display-only failure composition over the 370 raw failures;
 - DR-303 preserves the historical reviewed spend decomposition;
-- DR-304 supplies the current provider-aware selected-cost layer while
-  preserving historical benchmark-side cost evidence separately.
+- DR-304 introduced the exact provider-billed OpenAI correction while
+  preserving historical benchmark-side cost evidence separately;
+- the later V4 current-reviewed provider layer extends decision-facing selected
+  cost across all 16 reviewed arms;
+- the frozen cross-provider consistency contract covers 8 provider families,
+  with 10 normalized selected-arm reconciliation chains and 6 accepted
+  normalized-absence arms;
+- normalized authority consists of 2 exact provider-billed arms, 5 qualified
+  rate estimates, and 3 qualified lower bounds;
+- the 6 accepted normalized-absence arms are 4 Anthropic arms and 2 GLM arms,
+  for different documented evidentiary reasons.
 
 For current Phase 3 decision-oriented cost comparisons, use the current
-reviewed cost layer shown by Overview, Cross-phase, and Cost Coverage. Do not
-silently substitute the older historical adjusted-cost figures when superior
-provider-billed evidence is available.
+reviewed provider-aware layer shown by Overview, Cross-phase, and Cost Coverage.
+Do not silently substitute the older historical adjusted-cost figures, and do
+not treat a qualified estimate, lower bound, or accepted normalized absence as
+though it were exact provider billing.
 
 ## Start with questions, not pages
 
@@ -330,22 +342,55 @@ the known accounting gap.
 
 ### Current provider-aware cost layer
 
-DR-304 supplies the preferred current arm-level cost for decision-oriented
-reporting.
+DR-304 was the first provider-billed correction, but the current decision-facing
+layer is broader.
 
-It can use stronger evidence than the historical benchmark telemetry without
-rewriting that historical telemetry.
+The final selected-run consistency contract is:
 
-## Cost evidence after DR-304
+    docs/reports/phase3/PHASE3_CROSS_PROVIDER_CONSISTENCY_20260828.md
+
+For the 16 reviewed arms it distinguishes:
+
+| Evidence state | Arms |
+|---|---:|
+| Exact provider-billed normalized authority | 2 |
+| Qualified rate-estimate normalized authority | 5 |
+| Qualified lower-bound normalized authority | 3 |
+| Accepted Anthropic normalized absence | 4 |
+| Accepted GLM deliberate normalized absence | 2 |
+
+Accepted normalized absence does **not** mean zero cost and does not mean the
+reviewed selected cost disappears.
+
+For Anthropic, reviewed reconstruction/lower-bound reporting remains available,
+but no retained first-party selected-run source was normalized under the
+reviewed evidence/credential set. The repository's first-party Anthropic
+collector requires a separate Admin API key.
+
+For GLM, normalized absence is deliberate for two distinct reasons:
+historical GLM 5.1 provider context was not allocable to its selected run,
+while comparable selected-run first-party evidence was not retained for
+GLM 5.2.
+
+## Current cost evidence after provider closeout
 
 Cost is one of the easiest areas to misinterpret.
 
-Use the following hierarchy for **current comparative reporting**:
+For **current comparative reporting**, read the selected cost together with its
+basis, relation, validation state, and allocation limitations.
 
-1. exact provider-billed selected-run arm total, where reconciled;
-2. otherwise reviewed adjusted-known cost;
-3. otherwise separately qualified retained-rate estimate;
-4. otherwise unavailable.
+The useful authority classes are:
+
+1. exact provider-billed selected-run cost;
+2. qualified provider-rate reconstructed selected-run cost with explicit
+   validated usage authority;
+3. explicit qualified lower bound;
+4. reviewed selected cost with accepted normalized absence, where the checked-in
+   reviewed layer remains authoritative but no normalized first-party
+   selected-run chain exists;
+5. unavailable/unresolved evidence.
+
+Do not collapse those classes into one generic "reconciled" label.
 
 ### Recorded cost
 
@@ -370,13 +415,28 @@ For GPT-5.4 and GPT-5.5, this is now the preferred current selected cost.
 
 It does **not** provide a trial-by-trial or outcome-by-outcome allocation.
 
-### Qualified retained-rate estimate
+### Qualified provider-rate reconstruction
 
-Used for Kimi K3.
+Kimi K3 is the clearest current example.
 
-It is a reviewed aggregate estimate with explicit limitations.
+The V4 current-reviewed reporting layer uses:
 
-It is not invoice-level or provider-billed spend.
+    selectedCostBasis = provider_rate_reconstructed_selected_run
+    selectedCostRelation = estimate
+    selectedCostConfidence = medium_qualified_pricing_provenance
+
+The Migration-011 normalized consistency layer describes the same selected-run
+economic conclusion with its own reconciliation vocabulary:
+
+    usage authority = harness_usage_validated
+    cost basis = provider_rate_reconstructed_harness_usage_validated
+    state = normalized_qualified_rate_estimate
+
+Those labels belong to different authority layers and should not be silently
+substituted for one another.
+
+The resulting selected value is not invoice-level or exact provider-billed
+spend.
 
 ### Accounting gap
 
@@ -387,7 +447,8 @@ A gap is evidence about accounting coverage, not a failure category.
 
 ## Current OpenAI cost example
 
-DR-304 materially changes how the OpenAI full sweeps should be discussed.
+DR-304 first established the provider-billed correction that remains current
+for the selected OpenAI full sweeps.
 
 ### GPT-5.4
 
@@ -468,39 +529,61 @@ Reviewed raw result:
 - 78.33% raw pass rate;
 - 44 clean successes.
 
-Historical recorded trial cost:
+Final current selected cost:
 
-    $25.207213
+    $26.570403
 
-Known aggregate gap:
+Selected cost relation:
 
-    $5.6071064
+    estimate
 
-Current selected qualified retained-rate estimate:
+Current-reviewed selected cost basis:
 
-    $30.8143194
+    provider_rate_reconstructed_selected_run
+
+Current-reviewed selected confidence:
+
+    medium_qualified_pricing_provenance
+
+Normalized consistency state:
+
+    normalized_qualified_rate_estimate
+
+Normalized usage authority:
+
+    harness_usage_validated
+
+Normalized cost basis:
+
+    provider_rate_reconstructed_harness_usage_validated
 
 Selected cost per attempt:
 
-    $0.51357199
+    $0.44284005
 
 Selected cost per clean success:
 
-    approximately $0.70033
+    approximately $0.60387
 
-Important qualifications:
+Selected trial-cost allocation status:
 
-- cost basis is `qualified_retained_rate_estimate`;
-- cost confidence is low;
-- provider-log exclusivity was not proven;
-- ten recorded-cost rows are missing;
-- ten cost rows remain unresolved;
-- selected trial allocation is unresolved;
-- selected outcome allocation is unavailable;
-- the estimate is not provider-billed or invoice-level spend.
+    available_provider_rate_reconstruction
 
-Kimi K3 is therefore a strong candidate for economic investigation, but its
-cost language must remain qualified.
+Selected outcome-cost allocation status:
+
+    unavailable_no_reviewed_outcome_join
+
+The selected value is a reviewed provider-rate reconstruction from validated
+selected-run usage. It is **not** exact provider-billed spend.
+
+The current reporting layer can reconstruct selected trial costs, but no
+reviewed outcome join supports allocating the selected total across outcome
+categories. Official dated pricing-source provenance also remains incomplete,
+which is why the selected-cost confidence remains qualified.
+
+Kimi K3 remains a strong quality/cost candidate, but its economic authority is
+qualified and should not be described as equivalent to OpenAI's exact
+provider-billed selected-run totals.
 
 ## Aggregate ratios versus allocated dollars
 
@@ -538,6 +621,40 @@ It remains valuable for questions such as:
 - which arms accumulated large known accounting gaps?
 
 It should not be used to allocate the later OpenAI provider-billed totals.
+
+## Cross-provider authority as a research variable
+
+Provider-evidence strength is itself useful research context.
+
+The final selected-arm contract separates:
+
+- exact provider billing;
+- qualified rate reconstruction;
+- qualified lower bounds;
+- accepted normalized absence.
+
+When comparing two arms economically, ask not only:
+
+> Which selected cost is lower?
+
+Also ask:
+
+> Are the two costs supported by the same evidence class?
+
+A small apparent cost advantage supported only by a lower bound is not
+equivalent to the same numerical advantage under exact provider billing.
+
+For provenance-sensitive questions, trace:
+
+    Overview / Cross-phase
+      -> Cost Coverage
+      -> exact selected run
+      -> provider evidence / reconciliation class
+      -> allocation limitations
+
+Promotion gates are a separate operational decision layer. The frozen
+cross-provider selected-full-run consistency contract does not require a
+promotion-gate row for every selected historical full run.
 
 ## Failure interpretation: do not treat every failure alike
 
@@ -709,8 +826,8 @@ It is not canonical benchmark truth.
 | Surface | Primary research use | Population / authority |
 |---|---|---|
 | Overview | Current reviewed Phase 3 comparison, cost/performance, discovery | Fixed reviewed comparison at top; dynamic valid-imported discovery below |
-| Architecture | Understand execution, scoring, live observation, publication | Checked-in documentation |
-| Data Model | Understand live/canonical/derived/R2/reviewed layers | Checked-in documentation |
+| Architecture | Understand execution/scoring, publication, provider evidence/reconciliation, promotion review, and read paths | Checked-in documentation |
+| Data Model | Understand live, canonical identity, provider evidence/authority, derived/R2/reviewed layers, and future extension seams | Checked-in documentation |
 | Glossary | Resolve shared terminology | Checked-in definitions |
 | Trial Quality | Failure taxonomy, DR-302 composition, validity, quality diagnostics | Frozen J2 plus operational audit sections |
 | Cross-phase | Compare Phases 1–3 without hiding route/cost differences | Frozen Phase 1/2 + current reviewed Phase 3 |
@@ -718,10 +835,10 @@ It is not canonical benchmark truth.
 | Evals | Task-level discovery | Valid-imported default; all-imported alternate |
 | Runs | Find exact imported executions | Canonical operational inventory |
 | Live Runs | Observe in-progress executions | Mutable live Supabase/R2 state |
-| Arms | Broad arm inventory | All imported; not a leaderboard |
+| Arms | Broad arm inventory including canonical agent-harness identity | All imported; not a leaderboard |
 | Artifacts | Inspect retained evidence | Canonical metadata plus R2/local evidence state |
 | Evidence Review | Complete reviewed trial filters, queue, controls, disagreements | Frozen comprehensive-review snapshot |
-| Planner | Review future run plans / draft arm YAML | Checked-in configs; no dispatch |
+| Planner | Review future run plans plus current predecessor promotion evidence | Checked-in configs + read-only fail-closed gate view; no gate writes or dispatch |
 | Cost Coverage | Current selected cost plus historical cost provenance | Current reviewed + historical DR-303 layers |
 
 ## A useful page-by-page research workflow
@@ -921,19 +1038,41 @@ Use Arms for broad inventory, not ranking.
 It aggregates all imported evidence, so canary, smoke, diagnostic, legacy, and
 full rows may contribute.
 
+The page now exposes canonical `agent_harness` identity when recorded. That
+field is already a first-class experimental dimension and is the planned
+Phase 4 extension seam.
+
 A recorded cost with missing rows is displayed as a lower bound rather than as
 a complete total.
 
 ### Planner
 
-Planner is intentionally review-first.
+Planner is intentionally review-first and read-only.
 
-Its assumptions are checked-in planning rules, not live runner, quota, or
-provider-readiness facts.
+Its configuration assumptions come from checked-in planning rules, while
+Smoke/Full planning also reads the current fail-closed predecessor promotion
+gate.
 
-It does not dispatch a benchmark.
+For the current progression:
 
-Protected server-side dashboard dispatch is deferred future work.
+    Canary -> reviewed Canary-to-Smoke gate -> Smoke
+    Smoke  -> reviewed Smoke-to-Full gate   -> Full
+
+If the required current gate is absent or ineffective, Planner withholds the
+corresponding commands.
+
+Planner does not:
+
+- write promotion gates;
+- change reconciliations;
+- convert a waiver into a pass;
+- dispatch a benchmark.
+
+The durable review workflow is documented in:
+
+    docs/runbooks/EVIDENCE_PROMOTION_REVIEW.md
+
+Protected server-side dashboard dispatch remains deferred future work.
 
 ## Evidence reading order
 
@@ -1175,28 +1314,32 @@ considered together?
 - 47/60 raw successes;
 - 78.33% raw pass rate;
 - 44 clean successes;
-- current selected estimate: $30.8143194;
-- selected cost per attempt: $0.51357199;
-- selected cost per clean success: about $0.70033;
-- 10 missing recorded-cost rows;
-- 10 unresolved cost rows;
-- low cost confidence;
-- trial allocation unresolved;
-- outcome allocation unavailable.
+- current selected cost: $26.570403;
+- selected relation: `estimate`;
+- current-reviewed basis: `provider_rate_reconstructed_selected_run`;
+- current-reviewed confidence: `medium_qualified_pricing_provenance`;
+- selected cost per attempt: $0.44284005;
+- selected cost per clean success: about $0.60387;
+- normalized state: `normalized_qualified_rate_estimate`;
+- normalized usage authority: `harness_usage_validated`;
+- normalized cost basis:
+  `provider_rate_reconstructed_harness_usage_validated`;
+- selected trial allocation: `available_provider_rate_reconstruction`;
+- selected outcome allocation: `unavailable_no_reviewed_outcome_join`.
 
 ### Research interpretation
 
 A useful finding might be:
 
-> Kimi K3 combines a high reviewed raw pass rate with a low aggregate
-> selected-cost ratio, making it a strong candidate for further study, but its
-> economics remain less certain than provider-billed OpenAI evidence because
-> the selected Kimi value is a qualified retained-rate estimate with unresolved
-> trial allocation.
+> Kimi K3 combines a high reviewed raw pass rate with a low selected-cost ratio,
+> making it a strong candidate for further study, but its current selected cost
+> remains a qualified provider-rate reconstruction rather than exact
+> provider-billed spend.
 
-Do not shorten that to "Kimi K3 costs $0.70 per successful trial" without the
-qualification. The ratio is aggregate and "clean success" is a denominator,
-not an allocated provider invoice.
+Do not shorten that to "Kimi K3 costs $0.60 per successful trial." The ratio is
+an aggregate selected arm cost divided by clean-success count. Inspect the
+current allocation state before making a claim about dollars assigned to an
+individual trial or outcome.
 
 ## Worked research exercise 3 — Detect a population mismatch before calling it a contradiction
 

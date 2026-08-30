@@ -1,5 +1,7 @@
 # Codebase Guide
 
+Status: current implementation guide as of 2026-08-30.
+
 ## Purpose
 
 This guide explains how the Claude Code Backend Benchmark repository works as a
@@ -40,6 +42,8 @@ Important examples include:
 - live execution state versus canonical publication;
 - Supabase metadata versus R2 artifact bytes;
 - historical reviewed cost versus current provider-aware cost;
+- provider evidence versus reviewed reconciliation authority;
+- reconciliation authority versus promotion authorization;
 - fixed reviewed comparison versus dynamic imported inventory;
 - canonical identifiers versus friendly presentation labels;
 - historical planning documents versus current operational state.
@@ -90,10 +94,20 @@ and:
 
 and:
 
-    provider billing evidence
-      -> sanitized reconciliation
-      -> additive current-reviewed cost layer
-      -> dashboard current cost reporting
+    provider/account evidence
+      -> normalized evidence source
+      -> usage / pricing / cost evidence
+      -> current usage reconciliation
+      -> current cost reconciliation
+      -> reviewed promotion gate where applicable
+      -> benchmark.v_evidence_promotion_gate
+      -> read-only Planner
+
+and:
+
+    reviewed provider consistency
+      -> checked-in current-reviewed reporting layer
+      -> Overview / Cross-phase / Cost Coverage
 
 These paths interact, but they are not interchangeable.
 
@@ -164,19 +178,23 @@ Storage:
     Supabase Postgres
     Cloudflare R2
 
-### Layer 5 — Offline review and reconciliation
+### Layer 5 — Review, provider evidence, reconciliation, and promotion
 
-Transforms retained evidence into reproducible reviewed interpretations without
-changing raw outcomes.
+Transforms retained benchmark/provider evidence into reproducible reviewed
+interpretations and explicit decision authority without changing raw outcomes.
 
 Primary locations include:
 
+    scripts/provider_evidence/
+    scripts/collect_provider_evidence.py
+    scripts/review_evidence_promotion.py
     scripts/generate_comprehensive_evidence_review.py
     scripts/generate_failure_taxonomy_snapshot.py
-    scripts/generate_phase3_current_reviewed_comparison.py
+    scripts/generate_phase3_current_reviewed_comparison_v4.py
     results/manual_verification/
     results/phase3/reporting/
     results/phase3/provider_usage/
+    db/migrations/phase3/011_provider_evidence_contract.sql
 
 ### Layer 6 — Dashboard data/model layer
 
@@ -281,6 +299,14 @@ That distinction is central:
       != necessarily provider-native backend model
 
 The route is part of the experimental condition.
+
+The arm model already includes first-class `agent_harness` identity. The
+dashboard Arms surface exposes it when recorded.
+
+This is the existing Phase 4 extension seam: future harness experiments should
+vary this canonical field rather than smuggling harness identity only into a
+display label. Harness **version** is not yet an equivalent first-class
+experiment contract and must be resolved before Phase 4 activation.
 
 ### Canonical identity versus presentation
 
@@ -1008,7 +1034,16 @@ Additional migrations add:
 - quality flags;
 - valid-only views;
 - adjusted cost coverage;
-- live supervision.
+- live supervision;
+- cost-authority semantics;
+- normalized provider evidence, pricing snapshots, and usage/cost
+  reconciliations;
+- durable promotion-gate history and the fail-closed promotion view.
+
+Important current migrations include:
+
+    db/migrations/phase3/010_cost_authority_semantics.sql
+    db/migrations/phase3/011_provider_evidence_contract.sql
 
 The migrations are historical schema evolution.
 
@@ -1033,6 +1068,12 @@ Stores queryable:
 - relationships;
 - artifact metadata;
 - live state;
+- normalized provider evidence sources;
+- provider usage and cost evidence;
+- provider pricing snapshots;
+- current/historical usage and cost reconciliations;
+- durable promotion-review history;
+- fail-closed promotion state;
 - derived/query views.
 
 ### Cloudflare R2
@@ -1258,43 +1299,57 @@ DR-303 answers questions about the historical Phase 3 accounting layer.
 
 It is not a generic receptacle for every later provider-cost correction.
 
-### DR-304 current reviewed cost layer
+### Historical DR-304 milestone and current V4 reviewed layer
 
-DR-304 adds an **additive** current decision-facing cost model.
+DR-304 first introduced an **additive** provider-aware current selected-cost
+model, including exact selected-run OpenAI provider billing without rewriting
+the historical reviewed accounting layer.
+
+The earlier 2026-08-21 DR-304 snapshot is retained historical provenance. It is
+not the current decision-facing selected-cost source.
+
+The current implementation is V4.
 
 Generator:
 
-    scripts/generate_phase3_current_reviewed_comparison.py
+    scripts/generate_phase3_current_reviewed_comparison_v4.py
 
 Canonical generated JSON:
 
-    results/phase3/reporting/phase3_current_reviewed_comparison_20260821.json
+    results/phase3/reporting/phase3_current_reviewed_comparison_20260825.json
 
 Dashboard generated mirror:
 
-    apps/dashboard/src/generated/phase3-current-reviewed-comparison-data.ts
+    apps/dashboard/src/generated/phase3-current-reviewed-comparison-data-v4.ts
 
 Dashboard validator/loader:
 
     apps/dashboard/src/lib/phase3-current-reviewed-comparison.ts
 
-The generator consumes pinned inputs:
+The V4 generator consumes pinned:
 
 - frozen historical reviewed comparison;
-- sanitized provider-billing reconciliation.
+- 2026-08-25 current arm cost reconciliation;
+- 2026-08-25 provider cost evidence matrix;
+- supporting Anthropic exception lower-bound reconciliation.
 
-It never rewrites the historical snapshot.
+It never rewrites the frozen historical reviewed comparison.
 
-### DR-304 fail-closed behavior
+All 16 reviewed extended arms have V4 **reporting reconciliation rows**. Do not
+confuse those reporting rows with Migration-011 normalized reconciliation
+chains: the later cross-provider consistency contract records 10 normalized
+selected arms and 6 explicit accepted normalized-absence arms.
+
+### Current V4 fail-closed behavior
 
 The generator/loader encode expected:
 
-- source hashes;
-- schemas;
-- scope membership;
-- OpenAI arm identities;
-- provider run identities;
-- provider totals;
+- source paths, roles, and hashes;
+- schemas and generator identity;
+- exact core/extended scope membership;
+- reviewed run identities;
+- provider/evidence state;
+- selected cost basis and relation;
 - allocation states;
 - selected scope totals.
 
@@ -1302,7 +1357,91 @@ If those facts change unexpectedly, generation/loading should fail.
 
 This is intentional friction.
 
-A cost-model change is a research-methodology change.
+A current-cost model change is a research-methodology change.
+
+### Current cross-provider reviewed evidence layer
+
+DR-304 was an important intermediate step, but it is no longer the whole
+current provider-aware story.
+
+The final selected-run consistency contract is documented in:
+
+    docs/reports/phase3/PHASE3_CROSS_PROVIDER_CONSISTENCY_20260828.md
+
+For the 16 reviewed selected Phase 3 arms it records:
+
+    8 provider families
+    10 normalized current reconciliation chains
+    6 accepted normalized-absence arms
+
+Normalized authority classes are:
+
+    2 exact provider-billed
+    5 qualified rate estimates
+    3 qualified lower bounds
+
+Accepted normalized absence is separate:
+
+    4 Anthropic
+    2 GLM
+
+Anthropic accepted absence means that no retained first-party selected-run
+provider source was available for normalization under the reviewed
+evidence/credential set. It is not a claim that Anthropic lacks provider APIs.
+
+GLM accepted absence is deliberate for two distinct evidence limits:
+historical GLM 5.1 provider context was not allocable to its selected run,
+while comparable selected-run first-party evidence was not retained for
+GLM 5.2.
+
+The checked-in current reviewed reporting layer remains decision-facing even
+when normalized provider rows are deliberately absent. Do not fabricate
+provider evidence merely to make every arm structurally identical.
+
+### Provider evidence schema and promotion review
+
+Migration 011 adds first-class relations for:
+
+    benchmark_provider_evidence_sources
+    benchmark_provider_usage_evidence
+    benchmark_provider_pricing_snapshots
+    benchmark_provider_cost_evidence
+    benchmark_usage_reconciliations
+    benchmark_usage_reconciliation_sources
+    benchmark_cost_reconciliations
+    benchmark_cost_reconciliation_sources
+    benchmark_evidence_promotion_gates
+
+and the derived view:
+
+    benchmark.v_evidence_promotion_gate
+
+Raw harness values remain provenance. Reconciliations select the current
+decision-facing usage/cost authority instead of overwriting those raw values.
+
+Promotion review is another distinct layer.
+
+The durable operator:
+
+    scripts/review_evidence_promotion.py
+
+supports:
+
+    --plan
+    --check-only
+    --rollback-only
+    --apply
+
+Mutation modes require exact usage/cost/current-gate pins plus a state SHA-256
+from the preceding read-only check. They take an advisory transaction lock,
+re-read the state, preserve superseded gate history, and verify the fail-closed
+view.
+
+A `waived` decision is durable provenance but is deliberately non-authorizing.
+
+For the operator workflow use:
+
+    docs/runbooks/EVIDENCE_PROMOTION_REVIEW.md
 
 ### Current versus historical cost consumers
 
@@ -1475,11 +1614,31 @@ and produces reviewable planning material.
 
 It is intentionally read-only.
 
-It does not currently dispatch GitHub Actions.
+For Smoke and Full it also reads the current predecessor evidence review from:
+
+    benchmark.v_evidence_promotion_gate
+
+The Planner displays the exact source arm run, reconciliation identities,
+selected usage/cost authority, reviewer, limitations, blockers, and waiver
+state used for the current gate. When effective advancement is absent it
+withholds the corresponding commands.
+
+The Planner does **not** write promotion gates.
+
+Durable review is performed separately by:
+
+    scripts/review_evidence_promotion.py
+
+The Planner also does not dispatch GitHub Actions.
 
 Future protected dashboard dispatch should therefore be implemented as a new
 controlled capability rather than by quietly adding a browser-side token to the
 existing client.
+
+Before the first paid Phase 4 Canary, promotion-gate scoping must be reviewed
+because the current unique/current slot is arm + target mode. A future harness
+experiment should not inherit authorization from a different experiment merely
+because an arm identifier is reused.
 
 ### Evidence links
 
@@ -2272,12 +2431,34 @@ Read migrations in order:
     db/migrations/phase3/001_benchmark_metadata.sql
     ...
     db/migrations/phase3/009_live_run_supervision.sql
+    db/migrations/phase3/010_cost_authority_semantics.sql
+    db/migrations/phase3/011_provider_evidence_contract.sql
 
 Goal:
 
-Understand schema evolution rather than only the final shape.
+Understand schema evolution rather than only the final shape, including raw
+cost authority, normalized provider evidence/reconciliation, and durable
+promotion history.
 
-### 8. Operational dashboard data
+### 8. Provider evidence and promotion review
+
+Read:
+
+    scripts/provider_evidence/capability.py
+    scripts/provider_evidence/providers/anthropic.py
+    scripts/collect_provider_evidence.py
+    scripts/lib/evidence_qualification.py
+    scripts/review_evidence_promotion.py
+    docs/methodology/USAGE_AND_COST_EVIDENCE_MODEL.md
+    docs/runbooks/EVIDENCE_PROMOTION_REVIEW.md
+
+Goal:
+
+Understand the separation among provider collection, normalized evidence,
+reviewed reconciliation authority, promotion authorization, and Planner
+consumption.
+
+### 9. Operational dashboard data
 
 Read:
 
@@ -2288,7 +2469,7 @@ Goal:
 
 Understand dynamic populations and SQL sources.
 
-### 9. Reviewed evidence
+### 10. Reviewed evidence
 
 Read:
 
@@ -2302,7 +2483,7 @@ Goal:
 
 Understand frozen versus current-reviewed provenance.
 
-### 10. Presentation models
+### 11. Presentation models
 
 Read:
 
@@ -2315,7 +2496,7 @@ Goal:
 
 Understand how research views are derived.
 
-### 11. Dashboard pages
+### 12. Dashboard pages
 
 Read pages only after their data/model layer is understood.
 
