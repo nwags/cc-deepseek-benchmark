@@ -4,7 +4,7 @@
 
 Authoritative successor-team handoff guide.
 
-Current as of 2026-08-23.
+Current as of 2026-08-25.
 
 This document describes the state of the Claude Code Backend Benchmark after:
 
@@ -62,6 +62,10 @@ A new team member should begin with:
 Then:
 
     docs/guides/CODEBASE_GUIDE.md
+
+Before designing or authorizing new paid benchmark waves, also read:
+
+    docs/methodology/USAGE_AND_COST_EVIDENCE_MODEL.md
 
 Then this roadmap.
 
@@ -123,6 +127,10 @@ At handoff:
 - the Planner remains review-first;
 - protected dashboard dispatch is intentionally deferred;
 - Phase 4 is planned but not activated;
+- future paid experiments must independently qualify usage and cost evidence;
+- Canary may establish a documented provisional authority for Smoke;
+- Smoke must establish validated exact or qualified usage and cost authority
+  before Full is economically qualified;
 - Phase 5 remains after Phase 4.
 
 ## Current reviewed Phase 3 populations
@@ -1414,6 +1422,7 @@ Read:
 
     docs/guides/DASHBOARD_RESEARCH_GUIDE.md
     docs/guides/CODEBASE_GUIDE.md
+    docs/methodology/USAGE_AND_COST_EVIDENCE_MODEL.md
     docs/guides/PROJECT_HANDOFF_AND_FUTURE_ROADMAP.md
 
 Explore:

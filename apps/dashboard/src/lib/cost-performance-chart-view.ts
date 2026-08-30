@@ -41,7 +41,8 @@ export type ChartEvidenceAmount =
       evidenceBasis:
         | "historical_reviewed_selected_cost"
         | "provider_rate_reconstruction"
-        | "provider_rate_reconstruction_lower_bound";
+        | "provider_rate_reconstruction_lower_bound"
+        | "provider_rate_reconstruction_partial_estimate";
     }>
   | Readonly<{
       status: "unavailable";
@@ -79,14 +80,18 @@ export type ChartArmDatum = Readonly<{
     | "provider_billed"
     | "provider_rate_reconstructed_retained_usage"
     | "provider_rate_reconstructed_retained_usage_lower_bound"
-    | "provider_rate_reconstructed_selected_run";
+    | "provider_rate_reconstructed_retained_usage_partial"
+    | "provider_rate_reconstructed_selected_run"
+    | "provider_rate_reconstructed_selected_run_request_tier";
   costBasisLabel:
     | "Adjusted known cost"
     | "Qualified retained-rate estimate"
     | "Provider-billed arm total"
     | "Provider-rate reconstructed retained usage"
     | "Provider-rate retained-usage lower bound"
-    | "Provider-rate reconstructed selected-run estimate";
+    | "Provider-rate retained-usage partial estimate"
+    | "Provider-rate reconstructed selected-run estimate"
+    | "Provider-rate reconstructed request-tier estimate";
   costSources: readonly string[];
   costConfidence: string;
   pricingProvenanceStatus: "historical_reviewed_layer" | "incomplete";
@@ -95,13 +100,19 @@ export type ChartArmDatum = Readonly<{
     | "available_for_reviewed_layer"
     | "available_provider_rate_reconstruction"
     | "available_with_exception_path_lower_bounds"
+    | "available_with_unresolved_usage_lower_bounds"
+    | "partial_selected_usage_reconstruction_with_unresolved_trials"
     | "unresolved"
     | "unavailable_provider_aggregate";
   billingReconciliationStatus:
     | "exact_arm_total"
+    | "not_available_in_current_reconciliation_layer"
+    | "preselected_family_billing_context_not_selected_run"
+    | "preselected_provider_context_not_selected_run"
     | "provider_invoice_unavailable"
+    | "provider_log_not_invoice_level_allocation_low_confidence"
     | "same_day_model_aggregate_not_run_isolated"
-    | "not_available_in_current_reconciliation_layer";
+    | "selected_run_provider_invoice_unavailable";
   currentSelectedRunLabel: string | null;
   providerLogExclusivityStatus: "not_proven" | null;
   accountingGapUsd: string;

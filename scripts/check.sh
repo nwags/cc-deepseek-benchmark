@@ -21,12 +21,16 @@ python -m py_compile scripts/run_arm_live.py
 python -m py_compile scripts/publish_phase3_run.py
 python -m py_compile scripts/apply_live_supervision_migration.py
 python -m py_compile scripts/verify_live_supervision_postgres.py
+python -m py_compile scripts/verify_provider_evidence_postgres.py
+python -m py_compile scripts/ingest_openai_provider_evidence.py
+python -m py_compile scripts/ingest_deepseek_provider_evidence.py
 python -m py_compile scripts/lib/live_events.py
 python -m py_compile scripts/lib/live_db.py
 python -m py_compile scripts/lib/canonical_publication.py
 python -m py_compile scripts/lib/live_artifacts.py
 python -m py_compile scripts/lib/live_supervision.py
 python -m py_compile scripts/lib/live_verification.py
+python -m py_compile scripts/lib/evidence_qualification.py
 python -m py_compile scripts/lib/path_safety.py
 python -m py_compile scripts/lib/phase3_freeze.py
 python -m py_compile scripts/lib/publication_fingerprint.py

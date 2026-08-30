@@ -599,12 +599,12 @@ def test_comparative_pages_disclose_their_distinct_corpus_scopes() -> None:
 
     assert "getCurrentReviewedPhase3Scope" in cost
     assert "PHASE3_CURRENT_REVIEWED_COMPARISON" in cost
-    assert "phase3_current_reviewed_comparison_20260824.json" in cost
+    assert "phase3_current_reviewed_comparison_20260825.json" in cost
     assert 'costPresentation="current_and_historical"' in cost
 
     assert 'costPresentation="current_and_historical"' in cross_phase
     assert "PHASE3_CURRENT_REVIEWED_COMPARISON" in cross_phase
-    assert "phase3_current_reviewed_comparison_20260824.json" in cross_phase
+    assert "phase3_current_reviewed_comparison_20260825.json" in cross_phase
 
     assert "getCrossPhaseRows(selectedScope)" in cross_phase
     assert "getPhaseSummaries(rows, selectedScope)" in cross_phase
@@ -1107,8 +1107,8 @@ def test_overview_has_population_specific_freshness_and_snapshot_provenance() ->
         assert relation in sources
     assert "PHASE3_CURRENT_REVIEWED_COMPARISON.reviewedAt" in sources
     assert "PHASE3_REVIEWED_RUN_SELECTION.reviewedAt" in sources
-    assert "phase3_current_reviewed_comparison_20260824.json" in sources
-    assert "phase3-current-reviewed-comparison-v3" in Path(
+    assert "phase3_current_reviewed_comparison_20260825.json" in sources
+    assert "phase3-current-reviewed-comparison-v4" in Path(
         "apps/dashboard/src/lib/phase3-current-reviewed-comparison.ts"
     ).read_text()
     assert "phase3-reviewed-run-selection-v1" in Path(
@@ -1879,16 +1879,29 @@ def test_dr304_current_selected_outcome_cost_firewall() -> None:
     ).read_text()
 
     assert "getCurrentSelectedOutcomeCostEvidence" in current
-    assert "historical_reviewed_selected_cost" in current
     assert (
-        'arm.selectedOutcomeCostAllocationStatus'
+        "arm.selectedOutcomeCostAllocationStatus"
         in current
     )
-    assert 'status === "unavailable"' in current
-    assert 'status === "unavailable_provider_aggregate"' in current
-    assert 'if (status === "available")' in current
-    assert 'status === "available_lower_bound"' in current
-    assert '"available_provider_rate_reconstruction"' in current
+
+    # V4 current-selected outcome evidence is explicit and fail-closed.
+    for status in (
+        "unavailable_no_reviewed_outcome_join",
+        "unavailable_provider_aggregate",
+        "available_lower_bound",
+        "available_partial_estimate",
+        "available_provider_rate_reconstruction",
+    ):
+        assert status in current
+
+    # V3 historical outcome-cost substitution is no longer a
+    # current-selected evidence basis.
+    assert "historical_reviewed_selected_cost" not in current
+    assert 'if (status === "available")' not in current
+    assert 'status === "unavailable"' not in current
+
+    # The current layer preserves historical provenance fields but
+    # does not use them to fabricate current outcome allocation.
     assert (
         "arm.selectedCostUsd"
         in current
@@ -1901,15 +1914,22 @@ def test_dr304_current_selected_outcome_cost_firewall() -> None:
         and "arm.historicalReviewedCostBasis"
         in current
     )
-    assert (
-        "historical selected outcome allocation is invalid"
-        in current
-    )
+
     assert (
         "current selected outcome allocation is incomplete"
         in current
     )
+    assert (
+        "unsupported current outcome allocation"
+        in current
+    )
+    assert (
+        "unavailable outcome-join contract is invalid"
+        in current
+    )
+
     assert "provider_rate_reconstruction_lower_bound" in current
+    assert "provider_rate_reconstruction_partial_estimate" in current
     assert "provider_rate_reconstruction" in current
 
     assert "getCurrentSelectedOutcomeCostEvidence(arm)" in chart

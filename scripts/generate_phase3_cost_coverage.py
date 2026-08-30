@@ -8,10 +8,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import psycopg
 import yaml
 
-from scripts.lib.costs import RATES, estimate_cost_usd
+from scripts.lib.costs import (
+    RATES,
+    estimate_cost_usd,
+    harbor_aggregate_reconstruction_safe,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -77,12 +80,24 @@ def load_arm_metadata() -> dict[str, dict[str, str]]:
         arm_id = data.get("id") or path.stem
         out[arm_id] = {
             "provider": str(data.get("provider") or ""),
-            "backend_model": str(data.get("backend_model") or data.get("model") or arm_id),
+            "backend_model": str(
+                data.get("backend_model")
+                or data.get("model")
+                or arm_id
+            ),
+            "router": str(data.get("router") or ""),
         }
     return out
 
 
 def fetch_valid_trials(db_url: str, suite_id: str) -> list[dict[str, Any]]:
+    try:
+        import psycopg
+    except ModuleNotFoundError as exc:
+        raise RuntimeError(
+            "psycopg is required for DB-backed Phase 3 cost generation"
+        ) from exc
+
     sql = """
     select
       ar.suite_id,
@@ -118,22 +133,49 @@ def fetch_valid_trials(db_url: str, suite_id: str) -> list[dict[str, Any]]:
             return [dict(zip(cols, row, strict=True)) for row in cur.fetchall()]
 
 
-def build_empirical_rates(raw_rows: list[dict[str, Any]], *, min_recorded_rows: int = 10) -> dict[str, float]:
-    sums: dict[str, dict[str, float]] = defaultdict(lambda: {"rows": 0, "tokens": 0, "cost": 0.0})
+def build_empirical_rates(
+    raw_rows: list[dict[str, Any]],
+    *,
+    excluded_arm_ids: set[str] | None = None,
+    min_recorded_rows: int = 10,
+) -> dict[str, float]:
+    """Build legacy same-arm empirical rates for eligible non-router arms.
+
+    Router-mediated Claude Code cost is not an authoritative provider charge,
+    so routed arms must never seed this empirical fallback.
+    """
+    excluded = excluded_arm_ids or set()
+    sums: dict[str, dict[str, float]] = defaultdict(
+        lambda: {"rows": 0, "tokens": 0, "cost": 0.0}
+    )
     for row in raw_rows:
+        arm_id = str(row["arm_id"])
+        if arm_id in excluded:
+            continue
+
         cost = floatish(row.get("cost_usd"))
-        total_tokens = intish(row.get("input_tokens")) + intish(row.get("output_tokens"))
+        total_tokens = (
+            intish(row.get("input_tokens"))
+            + intish(row.get("output_tokens"))
+        )
         if cost is None or total_tokens <= 0:
             continue
-        arm_id = str(row["arm_id"])
+
         sums[arm_id]["rows"] += 1
         sums[arm_id]["tokens"] += total_tokens
         sums[arm_id]["cost"] += cost
 
     rates: dict[str, float] = {}
     for arm_id, values in sums.items():
-        if values["rows"] >= min_recorded_rows and values["tokens"] > 0:
-            rates[arm_id] = values["cost"] / values["tokens"] * 1_000_000
+        if (
+            values["rows"] >= min_recorded_rows
+            and values["tokens"] > 0
+        ):
+            rates[arm_id] = (
+                values["cost"]
+                / values["tokens"]
+                * 1_000_000
+            )
     return rates
 
 
@@ -156,19 +198,91 @@ def classify_cost(
     *,
     arm_id: str,
     backend_model: str,
+    routed: bool,
     recorded_cost: float | None,
     input_tokens: int,
     cache_tokens: int,
     output_tokens: int,
     empirical_rates: dict[str, float],
-) -> tuple[float | None, float | None, float | None, str, str, str]:
-    has_tokens = any([input_tokens, cache_tokens, output_tokens])
+) -> tuple[
+    float | None,
+    float | None,
+    float | None,
+    str,
+    str,
+    str,
+]:
+    has_tokens = any(
+        [input_tokens, cache_tokens, output_tokens]
+    )
 
+    if routed:
+        # The current Claude Code path emits total_cost_usd as a
+        # harness/client estimate for the router alias. The policy here is
+        # harness-agnostic: preserve routed/custom-model harness cost as
+        # recorded evidence, but do not select it as provider-authoritative
+        # adjusted cost without independent qualification.
+        if not has_tokens:
+            return (
+                None,
+                None,
+                None,
+                "unresolved_routed_harness_cost_not_authoritative_no_token_metadata",
+                "unknown",
+                "routed_harness_cost_preserved_but_not_selected;"
+                "no_token_usage_metadata_for_provider_reconstruction",
+            )
+
+        if harbor_aggregate_reconstruction_safe(backend_model):
+            reconstructed = estimate_cost_usd(
+                backend_model,
+                n_input_tokens=input_tokens,
+                n_cache_tokens=cache_tokens,
+                n_output_tokens=output_tokens,
+            )
+            return (
+                reconstructed,
+                reconstructed
+                if recorded_cost is None
+                else None,
+                None,
+                "provider_rate_reconstructed_routed_harness_untrusted",
+                "medium",
+                "routed_harness_cost_preserved_but_not_selected;"
+                "provider_rate_reconstruction_from_harbor_aggregate_tokens",
+            )
+
+        return (
+            None,
+            None,
+            None,
+            "unresolved_routed_harness_cost_not_authoritative_pricing",
+            "unknown",
+            "routed_harness_cost_preserved_but_not_selected;"
+            "provider_pricing_not_safe_from_harbor_aggregate_tokens:"
+            f"{backend_model}",
+        )
+
+    # Historical/direct behavior remains unchanged.
     if recorded_cost is not None:
-        return recorded_cost, None, None, "recorded_artifact", "high", ""
+        return (
+            recorded_cost,
+            None,
+            None,
+            "recorded_artifact",
+            "high",
+            "",
+        )
 
     if not has_tokens:
-        return None, None, None, "unresolved_no_token_metadata", "unknown", "cost_missing_and_no_token_usage_metadata"
+        return (
+            None,
+            None,
+            None,
+            "unresolved_no_token_metadata",
+            "unknown",
+            "cost_missing_and_no_token_usage_metadata",
+        )
 
     if backend_model in RATES:
         reconstructed = estimate_cost_usd(
@@ -188,28 +302,49 @@ def classify_cost(
 
     empirical_rate = empirical_rates.get(arm_id)
     if empirical_rate is not None:
-        empirical = (input_tokens + output_tokens) / 1_000_000 * empirical_rate
+        empirical = (
+            (input_tokens + output_tokens)
+            / 1_000_000
+            * empirical_rate
+        )
         return (
             empirical,
             None,
             empirical,
             "empirical_reconstructed_from_same_arm_recorded_rows",
             "low",
-            f"missing_configured_pricing_used_same_arm_empirical_rate_usd_per_1m_total_tokens:{empirical_rate:.6f}",
+            "missing_configured_pricing_used_same_arm_empirical_rate_"
+            f"usd_per_1m_total_tokens:{empirical_rate:.6f}",
         )
 
-    return None, None, None, "unresolved_missing_pricing", "unknown", f"missing_price_rate_for_backend_model:{backend_model}"
+    return (
+        None,
+        None,
+        None,
+        "unresolved_missing_pricing",
+        "unknown",
+        f"missing_price_rate_for_backend_model:{backend_model}",
+    )
 
 
 def build_trial_rows(raw_rows: list[dict[str, Any]], arm_meta: dict[str, dict[str, str]]) -> list[TrialCostRow]:
     out: list[TrialCostRow] = []
-    empirical_rates = build_empirical_rates(raw_rows)
+    routed_arm_ids = {
+        arm_id
+        for arm_id, meta in arm_meta.items()
+        if meta.get("router")
+    }
+    empirical_rates = build_empirical_rates(
+        raw_rows,
+        excluded_arm_ids=routed_arm_ids,
+    )
 
     for r in raw_rows:
         arm_id = str(r["arm_id"])
         meta = arm_meta.get(arm_id, {})
         backend_model = meta.get("backend_model", arm_id)
         provider = meta.get("provider", "")
+        routed = bool(meta.get("router"))
 
         input_tokens = intish(r.get("input_tokens"))
         cache_tokens = intish(r.get("cache_tokens"))
@@ -222,6 +357,7 @@ def build_trial_rows(raw_rows: list[dict[str, Any]], arm_meta: dict[str, dict[st
         adjusted, reconstructed, empirical, source, confidence, reason = classify_cost(
             arm_id=arm_id,
             backend_model=backend_model,
+            routed=routed,
             recorded_cost=recorded_cost,
             input_tokens=input_tokens,
             cache_tokens=cache_tokens,
@@ -276,16 +412,35 @@ def write_trial_tsv(path: Path, rows: list[TrialCostRow]) -> None:
 
 
 def arm_confidence(source_counts: Counter[str]) -> str:
-    if source_counts.get("unresolved_missing_pricing") or source_counts.get("unresolved_no_token_metadata"):
-        if source_counts.get("token_reconstructed_from_configured_price_snapshot") or source_counts.get(
+    has_unresolved = any(
+        source.startswith("unresolved_") and count
+        for source, count in source_counts.items()
+    )
+    has_medium_reconstruction = bool(
+        source_counts.get(
+            "token_reconstructed_from_configured_price_snapshot"
+        )
+        or source_counts.get(
+            "provider_rate_reconstructed_routed_harness_untrusted"
+        )
+    )
+    has_low_reconstruction = bool(
+        source_counts.get(
             "empirical_reconstructed_from_same_arm_recorded_rows"
-        ):
+        )
+    )
+
+    if has_unresolved:
+        if has_medium_reconstruction or has_low_reconstruction:
             return "mixed"
         return "low"
-    if source_counts.get("empirical_reconstructed_from_same_arm_recorded_rows"):
+
+    if has_low_reconstruction:
         return "low"
-    if source_counts.get("token_reconstructed_from_configured_price_snapshot"):
+
+    if has_medium_reconstruction:
         return "medium"
+
     return "high"
 
 
@@ -348,7 +503,9 @@ def write_arm_tsv(path: Path, rows: list[TrialCostRow]) -> None:
             empirical_reconstructed = sum(r.empirical_reconstructed_cost_usd or 0 for r in arm_rows)
             adjusted = sum(r.adjusted_cost_usd or 0 for r in arm_rows)
             unresolved = sum(
-                1 for r in arm_rows if r.cost_source in {"unresolved_no_token_metadata", "unresolved_missing_pricing"}
+                1
+                for r in arm_rows
+                if r.cost_source.startswith("unresolved_")
             )
 
             clean_success_cost = sum(r.adjusted_cost_usd or 0 for r in arm_rows if r.outcome_bucket == "clean_success")
@@ -372,6 +529,23 @@ def write_arm_tsv(path: Path, rows: list[TrialCostRow]) -> None:
                 notes.append("adjusted_cost_includes_configured_price_reconstruction")
             if source_counts.get("empirical_reconstructed_from_same_arm_recorded_rows"):
                 notes.append("adjusted_cost_includes_same_arm_empirical_reconstruction")
+            if source_counts.get(
+                "provider_rate_reconstructed_routed_harness_untrusted"
+            ):
+                notes.append(
+                    "adjusted_cost_uses_provider_rate_reconstruction_"
+                    "not_routed_harness_cost"
+                )
+            if any(
+                source.startswith(
+                    "unresolved_routed_harness_cost_not_authoritative"
+                )
+                and count
+                for source, count in source_counts.items()
+            ):
+                notes.append(
+                    "routed_harness_cost_preserved_but_not_authoritative"
+                )
 
             writer.writerow(
                 {
@@ -406,69 +580,238 @@ def write_arm_tsv(path: Path, rows: list[TrialCostRow]) -> None:
             )
 
 
-def write_report(path: Path, date: str, rows: list[TrialCostRow]) -> None:
+def write_report(
+    path: Path,
+    date: str,
+    rows: list[TrialCostRow],
+) -> None:
     source_counts = Counter(r.cost_source for r in rows)
     outcome_counts = Counter(r.outcome_bucket for r in rows)
 
     recorded = sum(r.recorded_cost_usd or 0 for r in rows)
-    token_reconstructed = sum(r.token_reconstructed_cost_usd or 0 for r in rows)
-    empirical_reconstructed = sum(r.empirical_reconstructed_cost_usd or 0 for r in rows)
-    adjusted = sum(r.adjusted_cost_usd or 0 for r in rows)
-    missing = sum(1 for r in rows if r.recorded_cost_usd is None)
-    missing_with_tokens = sum(
-        1 for r in rows if r.recorded_cost_usd is None and any([r.input_tokens, r.cache_tokens, r.output_tokens])
+    token_reconstructed = sum(
+        r.token_reconstructed_cost_usd or 0
+        for r in rows
     )
-    unresolved = source_counts["unresolved_missing_pricing"] + source_counts["unresolved_no_token_metadata"]
+    empirical_reconstructed = sum(
+        r.empirical_reconstructed_cost_usd or 0
+        for r in rows
+    )
+    adjusted = sum(r.adjusted_cost_usd or 0 for r in rows)
 
-    clean_success_cost = sum(r.adjusted_cost_usd or 0 for r in rows if r.outcome_bucket == "clean_success")
+    recorded_row_count = sum(
+        1
+        for r in rows
+        if r.recorded_cost_usd is not None
+    )
+    missing = sum(
+        1
+        for r in rows
+        if r.recorded_cost_usd is None
+    )
+    missing_with_tokens = sum(
+        1
+        for r in rows
+        if r.recorded_cost_usd is None
+        and any(
+            [
+                r.input_tokens,
+                r.cache_tokens,
+                r.output_tokens,
+            ]
+        )
+    )
+    unresolved = sum(
+        count
+        for source, count in source_counts.items()
+        if source.startswith("unresolved_")
+    )
+
+    routed_reconstructed_count = source_counts[
+        "provider_rate_reconstructed_routed_harness_untrusted"
+    ]
+    routed_reconstructed_cost = sum(
+        r.adjusted_cost_usd or 0
+        for r in rows
+        if r.cost_source
+        == "provider_rate_reconstructed_routed_harness_untrusted"
+    )
+    routed_unresolved = sum(
+        count
+        for source, count in source_counts.items()
+        if source.startswith(
+            "unresolved_routed_harness_cost_not_authoritative"
+        )
+    )
+
+    clean_success_cost = sum(
+        r.adjusted_cost_usd or 0
+        for r in rows
+        if r.outcome_bucket == "clean_success"
+    )
     exception_success_cost = sum(
-        r.adjusted_cost_usd or 0 for r in rows if r.outcome_bucket == "exception_with_success_signal"
+        r.adjusted_cost_usd or 0
+        for r in rows
+        if r.outcome_bucket == "exception_with_success_signal"
     )
     failure_cost = sum(
-        r.adjusted_cost_usd or 0 for r in rows if r.outcome_bucket not in {"clean_success", "exception_with_success_signal"}
+        r.adjusted_cost_usd or 0
+        for r in rows
+        if r.outcome_bucket
+        not in {
+            "clean_success",
+            "exception_with_success_signal",
+        }
     )
 
     lines = [
         f"# Phase 3 Cost Coverage ({date})",
         "",
-        "This report distinguishes recorded benchmark cost from reconstructed and unresolved missing-cost rows.",
+        (
+            "This report distinguishes immutable harness-recorded cost "
+            "from selected adjusted cost, provider-rate reconstruction, "
+            "and unresolved cost authority."
+        ),
         "",
         "## Summary",
         "",
         f"- Trial rows: {len(rows)}",
-        f"- Recorded cost rows: {source_counts['recorded_artifact']}",
+        (
+            "- Rows with a recorded harness cost value: "
+            f"{recorded_row_count}"
+        ),
+        (
+            "- Selected direct/non-router recorded-artifact rows: "
+            f"{source_counts['recorded_artifact']}"
+        ),
+        (
+            "- Routed provider-rate reconstructed rows: "
+            f"{routed_reconstructed_count}"
+        ),
+        (
+            "- Routed rows with unresolved cost authority: "
+            f"{routed_unresolved}"
+        ),
         f"- Missing recorded-cost rows: {missing}",
-        f"- Missing-cost rows with visible tokens: {missing_with_tokens}",
-        f"- Configured-price reconstructed missing-cost rows: {source_counts['token_reconstructed_from_configured_price_snapshot']}",
-        f"- Same-arm empirical reconstructed missing-cost rows: {source_counts['empirical_reconstructed_from_same_arm_recorded_rows']}",
-        f"- Unresolved missing-cost rows: {unresolved}",
-        f"- Recorded cost USD: ${recorded:.6f}",
-        f"- Configured-price reconstructed missing cost USD: ${token_reconstructed:.6f}",
-        f"- Same-arm empirical reconstructed missing cost USD: ${empirical_reconstructed:.6f}",
+        (
+            "- Missing-cost rows with visible tokens: "
+            f"{missing_with_tokens}"
+        ),
+        (
+            "- Configured-price reconstructed missing-cost rows: "
+            f"{source_counts['token_reconstructed_from_configured_price_snapshot']}"
+        ),
+        (
+            "- Same-arm empirical reconstructed missing-cost rows: "
+            f"{source_counts['empirical_reconstructed_from_same_arm_recorded_rows']}"
+        ),
+        f"- Unresolved adjusted-cost rows: {unresolved}",
+        f"- Recorded harness cost USD: ${recorded:.6f}",
+        (
+            "- Routed provider-rate reconstructed selected cost USD: "
+            f"${routed_reconstructed_cost:.6f}"
+        ),
+        (
+            "- Configured-price reconstructed missing cost USD: "
+            f"${token_reconstructed:.6f}"
+        ),
+        (
+            "- Same-arm empirical reconstructed missing cost USD: "
+            f"${empirical_reconstructed:.6f}"
+        ),
         f"- Adjusted known cost USD: ${adjusted:.6f}",
         "",
         "## Outcome-cost breakdown",
         "",
-        f"- Clean-success trials: {outcome_counts['clean_success']}",
-        f"- Exception-with-success-signal trials: {outcome_counts['exception_with_success_signal']}",
-        f"- Exception-failure trials: {outcome_counts['exception_failure']}",
-        f"- Normal-failure trials: {outcome_counts['normal_failure']}",
-        f"- Unknown/incomplete trials: {outcome_counts['unknown_or_incomplete']}",
-        f"- Adjusted clean-success cost USD: ${clean_success_cost:.6f}",
-        f"- Adjusted exception-with-success-signal cost USD: ${exception_success_cost:.6f}",
-        f"- Adjusted failure/incomplete cost USD: ${failure_cost:.6f}",
+        (
+            "- Clean-success trials: "
+            f"{outcome_counts['clean_success']}"
+        ),
+        (
+            "- Exception-with-success-signal trials: "
+            f"{outcome_counts['exception_with_success_signal']}"
+        ),
+        (
+            "- Exception-failure trials: "
+            f"{outcome_counts['exception_failure']}"
+        ),
+        (
+            "- Normal-failure trials: "
+            f"{outcome_counts['normal_failure']}"
+        ),
+        (
+            "- Unknown/incomplete trials: "
+            f"{outcome_counts['unknown_or_incomplete']}"
+        ),
+        (
+            "- Adjusted clean-success cost USD: "
+            f"${clean_success_cost:.6f}"
+        ),
+        (
+            "- Adjusted exception-with-success-signal cost USD: "
+            f"${exception_success_cost:.6f}"
+        ),
+        (
+            "- Adjusted failure/incomplete cost USD: "
+            f"${failure_cost:.6f}"
+        ),
         "",
         "## Cost source taxonomy",
         "",
-        "- `recorded_artifact`: `cost_usd` was present in imported benchmark metadata.",
-        "- `token_reconstructed_from_configured_price_snapshot`: `cost_usd` was missing, but DB token usage and a configured pricing snapshot were available.",
-        "- `empirical_reconstructed_from_same_arm_recorded_rows`: `cost_usd` was missing and no configured pricing snapshot was available, but enough same-arm rows had both token usage and recorded cost to estimate an empirical effective USD-per-token rate.",
-        "- `unresolved_missing_pricing`: token usage exists, but no configured pricing snapshot or empirical estimate was available.",
-        "- `unresolved_no_token_metadata`: neither cost nor token usage was recorded.",
+        (
+            "- `recorded_artifact`: `cost_usd` was present in imported "
+            "benchmark metadata for a non-router/direct arm and remains "
+            "the selected historical adjusted-cost evidence."
+        ),
+        (
+            "- `provider_rate_reconstructed_routed_harness_untrusted`: "
+            "a routed/custom-model harness cost was preserved as recorded "
+            "evidence but not treated as provider-authoritative; adjusted "
+            "cost was reconstructed from an approved backend pricing "
+            "snapshot using Harbor aggregate tokens."
+        ),
+        (
+            "- `unresolved_routed_harness_cost_not_authoritative_"
+            "no_token_metadata`: routed harness cost may exist, but "
+            "provider-aware reconstruction is impossible because usable "
+            "token telemetry is absent."
+        ),
+        (
+            "- `unresolved_routed_harness_cost_not_authoritative_pricing`: "
+            "routed harness cost may exist, but the backend cannot be "
+            "safely priced from Harbor's collapsed aggregate token "
+            "classes."
+        ),
+        (
+            "- `token_reconstructed_from_configured_price_snapshot`: "
+            "`cost_usd` was missing, but DB token usage and a configured "
+            "pricing snapshot were available."
+        ),
+        (
+            "- `empirical_reconstructed_from_same_arm_recorded_rows`: "
+            "`cost_usd` was missing and no configured pricing snapshot "
+            "was available, but enough same-arm rows had both token usage "
+            "and recorded cost to estimate an empirical effective "
+            "USD-per-token rate."
+        ),
+        (
+            "- `unresolved_missing_pricing`: token usage exists, but no "
+            "configured pricing snapshot or empirical estimate was "
+            "available."
+        ),
+        (
+            "- `unresolved_no_token_metadata`: neither cost nor token "
+            "usage was recorded."
+        ),
         "",
-        "Provider-reconciled billing is intentionally not claimed by this report. This report repairs per-trial benchmark charting where possible; provider invoices/dashboards remain separate evidence.",
+        (
+            "Provider-reconciled billing is intentionally not claimed by "
+            "this report. Harness-recorded cost remains immutable evidence; "
+            "provider-aware adjusted cost is selected separately."
+        ),
         "",
     ]
+
     path.write_text("\n".join(lines) + "\n")
 
 

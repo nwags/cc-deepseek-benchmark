@@ -189,6 +189,8 @@ function currentAllocatedSegments(
       !== "available_provider_rate_reconstruction"
     && arm.selectedOutcomeCostAllocationStatus
       !== "available_lower_bound"
+    && arm.selectedOutcomeCostAllocationStatus
+      !== "available_partial_estimate"
   ) {
     return null;
   }
@@ -281,7 +283,10 @@ function currentCostBarEvidence(
         arm.selectedOutcomeCostAllocationStatus
           === "available_lower_bound"
           ? "current lower-bound outcome allocation"
-          : "current provider-rate outcome allocation",
+          : arm.selectedOutcomeCostAllocationStatus
+              === "available_partial_estimate"
+            ? "current partial-estimate outcome allocation"
+            : "current provider-rate outcome allocation",
     });
   }
 
@@ -483,7 +488,7 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
         {" "}<Link href={`/cross-phase?scope=${selection.scopeId}`}>Open Cross-phase with this scope</Link>.
         <details>
           <summary>Traceable current and historical sources</summary>
-          <p className="mono">results/phase3/reporting/phase3_current_reviewed_comparison_20260824.json</p>
+          <p className="mono">results/phase3/reporting/phase3_current_reviewed_comparison_20260825.json</p>
           <p className="mono">results/phase3/reporting/phase3_extended_reviewed_comparison_20260805.json</p>
         </details>
         <p className="muted">
@@ -737,7 +742,7 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
         </div>
         <div className="quality-context-panel">
           <p>
-            <strong>Current selected aggregate:</strong> the current-selected totals come from the checked-in generalized current-reviewed V3 layer.
+            <strong>Current selected aggregate:</strong> the current-selected totals come from the checked-in generalized current-reviewed V4 layer.
             <br />
             <strong>Historical reviewed aggregate:</strong> DR-303 and historical benchmark-side totals remain the preserved {scope.displayName} evidence.
             <br />

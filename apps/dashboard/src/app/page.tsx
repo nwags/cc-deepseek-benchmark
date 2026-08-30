@@ -269,7 +269,7 @@ export default async function DashboardPage({
 
       <section className="quality-context-panel">
         <strong>Current reviewed comparison provenance:</strong> Decision-facing selected costs come from the{" "}
-        {PHASE3_CURRENT_REVIEWED_COMPARISON.reviewedAt} current-reviewed V3 layer. It preserves the 2026-08-05 historical benchmark/reviewed cost evidence
+        {PHASE3_CURRENT_REVIEWED_COMPARISON.reviewedAt} current-reviewed V4 layer. It preserves the 2026-08-05 historical benchmark/reviewed cost evidence
         as a separate layer. Exact run labels remain frozen by the 2026-08-09 reviewed run-selection contract.
         Database evidence is resolved only for those labels; the database does not select a newer run. Stored cost
         reconciliation compares against the historical benchmark-side recorded/adjusted evidence, not against

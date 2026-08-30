@@ -39,7 +39,7 @@ const { PHASE3_REVIEWED_COMPARISON } =
 const currentGeneratedSource = await readFile(
   resolve(
     here,
-    "../generated/phase3-current-reviewed-comparison-data-v3.ts",
+    "../generated/phase3-current-reviewed-comparison-data-v4.ts",
   ),
   "utf8",
 );
@@ -53,7 +53,7 @@ const currentLoaderSource = (
   )
 )
   .replace(
-    '"../generated/phase3-current-reviewed-comparison-data-v3"',
+    '"../generated/phase3-current-reviewed-comparison-data-v4"',
     `"${currentGeneratedModuleUrl}"`,
   )
   .replace(
@@ -113,15 +113,15 @@ test("fixed core and extended scopes retain reviewed counts and Kimi K3 boundari
   const extended = getCorpusScope("phase3-extended");
   assert.deepEqual(core.expectedCounts, { armCount: 15, trialCount: 900, successCount: 515 });
   assert.equal(Object.isFrozen(core.expectedCounts), true);
-  assert.equal(core.selectedCostUsd, 510.405678806867);
+  assert.equal(core.selectedCostUsd, 316.8790274572);
   assert.equal(core.historicalReviewedCostUsd, 972.169845489198);
   assert.equal(
     core.selectedCostBasis,
     "mixed_best_available_arm_evidence",
   );
-  assert.equal(core.currentReconciledArmCount, 8);
-  assert.equal(core.currentReconciledCostUsd, 251.5579261372);
-  assert.equal(core.currentCostReviewedAt, "2026-08-24");
+  assert.equal(core.currentReconciledArmCount, 15);
+  assert.equal(core.currentReconciledCostUsd, 316.8790274572);
+  assert.equal(core.currentCostReviewedAt, "2026-08-25");
   assert.match(
     core.selectedCostDescription,
     /current generalized reconciliation/,
@@ -137,7 +137,7 @@ test("fixed core and extended scopes retain reviewed counts and Kimi K3 boundari
   assert.deepEqual(extended.expectedCounts, { armCount: 16, trialCount: 960, successCount: 562 });
   assert.equal(Object.isFrozen(extended.expectedCounts), true);
   assert.equal(extended.comparisonValid, true);
-  assert.equal(extended.selectedCostUsd, 541.219998206867);
+  assert.equal(extended.selectedCostUsd, 343.4494304572);
   assert.equal(
     extended.historicalReviewedCostUsd,
     1002.984164889198,
@@ -146,9 +146,9 @@ test("fixed core and extended scopes retain reviewed counts and Kimi K3 boundari
     extended.selectedCostBasis,
     "mixed_best_available_arm_evidence",
   );
-  assert.equal(extended.currentReconciledArmCount, 8);
-  assert.equal(extended.currentReconciledCostUsd, 251.5579261372);
-  assert.equal(extended.currentCostReviewedAt, "2026-08-24");
+  assert.equal(extended.currentReconciledArmCount, 16);
+  assert.equal(extended.currentReconciledCostUsd, 343.4494304572);
+  assert.equal(extended.currentCostReviewedAt, "2026-08-25");
   assert.match(
     extended.selectedCostDescription,
     /Provider aggregates are not redistributed/,

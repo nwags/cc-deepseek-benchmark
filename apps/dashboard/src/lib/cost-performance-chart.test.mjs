@@ -8,7 +8,7 @@ import ts from "typescript";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const comparison = JSON.parse(await readFile(
-  resolve(here, "../../../../results/phase3/reporting/phase3_current_reviewed_comparison_20260824.json"),
+  resolve(here, "../../../../results/phase3/reporting/phase3_current_reviewed_comparison_20260825.json"),
   "utf8",
 ));
 const runSelection = JSON.parse(await readFile(
@@ -53,7 +53,7 @@ const moduleUrl = `data:text/javascript;base64,${Buffer.from(`
     const status = arm.selectedOutcomeCostAllocationStatus;
 
     if (
-      status === "unavailable"
+      status === "unavailable_no_reviewed_outcome_join"
       || status === "unavailable_provider_aggregate"
     ) {
       return {
@@ -64,18 +64,6 @@ const moduleUrl = `data:text/javascript;base64,${Buffer.from(`
         adjustedExceptionSuccessSignalCostUsd: null,
         failureOrIncompleteSpendShare: null,
         nonproductiveOrUncleanSpendShare: null,
-      };
-    }
-
-    if (status === "available") {
-      return {
-        status: "available",
-        evidenceBasis: "historical_reviewed_selected_cost",
-        adjustedCleanSuccessCostUsd: arm.adjustedCleanSuccessCostUsd,
-        adjustedFailureOrIncompleteCostUsd: arm.adjustedFailureOrIncompleteCostUsd,
-        adjustedExceptionSuccessSignalCostUsd: arm.adjustedExceptionSuccessSignalCostUsd,
-        failureOrIncompleteSpendShare: arm.failureOrIncompleteSpendShare,
-        nonproductiveOrUncleanSpendShare: arm.nonproductiveOrUncleanSpendShare,
       };
     }
 
@@ -93,7 +81,9 @@ const moduleUrl = `data:text/javascript;base64,${Buffer.from(`
       evidenceBasis:
         status === "available_lower_bound"
           ? "provider_rate_reconstruction_lower_bound"
-          : "provider_rate_reconstruction",
+          : status === "available_partial_estimate"
+            ? "provider_rate_reconstruction_partial_estimate"
+            : "provider_rate_reconstruction",
       adjustedCleanSuccessCostUsd: arm.selectedCleanSuccessCostUsd,
       adjustedFailureOrIncompleteCostUsd: failureOrIncomplete,
       adjustedExceptionSuccessSignalCostUsd:
@@ -231,28 +221,74 @@ test("selected per-attempt costs use the current reviewed ratios while recorded 
   assert.equal(kimi.recordedCostPerAttempt.value, Number("0.420120216666667"));
 });
 
-test("Kimi selected metric preserves its qualified retained-rate basis", () => {
-  const kimi = armFor(extendedArms, "router-kimi-k3");
-  assert.equal(kimi.adjustedKnownCostUsd, null);
-  assert.equal(kimi.qualifiedRetainedRateCostUsd, "30.8143194");
-  assert.equal(kimi.reviewedComparableCostUsd, "30.8143194");
-  assert.equal(kimi.costBasis, "qualified_retained_rate_estimate");
-  assert.equal(
-    kimi.selectedCostRelation,
-    "historical_fallback",
-  );
-  assert.equal(
-    kimi.selectedEfficiencyRelation,
-    "historical_fallback",
-  );
-  assert.equal(kimi.adjustedCostPerAttempt.status, "available");
-  assert.equal(kimi.adjustedCostPerAttempt.decimalUsd, "0.51357199");
-  assert.match(kimi.adjustedCostPerAttempt.qualification, /qualified retained-rate estimate/);
-  assert.match(kimi.adjustedCostPerAttempt.qualification, /not adjusted-known or provider-billed cost/);
-  assert.match(kimi.qualificationText, /pricing-source provenance incomplete/);
-  assert.match(kimi.qualificationText, /trial allocation unresolved/);
-});
+test(
+  "Kimi selected metric uses the V4 selected-run estimate while preserving historical provider-log context",
+  () => {
+    const kimi =
+      armFor(extendedArms, "router-kimi-k3");
 
+    assert.equal(kimi.adjustedKnownCostUsd, null);
+
+    // Frozen historical/provider-log context remains separately visible.
+    assert.equal(
+      kimi.qualifiedRetainedRateCostUsd,
+      "30.8143194",
+    );
+    assert.equal(
+      kimi.reviewedComparableCostUsd,
+      "30.8143194",
+    );
+
+    // Decision-facing selected cost is the selected-run reconstruction.
+    assert.equal(kimi.selectedCostUsd, "26.570403");
+    assert.equal(
+      kimi.costBasis,
+      "provider_rate_reconstructed_selected_run",
+    );
+    assert.equal(
+      kimi.selectedCostRelation,
+      "estimate",
+    );
+    assert.equal(
+      kimi.selectedEfficiencyRelation,
+      "estimate",
+    );
+    assert.equal(
+      kimi.costConfidence,
+      "medium_qualified_pricing_provenance",
+    );
+    assert.equal(
+      kimi.trialAllocationStatus,
+      "available_provider_rate_reconstruction",
+    );
+
+    assert.equal(
+      kimi.adjustedCostPerAttempt.status,
+      "available",
+    );
+    assert.equal(
+      kimi.adjustedCostPerAttempt.decimalUsd,
+      "0.44284005",
+    );
+    assert.match(
+      kimi.adjustedCostPerAttempt.qualification,
+      /Estimated selected-run provider-rate reconstruction/,
+    );
+    assert.match(
+      kimi.adjustedCostPerAttempt.qualification,
+      /provider-context evidence.*retained separately/i,
+    );
+
+    assert.match(
+      kimi.qualificationText,
+      /pricing-source provenance incomplete/i,
+    );
+    assert.match(
+      kimi.qualificationText,
+      /reviewed outcome-cost join unavailable/i,
+    );
+  },
+);
 
 test("OpenAI frontier uses exact provider-billed selected costs", () => {
   const gpt54 = armFor(extendedArms, "router-gpt-5.4");
@@ -319,12 +355,12 @@ test("selected aggregate ratios remain available without fabricating outcome all
   assert.equal(cleanSuccess.status, "available");
   assert.equal(
     cleanSuccess.decimalUsd,
-    "0.7003254409090909090909090909",
+    "0.6038727954545454545454545455",
   );
   assert.equal(kimi.failureIncompleteSpend.status, "unavailable");
   assert.match(
     kimi.failureIncompleteSpend.reason,
-    /outcome-cost allocation is unavailable/i,
+    /no reviewed outcome-cost join/i,
   );
 
   const gpt55 = armFor(coreArms, "router-gpt-5.5");
@@ -594,7 +630,10 @@ test("accessible rows retain confidence, gap, qualifications, and both evidence 
     [armFor(extendedArms, "router-kimi-k3")],
     "adjusted_cost_per_attempt",
   )[0];
-  assert.equal(kimi.costConfidence, "low");
+  assert.equal(
+    kimi.costConfidence,
+    "medium_qualified_pricing_provenance",
+  );
   assert.equal(kimi.reviewedProvider, "moonshot");
   assert.equal(kimi.providerFamily, "moonshot-kimi");
   assert.equal(kimi.providerFamilyLabel, "Moonshot / Kimi");
@@ -606,7 +645,14 @@ test("accessible rows retain confidence, gap, qualifications, and both evidence 
   assert.equal(kimi.providerLogExclusivityStatus, "not_proven");
   assert.equal(kimi.accountingGapUsd, "5.6071064");
   assert.equal(kimi.failureIncompleteSpend.status, "unavailable");
-  assert.match(kimi.qualificationText, /not invoice-level or provider-billed spend/);
+  assert.match(
+    kimi.qualificationText,
+    /Estimated selected-run provider-rate reconstruction/,
+  );
+  assert.match(
+    kimi.qualificationText,
+    /pricing-source provenance incomplete/,
+  );
   assert.equal(kimi.armHref, "/trial-quality?arm_id=router-kimi-k3");
   assert.equal(kimi.selectedRunHref, "/runs/router-kimi-k3%2F2026-07-22__17-51-05?source_scope=phase3-extended");
   assert.match(kimi.costProvenanceHref, /scope=phase3-extended/);

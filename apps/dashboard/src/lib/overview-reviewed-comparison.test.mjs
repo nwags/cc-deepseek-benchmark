@@ -8,7 +8,7 @@ import ts from "typescript";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const comparison = JSON.parse(await readFile(
-  resolve(here, "../../../../results/phase3/reporting/phase3_current_reviewed_comparison_20260824.json"),
+  resolve(here, "../../../../results/phase3/reporting/phase3_current_reviewed_comparison_20260825.json"),
   "utf8",
 ));
 const runSelection = JSON.parse(await readFile(
@@ -109,12 +109,12 @@ function rowFor(result, armId) {
 test("joins all 16 current-reviewed arms to exactly one frozen G1 selected run", () => {
   const result = build();
   assert.deepEqual([result.armCount, result.trialCount, result.successCount], [16, 960, 562]);
-  assert.equal(result.selectedCostUsd, "541.219998206867");
+  assert.equal(result.selectedCostUsd, "343.4494304572");
   assert.equal(
     result.historicalReviewedCostUsd,
     "1002.984164889198",
   );
-  assert.equal(result.reviewedAt, "2026-08-24");
+  assert.equal(result.reviewedAt, "2026-08-25");
   assert.equal(result.rows.length, 16);
   assert.equal(new Set(result.rows.map((row) => row.selectedRunLabel)).size, 16);
   const kimi = rowFor(result, "router-kimi-k3");
@@ -318,31 +318,42 @@ test("current-reviewed and G1 membership disagreement fails instead of falling b
 test("Kimi selected aggregate ratio stays separate from allocation evidence", () => {
   const kimi = rowFor(build(), "router-kimi-k3");
 
-  assert.equal(kimi.selectedCostUsd, "30.8143194");
+  assert.equal(kimi.selectedCostUsd, "26.570403");
   assert.equal(
     kimi.selectedCostRelation,
-    "historical_fallback",
+    "estimate",
   );
   assert.equal(
     kimi.selectedEfficiencyRelation,
-    "historical_fallback",
+    "estimate",
   );
   assert.equal(
     kimi.selectedCostPerCleanSuccessUsd,
-    "0.7003254409090909090909090909",
+    "0.6038727954545454545454545455",
   );
+
+  // The selected-run reconstruction is not a provider-billed total.
   assert.equal(kimi.providerBilledCostUsd, null);
   assert.equal(
     kimi.providerBillingReconciliationStatus,
-    "not_available_in_current_reconciliation_layer",
+    "provider_log_not_invoice_level_allocation_low_confidence",
   );
+
+  // Trial-level selected usage is available, but there is no
+  // reviewed outcome-cost join for Kimi K3.
   assert.equal(
     kimi.selectedTrialCostAllocationStatus,
-    "unresolved",
+    "available_provider_rate_reconstruction",
   );
   assert.equal(
     kimi.selectedOutcomeCostAllocationStatus,
-    "unavailable",
+    "unavailable_no_reviewed_outcome_join",
+  );
+
+  // Frozen historical provider-log evidence remains separate.
+  assert.equal(
+    kimi.historicalReviewedCostUsd,
+    "30.8143194",
   );
 });
 

@@ -1,4 +1,4 @@
-import currentReviewedSnapshotJson from "../generated/phase3-current-reviewed-comparison-data-v3";
+import currentReviewedSnapshotJson from "../generated/phase3-current-reviewed-comparison-data-v4";
 import {
   PHASE3_REVIEWED_COMPARISON,
   type ReviewedCostEvidence,
@@ -8,7 +8,7 @@ import {
 } from "./phase3-reviewed-comparison";
 
 export const PHASE3_CURRENT_REVIEWED_COMPARISON_SCHEMA_VERSION =
-  "phase3-current-reviewed-comparison-v3" as const;
+  "phase3-current-reviewed-comparison-v4" as const;
 
 export type CurrentReviewedPhase3ScopeId = ReviewedPhase3ScopeId;
 
@@ -29,7 +29,9 @@ export type CurrentSelectedCostBasis =
   | "provider_billed"
   | "provider_rate_reconstructed_retained_usage"
   | "provider_rate_reconstructed_retained_usage_lower_bound"
-  | "provider_rate_reconstructed_selected_run";
+  | "provider_rate_reconstructed_retained_usage_partial"
+  | "provider_rate_reconstructed_selected_run"
+  | "provider_rate_reconstructed_selected_run_request_tier";
 
 export type CurrentReconciliationStatus =
   | "reconciled"
@@ -39,36 +41,81 @@ export type CurrentEvidenceClass =
   | "exact_provider_arm_total"
   | "historical_reviewed_fallback"
   | "provider_rate_reconstruction_with_same_day_provider_crosscheck"
-  | "verified_retained_artifacts_plus_official_provider_rates";
+  | "verified_retained_artifacts_plus_official_provider_rates"
+  | "verified_retained_trajectories_plus_official_provider_rates"
+  | "verified_retained_trajectories_plus_provider_bill_validated_rates"
+  | "retained_artifacts_plus_official_provider_rates_trajectory_archive_unavailable"
+  | "complete_retained_usage_plus_provider_dashboard_validated_rates"
+  | "complete_retained_usage_plus_retained_published_rates"
+  | "partial_retained_usage_plus_retained_published_rates_cache_accounting_unverified"
+  | "complete_retained_usage_plus_retained_rate_constants_qualified_provenance";
 
 export type CurrentProviderBillingReconciliationStatus =
   | "exact_arm_total"
   | "not_available_in_current_reconciliation_layer"
+  | "preselected_family_billing_context_not_selected_run"
+  | "preselected_provider_context_not_selected_run"
   | "provider_invoice_unavailable"
-  | "same_day_model_aggregate_not_run_isolated";
+  | "provider_log_not_invoice_level_allocation_low_confidence"
+  | "same_day_model_aggregate_not_run_isolated"
+  | "selected_run_provider_invoice_unavailable";
 
 export type CurrentProviderContextScope =
   | "exact_arm_total"
-  | "same_day_model_aggregate";
+  | "same_day_model_aggregate"
+  | "preselected_family_dashboard_total_through_2026-06-19"
+  | "preselected_glm5.1_provider_billing_table_through_2026-06-19"
+  | "glm5.1_billing_evidence_is_same_family_but_different_model"
+  | "shared_preselected_gemini_family_billing_export_through_2026-06-17_nonadditive"
+  | "preselected_qwen_payg_bill_detail_through_2026-06-19"
+  | "preselected_request_logs_and_dashboard_total_2026-06-04_to_2026-06-16"
+  | "broader_provider_request_log_retained_rate_reconstruction";
 
 export type CurrentSelectedTrialCostAllocationStatus =
   | "available_for_reviewed_layer"
   | "available_provider_rate_reconstruction"
   | "available_with_exception_path_lower_bounds"
+  | "available_with_unresolved_usage_lower_bounds"
+  | "partial_selected_usage_reconstruction_with_unresolved_trials"
   | "unavailable_provider_aggregate"
   | "unresolved";
 
 export type CurrentSelectedOutcomeCostAllocationStatus =
   | "available"
   | "available_lower_bound"
+  | "available_partial_estimate"
   | "available_provider_rate_reconstruction"
   | "unavailable"
+  | "unavailable_no_reviewed_outcome_join"
   | "unavailable_provider_aggregate";
 
 export type CurrentUnquantifiedAdditionalCostStatus =
   | "none"
+  | "none_for_selected_retained_usage"
   | "not_evaluated_current_reconciliation"
-  | "possible_additional_exception_path_spend";
+  | "possible_additional_exception_path_spend"
+  | "possible_additional_unresolved_trial_spend"
+  | "unresolved_trial_spend_and_cache_classification_uncertainty";
+
+export type CurrentProviderEvidenceAudit = Readonly<{
+  provider: string;
+  auditScope: string;
+  pricingProvenanceStatus: string;
+  trajectoryEvidenceStatus: string;
+  providerContextTemporalRelation: string;
+  providerContextAllocationConfidence: string;
+  auditConclusion: string;
+
+  providerContextAccountSpendUsd: string | null;
+  providerContextOverheadUsd: string | null;
+  providerContextRateReconstructionUsd: string | null;
+  providerContextRateReconstructionExcessVsSelectedUsd:
+    string | null;
+
+  selectedInputTokens: string | null;
+  selectedCacheTokens: string | null;
+  selectedOutputTokens: string | null;
+}>;
 
 export type CurrentReviewedPhase3Arm = Readonly<
   ReviewedPhase3Arm & {
@@ -103,6 +150,7 @@ export type CurrentReviewedPhase3Arm = Readonly<
     completeTrialCostCount: number | null;
     lowerBoundTrialCount: number | null;
     confirmedZeroCostTrialCount: number | null;
+    currentUnresolvedTrialCount: number | null;
 
     selectedTrialCostAllocationStatus:
       CurrentSelectedTrialCostAllocationStatus;
@@ -117,6 +165,8 @@ export type CurrentReviewedPhase3Arm = Readonly<
     unallocatedKnownCostUsd: string | null;
     unquantifiedAdditionalCostStatus:
       CurrentUnquantifiedAdditionalCostStatus;
+
+    providerEvidenceAudit: CurrentProviderEvidenceAudit;
   }
 >;
 
@@ -135,7 +185,7 @@ export type CurrentSelectedCostEvidence = Readonly<{
   currentReconciledArmCount: number;
   currentReconciledArmIds: readonly string[];
   currentReconciledCostUsd: string;
-  currentReconciliationCoverageStatus: "partial_by_arm";
+  currentReconciliationCoverageStatus: "complete_by_arm";
 
   exactProviderBilledArmCount: number;
   exactProviderBilledArmIds: readonly string[];
@@ -176,11 +226,11 @@ export type CurrentReviewedPhase3Scope = Readonly<{
 export type Phase3CurrentReviewedComparison = Readonly<{
   schemaVersion:
     typeof PHASE3_CURRENT_REVIEWED_COMPARISON_SCHEMA_VERSION;
-  reviewedAt: "2026-08-24";
+  reviewedAt: "2026-08-25";
   historicalReviewedAt: "2026-08-05";
   generator: Readonly<{
-    name: "scripts/generate_phase3_current_reviewed_comparison_v3.py";
-    version: "2.0.0";
+    name: "scripts/generate_phase3_current_reviewed_comparison_v4.py";
+    version: "3.0.0";
   }>;
   inputs: readonly Readonly<{
     path: string;
@@ -219,11 +269,19 @@ const EXPECTED_INPUTS = new Map<string, Readonly<{
     },
   ],
   [
-    "results/phase3/reporting/phase3_current_arm_cost_reconciliation_20260824.csv",
+    "results/phase3/reporting/phase3_current_arm_cost_reconciliation_20260825.csv",
     {
       role: "sanitized_current_arm_cost_reconciliation",
       sha256:
-        "7fc2ac41dfd56af4888cac0cc6d80be15f5d3b8edef12b915206fd57bc9afbea",
+        "43e731eeceb01b78e51a071b53f1b25bd9a1aaccc5ba3cc30722c1322d914256",
+    },
+  ],
+  [
+    "results/phase3/reporting/phase3_provider_cost_evidence_matrix_20260825.csv",
+    {
+      role: "sanitized_provider_cost_evidence_matrix",
+      sha256:
+        "e87a15f086da17a16b116a6741599ce336494ddda5b0bb50289fc550286f4218",
     },
   ],
   [
@@ -236,44 +294,51 @@ const EXPECTED_INPUTS = new Map<string, Readonly<{
   ],
 ]);
 
-const EXPECTED_RECONCILED_ARM_IDS = Object.freeze([
-  "router-anthropic-fable-5",
-  "router-anthropic-haiku-sanitized",
-  "router-anthropic-opus",
-  "router-anthropic-sonnet",
-  "router-deepseek-flash",
-  "router-deepseek-pro",
-  "router-gpt-5.4",
-  "router-gpt-5.5",
-]);
-
-const EXPECTED_EXACT_PROVIDER_BILLED_ARM_IDS = Object.freeze([
-  "router-gpt-5.4",
-  "router-gpt-5.5",
-]);
+const EXPECTED_EXACT_PROVIDER_BILLED_ARM_IDS =
+  Object.freeze([
+    "router-gpt-5.4",
+    "router-gpt-5.5",
+  ]);
 
 const EXPECTED_UNQUANTIFIED_ADDITIONAL_COST_ARM_IDS =
   Object.freeze([
     "router-anthropic-opus",
     "router-anthropic-sonnet",
+    "router-gemini-flash",
+    "router-glm-5.1",
+    "router-grok-build-0.1",
+    "router-qwen-3.7-plus",
   ]);
 
 const SCOPE_EXPECTATIONS = Object.freeze({
   "phase3-core": Object.freeze({
-    selectedCostUsd: "510.405678806867",
+    selectedCostUsd: "316.8790274572",
     historicalReviewedArmSumCostUsd: "972.169845489198",
     historicalSourceScopeCostUsd: "972.169845489198",
     sourceScopeReconciliationAdjustmentUsd: "0",
-    sourceScopeTransformedSelectedCostUsd: "510.405678806867",
-    historicalFallbackCount: 7,
+    sourceScopeTransformedSelectedCostUsd:
+      "316.879027457200",
+    relationCounts: Object.freeze({
+      exact: 4,
+      estimate: 6,
+      lowerBound: 5,
+      historicalFallback: 0,
+    }),
   }),
   "phase3-extended": Object.freeze({
-    selectedCostUsd: "541.219998206867",
+    selectedCostUsd: "343.4494304572",
     historicalReviewedArmSumCostUsd: "1002.984164889198",
     historicalSourceScopeCostUsd: "1002.9841648891979",
-    sourceScopeReconciliationAdjustmentUsd: "-0.0000000000001",
-    sourceScopeTransformedSelectedCostUsd: "541.2199982068669",
-    historicalFallbackCount: 8,
+    sourceScopeReconciliationAdjustmentUsd:
+      "-0.0000000000001",
+    sourceScopeTransformedSelectedCostUsd:
+      "343.4494304571999",
+    relationCounts: Object.freeze({
+      exact: 4,
+      estimate: 7,
+      lowerBound: 5,
+      historicalFallback: 0,
+    }),
   }),
 });
 
@@ -566,7 +631,7 @@ function validateInputs(
     || value.length !== EXPECTED_INPUTS.size
   ) {
     throw new Error(
-      "inputs must contain exactly the reviewed v3 sources",
+      "inputs must contain exactly the reviewed v4 sources",
     );
   }
 
@@ -623,6 +688,91 @@ function validateInputs(
   });
 
   return Object.freeze(inputs);
+}
+
+function validateProviderEvidenceAudit(
+  value: unknown,
+  label: string,
+): CurrentProviderEvidenceAudit {
+  const item = record(value, label);
+
+  assertExactKeys(
+    item,
+    [
+      "auditConclusion",
+      "auditScope",
+      "pricingProvenanceStatus",
+      "provider",
+      "providerContextAccountSpendUsd",
+      "providerContextAllocationConfidence",
+      "providerContextOverheadUsd",
+      "providerContextRateReconstructionExcessVsSelectedUsd",
+      "providerContextRateReconstructionUsd",
+      "providerContextTemporalRelation",
+      "selectedCacheTokens",
+      "selectedInputTokens",
+      "selectedOutputTokens",
+      "trajectoryEvidenceStatus",
+    ],
+    label,
+  );
+
+  return Object.freeze({
+    provider: text(item.provider, `${label}.provider`),
+    auditScope: text(
+      item.auditScope,
+      `${label}.auditScope`,
+    ),
+    pricingProvenanceStatus: text(
+      item.pricingProvenanceStatus,
+      `${label}.pricingProvenanceStatus`,
+    ),
+    trajectoryEvidenceStatus: text(
+      item.trajectoryEvidenceStatus,
+      `${label}.trajectoryEvidenceStatus`,
+    ),
+    providerContextTemporalRelation: text(
+      item.providerContextTemporalRelation,
+      `${label}.providerContextTemporalRelation`,
+    ),
+    providerContextAllocationConfidence: text(
+      item.providerContextAllocationConfidence,
+      `${label}.providerContextAllocationConfidence`,
+    ),
+    auditConclusion: text(
+      item.auditConclusion,
+      `${label}.auditConclusion`,
+    ),
+    providerContextAccountSpendUsd: nullableDecimal(
+      item.providerContextAccountSpendUsd,
+      `${label}.providerContextAccountSpendUsd`,
+    ),
+    providerContextOverheadUsd: nullableDecimal(
+      item.providerContextOverheadUsd,
+      `${label}.providerContextOverheadUsd`,
+    ),
+    providerContextRateReconstructionUsd: nullableDecimal(
+      item.providerContextRateReconstructionUsd,
+      `${label}.providerContextRateReconstructionUsd`,
+    ),
+    providerContextRateReconstructionExcessVsSelectedUsd:
+      nullableDecimal(
+        item.providerContextRateReconstructionExcessVsSelectedUsd,
+        `${label}.providerContextRateReconstructionExcessVsSelectedUsd`,
+      ),
+    selectedInputTokens: nullableDecimal(
+      item.selectedInputTokens,
+      `${label}.selectedInputTokens`,
+    ),
+    selectedCacheTokens: nullableDecimal(
+      item.selectedCacheTokens,
+      `${label}.selectedCacheTokens`,
+    ),
+    selectedOutputTokens: nullableDecimal(
+      item.selectedOutputTokens,
+      `${label}.selectedOutputTokens`,
+    ),
+  });
 }
 
 function validateHistoricalFallback(
@@ -735,6 +885,39 @@ function validateReconciledArm(
   const complete = arm.completeTrialCostCount;
   const lower = arm.lowerBoundTrialCount;
   const zero = arm.confirmedZeroCostTrialCount;
+  const unresolved = arm.currentUnresolvedTrialCount;
+
+  if (
+    complete === null
+    || lower === null
+    || zero === null
+    || unresolved === null
+    || complete > arm.trialCount
+    || lower > arm.trialCount
+    || zero > arm.trialCount
+    || unresolved > arm.trialCount
+  ) {
+    throw new Error(
+      `${label} reconciled trial-count coverage is invalid`,
+    );
+  }
+
+  if (arm.providerContextExcessUsd !== null) {
+    if (
+      arm.providerContextBilledCostUsd === null
+      || !decimalSumEquals(
+        [
+          arm.selectedCostUsd,
+          arm.providerContextExcessUsd,
+        ],
+        arm.providerContextBilledCostUsd,
+      )
+    ) {
+      throw new Error(
+        `${label} provider-context excess does not reconcile`,
+      );
+    }
+  }
 
   if (arm.selectedCostBasis === "provider_billed") {
     if (
@@ -744,9 +927,11 @@ function validateReconciledArm(
       || arm.providerContextBilledCostUsd !== arm.selectedCostUsd
       || arm.providerContextScope !== "exact_arm_total"
       || arm.providerContextExcessUsd !== "0"
-      || arm.providerBillingReconciliationStatus !== "exact_arm_total"
+      || arm.providerBillingReconciliationStatus
+        !== "exact_arm_total"
       || complete !== 0
       || lower !== 0
+      || unresolved !== 0
       || zero !== 0
       || arm.selectedTrialCostAllocationStatus
         !== "unavailable_provider_aggregate"
@@ -764,127 +949,147 @@ function validateReconciledArm(
         `${label} exact provider-billed contract is invalid`,
       );
     }
-
     return;
   }
 
-  if (
-    complete === null
-    || lower === null
-    || zero === null
-    || zero > complete
-    || complete + lower !== arm.trialCount
-    || arm.providerBilledCostUsd !== null
-  ) {
+  if (arm.providerBilledCostUsd !== null) {
     throw new Error(
-      `${label} reconciled trial-count coverage is invalid`,
+      `${label} non-billed selected cost has provider-billed value`,
     );
   }
 
-  validateAllocatedCurrentCost(arm, label);
+  const outcomeStatus =
+    arm.selectedOutcomeCostAllocationStatus;
 
   if (
-    arm.selectedCostBasis
-      === "provider_rate_reconstructed_retained_usage"
+    outcomeStatus === "available_provider_rate_reconstruction"
+    || outcomeStatus === "available_lower_bound"
+    || outcomeStatus === "available_partial_estimate"
+  ) {
+    validateAllocatedCurrentCost(arm, label);
+
+    if (arm.unallocatedKnownCostUsd !== "0") {
+      throw new Error(
+        `${label} allocated selected cost has an unexpected residual`,
+      );
+    }
+  } else if (
+    outcomeStatus === "unavailable_no_reviewed_outcome_join"
   ) {
     if (
-      arm.selectedCostRelation !== "exact"
-      || arm.evidenceClass
-        !== "verified_retained_artifacts_plus_official_provider_rates"
-      || arm.providerContextBilledCostUsd !== null
-      || arm.providerContextScope !== null
-      || arm.providerContextExcessUsd !== null
-      || arm.providerBillingReconciliationStatus
-        !== "provider_invoice_unavailable"
+      arm.selectedCleanSuccessCostUsd !== null
+      || arm.selectedNormalFailureCostUsd !== null
+      || arm.selectedExceptionFailureCostUsd !== null
+      || arm.selectedExceptionWithSuccessSignalCostUsd !== null
+      || arm.knownAllocatedCostUsd !== arm.selectedCostUsd
+      || arm.unallocatedKnownCostUsd !== "0"
+    ) {
+      throw new Error(
+        `${label} unavailable outcome-join contract is invalid`,
+      );
+    }
+  } else if (
+    outcomeStatus !== "unavailable_provider_aggregate"
+  ) {
+    throw new Error(
+      `${label} reconciled outcome allocation status is unsupported`,
+    );
+  }
+
+  if (arm.selectedCostRelation === "exact") {
+    if (
+      arm.selectedCostBasis
+        !== "provider_rate_reconstructed_retained_usage"
       || complete !== arm.trialCount
       || lower !== 0
+      || unresolved !== 0
       || arm.selectedTrialCostAllocationStatus
         !== "available_provider_rate_reconstruction"
-      || arm.selectedOutcomeCostAllocationStatus
+      || outcomeStatus
         !== "available_provider_rate_reconstruction"
-      || arm.unallocatedKnownCostUsd !== "0"
       || arm.unquantifiedAdditionalCostStatus !== "none"
     ) {
       throw new Error(
-        `${label} exact retained-usage reconstruction is invalid`,
+        `${label} exact retained-usage contract is invalid`,
       );
     }
-
     return;
   }
 
-  if (
-    arm.selectedCostBasis
-      === "provider_rate_reconstructed_retained_usage_lower_bound"
-  ) {
+  if (arm.selectedCostRelation === "lower_bound") {
     if (
-      arm.selectedCostRelation !== "lower_bound"
-      || arm.evidenceClass
-        !== "verified_retained_artifacts_plus_official_provider_rates"
-      || arm.providerContextBilledCostUsd !== null
-      || arm.providerContextScope !== null
-      || arm.providerContextExcessUsd !== null
-      || arm.providerBillingReconciliationStatus
-        !== "provider_invoice_unavailable"
+      arm.selectedCostBasis
+        !== "provider_rate_reconstructed_retained_usage_lower_bound"
       || lower <= 0
-      || arm.selectedTrialCostAllocationStatus
-        !== "available_with_exception_path_lower_bounds"
-      || arm.selectedOutcomeCostAllocationStatus
-        !== "available_lower_bound"
-      || arm.knownAllocatedCostUsd !== arm.selectedCostUsd
-      || arm.unallocatedKnownCostUsd !== "0"
-      || arm.unquantifiedAdditionalCostStatus
-        !== "possible_additional_exception_path_spend"
+      || complete + lower !== arm.trialCount
+      || unresolved !== lower
+      || ![
+        "available_with_exception_path_lower_bounds",
+        "available_with_unresolved_usage_lower_bounds",
+      ].includes(arm.selectedTrialCostAllocationStatus)
+      || outcomeStatus !== "available_lower_bound"
+      || ![
+        "possible_additional_exception_path_spend",
+        "possible_additional_unresolved_trial_spend",
+      ].includes(arm.unquantifiedAdditionalCostStatus)
     ) {
       throw new Error(
-        `${label} retained-usage lower-bound contract is invalid`,
+        `${label} lower-bound selected-cost contract is invalid`,
       );
     }
-
     return;
   }
 
-  if (
-    arm.selectedCostBasis
-      === "provider_rate_reconstructed_selected_run"
-  ) {
+  if (arm.selectedCostRelation === "estimate") {
     if (
-      arm.selectedCostRelation !== "estimate"
-      || arm.evidenceClass
-        !== "provider_rate_reconstruction_with_same_day_provider_crosscheck"
-      || arm.providerContextBilledCostUsd === null
-      || arm.providerContextScope
-        !== "same_day_model_aggregate"
-      || arm.providerContextExcessUsd === null
-      || arm.providerBillingReconciliationStatus
-        !== "same_day_model_aggregate_not_run_isolated"
-      || !decimalSumEquals(
-        [
-          arm.selectedCostUsd,
-          arm.providerContextExcessUsd,
-        ],
-        arm.providerContextBilledCostUsd,
-      )
+      arm.selectedCostBasis
+        === "provider_rate_reconstructed_retained_usage_partial"
+    ) {
+      if (
+        lower !== 0
+        || unresolved <= 0
+        || complete + unresolved !== arm.trialCount
+        || arm.selectedTrialCostAllocationStatus
+          !== "partial_selected_usage_reconstruction_with_unresolved_trials"
+        || outcomeStatus !== "available_partial_estimate"
+        || arm.unquantifiedAdditionalCostStatus
+          !== "unresolved_trial_spend_and_cache_classification_uncertainty"
+      ) {
+        throw new Error(
+          `${label} partial selected-cost estimate is invalid`,
+        );
+      }
+      return;
+    }
+
+    if (
+      ![
+        "provider_rate_reconstructed_selected_run",
+        "provider_rate_reconstructed_selected_run_request_tier",
+      ].includes(arm.selectedCostBasis)
       || complete !== arm.trialCount
       || lower !== 0
+      || unresolved !== 0
       || arm.selectedTrialCostAllocationStatus
         !== "available_provider_rate_reconstruction"
-      || arm.selectedOutcomeCostAllocationStatus
-        !== "available_provider_rate_reconstruction"
-      || arm.knownAllocatedCostUsd !== arm.selectedCostUsd
-      || arm.unallocatedKnownCostUsd !== "0"
-      || arm.unquantifiedAdditionalCostStatus !== "none"
+      || ![
+        "available_provider_rate_reconstruction",
+        "unavailable_no_reviewed_outcome_join",
+      ].includes(outcomeStatus)
+      || ![
+        "none",
+        "none_for_selected_retained_usage",
+      ].includes(arm.unquantifiedAdditionalCostStatus)
     ) {
       throw new Error(
         `${label} selected-run provider-rate estimate is invalid`,
       );
     }
-
     return;
   }
 
   throw new Error(
-    `${label} reconciled arm has an unsupported selected-cost basis`,
+    `${label} reconciled selected-cost relation is unsupported`,
   );
 }
 
@@ -926,6 +1131,7 @@ function validateCurrentArm(
     "completeTrialCostCount",
     "lowerBoundTrialCount",
     "confirmedZeroCostTrialCount",
+    "currentUnresolvedTrialCount",
 
     "selectedTrialCostAllocationStatus",
     "selectedOutcomeCostAllocationStatus",
@@ -937,6 +1143,7 @@ function validateCurrentArm(
     "knownAllocatedCostUsd",
     "unallocatedKnownCostUsd",
     "unquantifiedAdditionalCostStatus",
+    "providerEvidenceAudit",
   ];
 
   assertExactKeys(
@@ -1026,7 +1233,9 @@ function validateCurrentArm(
         "provider_billed",
         "provider_rate_reconstructed_retained_usage",
         "provider_rate_reconstructed_retained_usage_lower_bound",
+        "provider_rate_reconstructed_retained_usage_partial",
         "provider_rate_reconstructed_selected_run",
+        "provider_rate_reconstructed_selected_run_request_tier",
       ] as const,
       `${label}.selectedCostBasis`,
     ),
@@ -1058,6 +1267,13 @@ function validateCurrentArm(
         "historical_reviewed_fallback",
         "provider_rate_reconstruction_with_same_day_provider_crosscheck",
         "verified_retained_artifacts_plus_official_provider_rates",
+        "verified_retained_trajectories_plus_official_provider_rates",
+        "verified_retained_trajectories_plus_provider_bill_validated_rates",
+        "retained_artifacts_plus_official_provider_rates_trajectory_archive_unavailable",
+        "complete_retained_usage_plus_provider_dashboard_validated_rates",
+        "complete_retained_usage_plus_retained_published_rates",
+        "partial_retained_usage_plus_retained_published_rates_cache_accounting_unverified",
+        "complete_retained_usage_plus_retained_rate_constants_qualified_provenance",
       ] as const,
       `${label}.evidenceClass`,
     ),
@@ -1078,6 +1294,13 @@ function validateCurrentArm(
             [
               "exact_arm_total",
               "same_day_model_aggregate",
+              "preselected_family_dashboard_total_through_2026-06-19",
+              "preselected_glm5.1_provider_billing_table_through_2026-06-19",
+              "glm5.1_billing_evidence_is_same_family_but_different_model",
+              "shared_preselected_gemini_family_billing_export_through_2026-06-17_nonadditive",
+              "preselected_qwen_payg_bill_detail_through_2026-06-19",
+              "preselected_request_logs_and_dashboard_total_2026-06-04_to_2026-06-16",
+              "broader_provider_request_log_retained_rate_reconstruction",
             ] as const,
             `${label}.providerContextScope`,
           ),
@@ -1090,8 +1313,12 @@ function validateCurrentArm(
       [
         "exact_arm_total",
         "not_available_in_current_reconciliation_layer",
+        "preselected_family_billing_context_not_selected_run",
+        "preselected_provider_context_not_selected_run",
         "provider_invoice_unavailable",
+        "provider_log_not_invoice_level_allocation_low_confidence",
         "same_day_model_aggregate_not_run_isolated",
+        "selected_run_provider_invoice_unavailable",
       ] as const,
       `${label}.providerBillingReconciliationStatus`,
     ),
@@ -1108,6 +1335,10 @@ function validateCurrentArm(
       item.confirmedZeroCostTrialCount,
       `${label}.confirmedZeroCostTrialCount`,
     ),
+    currentUnresolvedTrialCount: nullableNonnegativeInteger(
+      item.currentUnresolvedTrialCount,
+      `${label}.currentUnresolvedTrialCount`,
+    ),
 
     selectedTrialCostAllocationStatus: exact(
       item.selectedTrialCostAllocationStatus,
@@ -1115,6 +1346,8 @@ function validateCurrentArm(
         "available_for_reviewed_layer",
         "available_provider_rate_reconstruction",
         "available_with_exception_path_lower_bounds",
+        "available_with_unresolved_usage_lower_bounds",
+        "partial_selected_usage_reconstruction_with_unresolved_trials",
         "unavailable_provider_aggregate",
         "unresolved",
       ] as const,
@@ -1125,8 +1358,10 @@ function validateCurrentArm(
       [
         "available",
         "available_lower_bound",
+        "available_partial_estimate",
         "available_provider_rate_reconstruction",
         "unavailable",
+        "unavailable_no_reviewed_outcome_join",
         "unavailable_provider_aggregate",
       ] as const,
       `${label}.selectedOutcomeCostAllocationStatus`,
@@ -1160,10 +1395,17 @@ function validateCurrentArm(
       item.unquantifiedAdditionalCostStatus,
       [
         "none",
+        "none_for_selected_retained_usage",
         "not_evaluated_current_reconciliation",
         "possible_additional_exception_path_spend",
+        "possible_additional_unresolved_trial_spend",
+        "unresolved_trial_spend_and_cache_classification_uncertainty",
       ] as const,
       `${label}.unquantifiedAdditionalCostStatus`,
+    ),
+    providerEvidenceAudit: validateProviderEvidenceAudit(
+      item.providerEvidenceAudit,
+      `${label}.providerEvidenceAudit`,
     ),
   });
 
@@ -1342,7 +1584,7 @@ function validateSelectedCostEvidence(
       ),
       currentReconciliationCoverageStatus: exact(
         item.currentReconciliationCoverageStatus,
-        ["partial_by_arm"] as const,
+        ["complete_by_arm"] as const,
         `${label}.currentReconciliationCoverageStatus`,
       ),
 
@@ -1434,7 +1676,7 @@ function validateSelectedCostEvidence(
       !== expected.sourceScopeTransformedSelectedCostUsd
   ) {
     throw new Error(
-      `${label} does not match the reviewed v3 scope anchors`,
+      `${label} does not match the reviewed v4 scope anchors`,
     );
   }
 
@@ -1463,29 +1705,23 @@ function validateSelectedCostEvidence(
   const reconciledIds = reconciledArms
     .map((arm) => arm.armId)
     .sort();
+  const expectedIds = arms
+    .map((arm) => arm.armId)
+    .sort();
 
   if (
-    evidence.currentReconciledArmCount
-      !== reconciledArms.length
+    reconciledArms.length !== arms.length
+    || evidence.currentReconciledArmCount !== arms.length
     || !sameJson(
       evidence.currentReconciledArmIds,
       reconciledIds,
     )
-    || !sameJson(
-      reconciledIds,
-      EXPECTED_RECONCILED_ARM_IDS,
-    )
-    || !decimalSumEquals(
-      reconciledArms.map(
-        (arm) => arm.selectedCostUsd,
-      ),
-      evidence.currentReconciledCostUsd,
-    )
+    || !sameJson(reconciledIds, expectedIds)
     || evidence.currentReconciledCostUsd
-      !== "251.5579261372"
+      !== evidence.selectedCostUsd
   ) {
     throw new Error(
-      `${label} current reconciled subtotal is invalid`,
+      `${label} complete-by-arm reconciliation is invalid`,
     );
   }
 
@@ -1529,11 +1765,10 @@ function validateSelectedCostEvidence(
       evidence.selectedCostRelationCounts,
       derivedRelationCounts,
     )
-    || derivedRelationCounts.exact !== 4
-    || derivedRelationCounts.estimate !== 2
-    || derivedRelationCounts.lowerBound !== 2
-    || derivedRelationCounts.historicalFallback
-      !== expected.historicalFallbackCount
+    || !sameJson(
+      derivedRelationCounts,
+      expected.relationCounts,
+    )
   ) {
     throw new Error(
       `${label} selected-cost relation counts are invalid`,
@@ -1543,8 +1778,10 @@ function validateSelectedCostEvidence(
   const unquantifiedIds = arms
     .filter(
       (arm) =>
-        arm.unquantifiedAdditionalCostStatus
-          === "possible_additional_exception_path_spend",
+        ![
+          "none",
+          "none_for_selected_retained_usage",
+        ].includes(arm.unquantifiedAdditionalCostStatus),
     )
     .map((arm) => arm.armId)
     .sort();
@@ -1689,13 +1926,13 @@ function validateScope(
 export type CurrentSelectedOutcomeCostEvidence =
   | Readonly<{
       status:
-        | "available"
         | "available_lower_bound"
+        | "available_partial_estimate"
         | "available_provider_rate_reconstruction";
       evidenceBasis:
-        | "historical_reviewed_selected_cost"
         | "provider_rate_reconstruction"
-        | "provider_rate_reconstruction_lower_bound";
+        | "provider_rate_reconstruction_lower_bound"
+        | "provider_rate_reconstruction_partial_estimate";
       adjustedCleanSuccessCostUsd: string;
       adjustedFailureOrIncompleteCostUsd: string;
       adjustedExceptionSuccessSignalCostUsd: string;
@@ -1704,7 +1941,7 @@ export type CurrentSelectedOutcomeCostEvidence =
     }>
   | Readonly<{
       status:
-        | "unavailable"
+        | "unavailable_no_reviewed_outcome_join"
         | "unavailable_provider_aggregate";
       evidenceBasis: null;
       adjustedCleanSuccessCostUsd: null;
@@ -1720,7 +1957,7 @@ export function getCurrentSelectedOutcomeCostEvidence(
   const status = arm.selectedOutcomeCostAllocationStatus;
 
   if (
-    status === "unavailable"
+    status === "unavailable_no_reviewed_outcome_join"
     || status === "unavailable_provider_aggregate"
   ) {
     return Object.freeze({
@@ -1734,41 +1971,14 @@ export function getCurrentSelectedOutcomeCostEvidence(
     });
   }
 
-  if (status === "available") {
-    if (
-      arm.currentReconciliationStatus
-        !== "historical_fallback"
-      || arm.selectedCostBasis
-        !== arm.historicalReviewedCostBasis
-      || arm.selectedCostUsd
-        !== arm.historicalReviewedCostUsd
-      || arm.selectedTrialCostAllocationStatus
-        !== "available_for_reviewed_layer"
-      || arm.adjustedCleanSuccessCostUsd === null
-      || arm.adjustedFailureOrIncompleteCostUsd === null
-      || arm.adjustedExceptionSuccessSignalCostUsd === null
-      || arm.failureOrIncompleteSpendShare === null
-      || arm.nonproductiveOrUncleanSpendShare === null
-    ) {
-      throw new Error(
-        `${arm.armId} historical selected outcome allocation is invalid`,
-      );
-    }
-
-    return Object.freeze({
-      status: "available",
-      evidenceBasis: "historical_reviewed_selected_cost",
-      adjustedCleanSuccessCostUsd:
-        arm.adjustedCleanSuccessCostUsd,
-      adjustedFailureOrIncompleteCostUsd:
-        arm.adjustedFailureOrIncompleteCostUsd,
-      adjustedExceptionSuccessSignalCostUsd:
-        arm.adjustedExceptionSuccessSignalCostUsd,
-      failureOrIncompleteSpendShare:
-        arm.failureOrIncompleteSpendShare,
-      nonproductiveOrUncleanSpendShare:
-        arm.nonproductiveOrUncleanSpendShare,
-    });
+  if (
+    status !== "available_lower_bound"
+    && status !== "available_partial_estimate"
+    && status !== "available_provider_rate_reconstruction"
+  ) {
+    throw new Error(
+      `${arm.armId} has an unsupported current outcome allocation`,
+    );
   }
 
   if (
@@ -1809,12 +2019,16 @@ export function getCurrentSelectedOutcomeCostEvidence(
     );
   }
 
+  const evidenceBasis =
+    status === "available_lower_bound"
+      ? "provider_rate_reconstruction_lower_bound"
+      : status === "available_partial_estimate"
+        ? "provider_rate_reconstruction_partial_estimate"
+        : "provider_rate_reconstruction";
+
   return Object.freeze({
     status,
-    evidenceBasis:
-      status === "available_lower_bound"
-        ? "provider_rate_reconstruction_lower_bound"
-        : "provider_rate_reconstruction",
+    evidenceBasis,
     adjustedCleanSuccessCostUsd:
       arm.selectedCleanSuccessCostUsd,
     adjustedFailureOrIncompleteCostUsd:
@@ -1858,7 +2072,7 @@ export function validatePhase3CurrentReviewedComparison(
     );
   }
 
-  if (item.reviewedAt !== "2026-08-24") {
+  if (item.reviewedAt !== "2026-08-25") {
     throw new Error(
       "current reviewed comparison reviewedAt is invalid",
     );
@@ -1883,8 +2097,8 @@ export function validatePhase3CurrentReviewedComparison(
 
   if (
     generator.name
-      !== "scripts/generate_phase3_current_reviewed_comparison_v3.py"
-    || generator.version !== "2.0.0"
+      !== "scripts/generate_phase3_current_reviewed_comparison_v4.py"
+    || generator.version !== "3.0.0"
   ) {
     throw new Error(
       "current reviewed comparison generator identity is invalid",
@@ -1928,12 +2142,12 @@ export function validatePhase3CurrentReviewedComparison(
   return Object.freeze({
     schemaVersion:
       PHASE3_CURRENT_REVIEWED_COMPARISON_SCHEMA_VERSION,
-    reviewedAt: "2026-08-24",
+    reviewedAt: "2026-08-25",
     historicalReviewedAt: "2026-08-05",
     generator: Object.freeze({
       name:
-        "scripts/generate_phase3_current_reviewed_comparison_v3.py",
-      version: "2.0.0",
+        "scripts/generate_phase3_current_reviewed_comparison_v4.py",
+      version: "3.0.0",
     }),
     inputs,
     scopes: Object.freeze({

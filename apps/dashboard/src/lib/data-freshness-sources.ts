@@ -35,7 +35,7 @@ export const OVERVIEW_FRESHNESS_SOURCES = Object.freeze({
     reviewedAt: PHASE3_CURRENT_REVIEWED_COMPARISON.reviewedAt,
     schemaVersion: PHASE3_CURRENT_REVIEWED_COMPARISON_SCHEMA_VERSION,
     provenanceIdentifier:
-      "results/phase3/reporting/phase3_current_reviewed_comparison_20260824.json",
+      "results/phase3/reporting/phase3_current_reviewed_comparison_20260825.json",
   } satisfies DashboardDataSourceDefinition),
   reviewedRunSelection: Object.freeze({
     sourceKind: "reviewed",
