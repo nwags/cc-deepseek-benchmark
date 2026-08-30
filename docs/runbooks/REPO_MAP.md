@@ -50,10 +50,13 @@ configs/tasks/terminal-bench-20.txt
 ```text
 scripts/
   lib/                          shared Python helpers
+  provider_evidence/            provider evidence collectors/capability code
   run_arm.sh                    config-driven benchmark entry point
   run_arm_live.py               optional live-supervision wrapper
   publish_phase3_run.py         final Phase 3 canonical publisher
   ingest_phase3_run_metadata.py manifest/metadata ingestion support
+  collect_provider_evidence.py  read-only provider-evidence collection entry point
+  review_evidence_promotion.py  guarded durable promotion-review CLI
   check.sh                      repository checks
   secret_scan.sh                secret scanner
 ```
@@ -65,9 +68,11 @@ Future phases should generalize them only where a real experiment requires it.
 
 ```text
 docs/
+  diagrams/    checked-in architecture/data-model diagram sources
   guides/      current successor research/code/handoff guidance
+  methodology/ current normative research/evidence contracts
   plans/       historical and future phase plans
-  reference/   glossary and methodological references
+  reference/   glossary and reference material
   reports/     phase-specific reports and analysis
   reviews/     manual/acceptance review records
   runbooks/    operational procedures and historical operating records
@@ -148,12 +153,26 @@ Do not merge these merely because they can be represented in one table.
 db/migrations/phase3/
 ```
 
-Supabase Postgres stores benchmark metadata and live/canonical relationships.
+Supabase Postgres stores benchmark metadata, live/canonical relationships,
+normalized provider usage/cost evidence, reviewed reconciliations, and promotion
+gate state.
 
-Cloudflare R2 stores large artifact bytes.
+Cloudflare R2 stores large artifact and provider-evidence bytes where
+appropriate.
+
+Important retained schema contracts include:
+
+```text
+009_live_run_supervision.sql
+010_cost_authority_semantics.sql
+011_provider_evidence_contract.sql
+```
 
 Migration `009_live_run_supervision.sql` was applied historically. Do not rerun
-it. Future schema changes require a new migration.
+it as an onboarding step. Migration 010 preserves adjusted-cost authority
+semantics, while Migration 011 defines the current provider
+evidence/reconciliation/promotion model. Future schema changes require a new
+migration rather than silently rewriting an applied migration.
 
 ## Figures
 

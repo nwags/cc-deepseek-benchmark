@@ -42,6 +42,15 @@ The dashboard reads Supabase Postgres views in the benchmark schema:
 - benchmark.live_run_events
 - benchmark.live_trials
 - benchmark.live_artifacts
+- benchmark.benchmark_provider_evidence_sources
+- benchmark.benchmark_provider_usage_evidence
+- benchmark.benchmark_provider_cost_evidence
+- benchmark.benchmark_usage_reconciliations
+- benchmark.benchmark_cost_reconciliations
+- benchmark.v_evidence_promotion_gate
+
+The Data Model route documents the wider checked-in relationship set; individual
+pages query only the sources required by their declared evidence contract.
 
 Large artifacts remain in Cloudflare R2. `/runs/live` reads shared Supabase
 state published by remote runners and shows bounded event, partial-trial, and
@@ -61,9 +70,11 @@ navigation currently contains:
 - **Overview** — current reviewed Phase 3 comparison plus clearly separated
   dynamic inventory evidence.
 - **Architecture** — execution, scoring, live observation, canonical
-  publication, and storage flow.
-- **Data Model** — live, canonical, derived, R2, reviewed-snapshot, and
-  dashboard-consumer layers.
+  publication, provider evidence/reconciliation, promotion review, and storage
+  flow.
+- **Data Model** — live, canonical experimental identity, provider evidence,
+  reviewed authority, derived, R2, reviewed-snapshot, dashboard-consumer, and
+  future-phase extension layers.
 - **Glossary** — shared benchmark terminology.
 - **Trial Quality** — reviewed failure/trajectory analysis plus operational
   quality evidence.
@@ -73,21 +84,45 @@ navigation currently contains:
 - **Evals** — task/eval comparison with explicit inventory scope.
 - **Runs** — canonical imported run inventory and run detail.
 - **Live Runs** — mutable live execution observation; not canonical truth.
-- **Arms** — imported arm inventory.
+- **Arms** — imported arm inventory including canonical agent-harness
+  identity when recorded.
 - **Artifacts** — retained artifact inventory and bounded evidence access.
 - **Evidence Review** — manifest-validated frozen comprehensive review.
-- **Planner** — review-first run-plan construction/validation; it does not
-  dispatch benchmark work.
+- **Planner** — review-first run-plan construction/validation that reads
+  the current fail-closed predecessor promotion gate; it does not write gates
+  or dispatch benchmark work.
 - **Cost Coverage** — current selected cost alongside historical reviewed
   accounting/decomposition.
 
 Retired or contained historical routes may still exist for provenance, but they
 are not primary navigation.
 
-For research workflow guidance, use:
+For page-specific interpretation of all 15 principal dashboard surfaces, use:
+
+```text
+docs/guides/dashboard/README.md
+```
+
+That manual documents each page's route, data source, population/authority,
+controls, caveats, common workflows, and evidence-tracing path.
+
+For cross-page research workflow guidance, use:
 
 ```text
 docs/guides/DASHBOARD_RESEARCH_GUIDE.md
+```
+
+For the current durable Canary/Smoke promotion-review procedure, use:
+
+```text
+docs/runbooks/EVIDENCE_PROMOTION_REVIEW.md
+```
+
+For provider usage/cost capability, collection, reconciliation, and future
+collector-automation guidance, use:
+
+```text
+docs/reference/PROVIDER_USAGE_COST_AUTOMATION.md
 ```
 
 For protected server-side dispatch as possible future work, use:

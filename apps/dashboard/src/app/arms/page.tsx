@@ -96,6 +96,9 @@ export default async function ArmsPage() {
                     <strong>{friendlyArmLabel(row.arm_id, row.backend_model)}</strong>
                     <div className="muted mono">{row.arm_id}</div>
                     <div className="muted">{friendlyProviderLabel(row.provider_family)}</div>
+                    <div className="muted">
+                      Harness: {row.agent_harness ?? "not recorded"}
+                    </div>
                     <div className="row-action-links">
                       <Link href={`/trial-quality?arm_id=${encodeURIComponent(row.arm_id)}`}>Trial quality</Link>
                       <Link href={buildArtifactHref({ arm_id: row.arm_id })}>Artifacts</Link>

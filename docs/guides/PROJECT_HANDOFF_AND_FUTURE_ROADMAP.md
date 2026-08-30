@@ -4,7 +4,7 @@
 
 Authoritative successor-team handoff guide.
 
-Current as of 2026-08-25.
+Current as of 2026-08-30.
 
 This document describes the state of the Claude Code Backend Benchmark after:
 
@@ -14,6 +14,12 @@ This document describes the state of the Claude Code Backend Benchmark after:
 - dashboard scope/provenance correction;
 - failure-taxonomy and cost-decomposition work;
 - provider-billed OpenAI cost reconciliation through DR-304;
+- full selected-run provider-evidence audit and cross-provider consistency
+  closure;
+- normalized provider evidence/reconciliation schema and fail-closed promotion
+  contract;
+- read-only Planner promotion-evidence review surface;
+- guarded durable evidence-promotion review CLI;
 - live-supervision and canonical-publication implementation;
 - completion of the Dashboard Research Guide;
 - completion of the Codebase Guide.
@@ -67,6 +73,11 @@ Before designing or authorizing new paid benchmark waves, also read:
 
     docs/methodology/USAGE_AND_COST_EVIDENCE_MODEL.md
 
+Operators reviewing Canary -> Smoke or Smoke -> Full advancement should also
+read:
+
+    docs/runbooks/EVIDENCE_PROMOTION_REVIEW.md
+
 Then this roadmap.
 
 Use the Dashboard Research Guide to answer:
@@ -115,16 +126,35 @@ At handoff:
 - the J2 failure/trajectory taxonomy is frozen;
 - DR-302 failure composition is implemented;
 - DR-303 historical spend decomposition is implemented;
-- DR-304's OpenAI-aware current selected-cost layer is implemented;
-- subsequent provider-evidence review identified broader Phase 3
-  provider-family reconciliation as incomplete, so non-OpenAI current costs
-  must not be assumed provider-reconciled solely because DR-304 exists;
+- DR-304 remains the historical step that first introduced exact
+  provider-billed OpenAI selected cost without rewriting older accounting;
+- the later provider-evidence audit and cross-provider consistency work are
+  complete for all 16 reviewed selected Phase 3 arms across 8 provider
+  families;
+- 10 normalized selected arms have current usage/cost reconciliation chains;
+- 6 accepted normalized-absence selected arms remain explicit rather than
+  being filled with fabricated provider rows;
+- the normalized authority classes are 2 exact provider-billed arms, 5
+  qualified rate-estimate arms, and 3 qualified lower-bound arms;
+- Anthropic's 4 accepted-absence arms retain reviewed reconstruction/lower-bound
+  reporting but have no retained first-party selected-run evidence normalized
+  under the reviewed evidence/credential set;
+- Anthropic accepted absence is not a claim that Anthropic lacks provider APIs:
+  the repository collector supports the Admin usage/cost APIs, which require a
+  separate `ANTHROPIC_ADMIN_API_KEY`;
+- the 2 GLM selected arms remain deliberate normalized absence for distinct
+  evidentiary reasons: historical GLM 5.1 provider context was not allocable to
+  its selected run, while comparable selected-run first-party evidence was not
+  retained for GLM 5.2;
 - historical and current cost layers remain separately visible;
 - live supervision exists;
 - final canonical publication exists;
 - Supabase and R2 publication infrastructure exists;
 - the dashboard is an evidence/research platform;
-- the Planner remains review-first;
+- the Planner remains review-first and read-only, and now consumes the
+  fail-closed current promotion-gate view for Smoke/Full planning;
+- the durable promotion-review mutation path is
+  `scripts/review_evidence_promotion.py`, not the Planner;
 - protected dashboard dispatch is intentionally deferred;
 - Phase 4 is planned but not activated;
 - future paid experiments must independently qualify usage and cost evidence;
@@ -195,9 +225,18 @@ These should remain reproducible.
 
 Examples:
 
-- DR-304 current selected-cost layer;
+- current provider-aware selected-cost layer;
 - current reviewed Phase 3 extended comparison;
-- exact reviewed run-selection contract.
+- exact reviewed run-selection contract;
+- selected-run provider consistency contract covering all 16 reviewed arms.
+
+The cross-provider consistency source is:
+
+    docs/reports/phase3/PHASE3_CROSS_PROVIDER_CONSISTENCY_20260828.md
+
+Its normalized absence states are part of the reviewed interpretation. Absence
+does not mean zero usage or zero cost, and it does not automatically mean
+ingestion failure.
 
 A new current layer may supersede an older decision-facing interpretation
 without rewriting the historical evidence.
@@ -563,13 +602,42 @@ Observation must remain failure-isolated from benchmark execution.
 
 ## Dashboard Planner
 
-The Planner is presently **review-first and non-dispatching**.
+The Planner is presently **review-first, read-only, and non-dispatching**.
 
-It can help construct and validate intended work.
+It can construct and validate intended work and, for Smoke/Full planning, read
+the current fail-closed predecessor promotion evidence from:
 
-It should not be described as a live execution controller.
+    benchmark.v_evidence_promotion_gate
 
-This boundary is intentional.
+The current progression is:
+
+    Canary
+      -> reviewed Canary-to-Smoke gate
+      -> Smoke
+      -> reviewed Smoke-to-Full gate
+      -> Full
+
+Canary needs no predecessor promotion gate.
+
+For Smoke and Full, absent, stale, blocked, waived, or otherwise ineffective
+promotion evidence causes the Planner to withhold the corresponding commands.
+
+The Planner does not:
+
+- insert or update promotion gates;
+- modify usage or cost reconciliations;
+- turn a waiver into authorization;
+- dispatch GitHub Actions.
+
+Durable review decisions are recorded through:
+
+    scripts/review_evidence_promotion.py
+
+using the operator procedure:
+
+    docs/runbooks/EVIDENCE_PROMOTION_REVIEW.md
+
+This separation between planning, durable review, and dispatch is intentional.
 
 ## Protected dashboard dispatch is deferred
 
@@ -707,19 +775,40 @@ Do not add visualizations merely because another chart fits.
 
 Ask what decision or research question it improves.
 
-## Provider evidence and cost-reconciliation capability
+## Provider evidence, reconciliation, and promotion capability
 
 The Phase 3 cost review exposed an important reusable platform requirement:
 benchmark-reported cost must be independently checkable against provider-side
 evidence.
 
-This is especially important for router-mediated experiments. A routing alias
-such as `router-*` is an experiment identity, not necessarily a provider
-pricing identity. The platform should preserve both the routing alias and the
+That requirement is now represented as a first-class current architecture,
+rather than only a future design.
+
+The normalized schema/fail-closed contract is implemented in:
+
+    db/migrations/phase3/011_provider_evidence_contract.sql
+
+The current evidence model separates:
+
+    provider evidence source
+      -> normalized provider usage / pricing / cost evidence
+      -> usage reconciliation
+      -> cost reconciliation
+      -> reviewed promotion decision
+      -> fail-closed effective advancement state
+
+The durable promotion-review operator is:
+
+    scripts/review_evidence_promotion.py
+
+The Planner is a read-only consumer of the final promotion view.
+
+This remains especially important for router-mediated experiments. A routing
+alias such as `router-*` is an experiment identity, not necessarily a provider
+pricing identity. The platform preserves routing identity separately from the
 canonical backend/provider model used for pricing and reconciliation.
 
-Future cost-accounting work should support a normalized provider-evidence
-workflow that can:
+The current contract and future extensions should preserve the ability to:
 
 - ingest sanitized provider usage exports, billing detail, request logs, or
   other provider-side evidence;
@@ -746,22 +835,47 @@ workflow that can:
 - generate machine-readable reconciliation records suitable for dashboard,
   report, and cross-phase use.
 
-A future dashboard/provider-evidence view should make it easy to inspect, for
-each arm:
+The current dashboard already exposes much of this decision-facing chain
+through Overview, Cost Coverage, Data Model, and Planner:
 
     selected run
       -> router alias
       -> canonical backend/provider model
-      -> benchmark estimated cost
-      -> provider evidence
+      -> benchmark/historical cost
+      -> provider evidence class
       -> selected current cost
-      -> absolute / relative discrepancy
+      -> relation / qualification
       -> trial allocation status
       -> outcome allocation status
+      -> promotion review when applicable
 
-The Cost Coverage page should surface the evidence class alongside the dollar
-amount. A cost should not appear equally authoritative when one arm has an
-exact provider-billed total and another has only an internal estimate.
+The Cost Coverage page surfaces evidence class alongside the dollar amount. A
+cost should not appear equally authoritative when one arm has an exact
+provider-billed total and another has only a qualified estimate, lower bound,
+or accepted normalized absence.
+
+### Current provider collection boundary
+
+Do not confuse the normalized Phase 3 evidence corpus with a generalized live
+collector for every provider.
+
+The repository currently has:
+
+    scripts/collect_provider_evidence.py
+    scripts/provider_evidence/
+
+The implemented read-only provider collector currently supports Anthropic
+Admin usage/cost APIs and requires:
+
+    ANTHROPIC_ADMIN_API_KEY
+
+The other Phase 3 provider families were closed using retained provider-specific
+exports, dashboard evidence, historical ingestion/reconciliation tools, or
+explicit accepted-absence review as appropriate.
+
+Expanding automatic provider collection remains future platform work and should
+preserve provider-specific permissions, granularity, allocation limits, and
+evidence provenance rather than pretending all providers expose one common API.
 
 ### Cost-decomposition rule
 
@@ -810,8 +924,21 @@ Before execution, record:
 - expected provider evidence source;
 - whether provider export/request detail can identify the experiment.
 
-After canary, smoke, and full execution, compare available provider evidence
-against benchmark accounting and record the reconciliation status.
+After Canary and Smoke, compare available provider evidence against benchmark
+accounting and record the reconciliation status **before** advancing.
+
+The intended future paid-run evidence progression is:
+
+    dry/local validation
+      -> Canary
+      -> usage/cost reconciliation
+      -> reviewed Canary-to-Smoke gate
+      -> Smoke
+      -> usage/cost reconciliation
+      -> reviewed Smoke-to-Full gate
+      -> Full
+
+Full is an experiment, not a telemetry-discovery stage.
 
 This requirement does not mean every provider must expose perfect run-level
 billing. It means the evidence limitation must be known and represented rather
@@ -964,6 +1091,32 @@ part of the experimental condition.
 Estimate canary and smoke cost before any full sweep.
 
 The smaller, cleaner experiment is preferable to a broad inconsistent one.
+
+#### Promotion and experiment identity
+
+The current canonical arm model already has a first-class:
+
+    agent_harness
+
+field, so Phase 4 should use that dimension rather than encoding harness only in
+an arm display string.
+
+Before the **first paid Phase 4 Canary**, however, complete two additional
+activation prerequisites:
+
+1. define and retain an explicit harness-version contract;
+2. review/migrate promotion authorization so a current gate cannot authorize a
+   different experiment merely because `arm_id` and target mode match.
+
+The natural current scoping seam is the exact source arm run's suite identity:
+
+    benchmark_arm_runs.suite_id
+      -> benchmark_eval_suites.phase
+
+Do not rely only on arm naming conventions for long-term experiment isolation.
+
+This is an activation prerequisite, not an instruction to migrate or activate
+Phase 4 during handoff documentation work.
 
 ### Phase 4 implementation sequence
 
@@ -1139,24 +1292,27 @@ The object of study is the combined harness condition.
 
 ### Phase 4 dashboard implications
 
-Future dashboard work may need a new first-class dimension:
+The canonical data model already has first-class:
 
-    agent harness
+    benchmark_arms.agent_harness
 
-Do not encode harness identity only into an arm display string.
+and the Arms page now exposes that recorded identity.
 
-Likely needs include:
+Phase 4 therefore does **not** need to invent a harness dimension or encode
+harness identity only into a display string.
 
-- harness field;
-- harness version;
-- normalized evidence completeness;
+Likely Phase 4 additions still include:
+
+- explicit harness-version capture;
+- experiment/suite-scoped promotion authority;
+- normalized evidence completeness across harnesses;
 - harness-specific artifact presentation;
 - cross-harness comparison;
 - task × harness views;
 - harness-aware failure categories.
 
-Design these only after the initial compatibility work shows what is actually
-needed.
+Design the additional fields only after compatibility work shows what is
+actually needed.
 
 ### Phase 4 stop conditions
 
@@ -1278,6 +1434,18 @@ Phase 5 introduces new evidence such as:
 The system should make planning and execution costs separable.
 
 Do not hide two-pass cost inside one opaque total.
+
+These are **planned extension seams**, not current first-class canonical schema
+claims. Before Phase 5 activation, explicitly design:
+
+- agent procedure identity;
+- planner versus executor role;
+- plan-to-execution linkage;
+- planner/executor runtime and token attribution;
+- separable planning and execution cost authority.
+
+Do not pre-populate speculative Phase 5 rows in the current schema merely to
+make future work look prepared.
 
 ### Phase 5 analytical questions
 
@@ -1938,7 +2106,11 @@ Phase 3 closeout:
 
 Current reviewed Phase 3:
 
-    results/phase3/reporting/phase3_current_reviewed_comparison_20260821.json
+    results/phase3/reporting/phase3_current_reviewed_comparison_20260825.json
+
+Selected-run cross-provider consistency:
+
+    docs/reports/phase3/PHASE3_CROSS_PROVIDER_CONSISTENCY_20260828.md
 
 Historical reviewed Phase 3:
 
@@ -2020,23 +2192,37 @@ Do not perform broad cleanup for its own sake.
 
 Let observed research friction determine features.
 
-### Priority 5 — Refresh Phase 4 design
+### Priority 5 — Expand automatic provider evidence collection
+
+After the current documentation integration is accepted, resume provider
+usage/cost collector expansion.
+
+Use the existing Anthropic read-only collector as one implementation pattern,
+but preserve each provider's actual credential model, API/export granularity,
+allocation limits, and provenance rather than forcing a false common schema at
+collection time.
+
+### Priority 6 — Refresh Phase 4 design and activation prerequisites
 
 Revalidate harness candidates and compatibility.
 
-### Priority 6 — Run Phase 4 canary/smoke
+Before the first paid Phase 4 Canary, resolve the harness-version contract and
+promotion-gate experiment/suite scoping described above.
 
-Only after methodology and evidence capture are ready.
+### Priority 7 — Run Phase 4 canary/smoke
 
-### Priority 7 — Run Phase 4 scored sweep
+Only after methodology, evidence capture, promotion scope, and budget controls
+are ready.
+
+### Priority 8 — Run Phase 4 scored sweep
 
 Only after canary/smoke acceptance and budget review.
 
-### Priority 8 — Analyze and close Phase 4
+### Priority 9 — Analyze and close Phase 4
 
 Do not rush directly into Phase 5.
 
-### Priority 9 — Refresh and begin Phase 5
+### Priority 10 — Refresh and begin Phase 5
 
 Use lessons from Phase 4.
 
@@ -2051,7 +2237,7 @@ Reasonable deferred items include:
 - improved saved research views;
 - automated research packets;
 - better cross-phase matched-task exploration;
-- harness-aware dashboard dimensions;
+- richer cross-harness comparison and artifact views;
 - plan/execution-aware Phase 5 views.
 
 These are options.

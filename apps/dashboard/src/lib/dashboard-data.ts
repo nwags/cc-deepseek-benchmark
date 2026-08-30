@@ -35,6 +35,7 @@ export type ArmRow = {
   provider_family: string | null;
   backend_model: string | null;
   router_model: string | null;
+  agent_harness: string | null;
   run_count: number;
   trial_count: number;
   success_count: number;
@@ -137,6 +138,7 @@ export async function getArmRows(): Promise<ArmRow[]> {
       provider_family,
       backend_model,
       router_model,
+      agent_harness,
       run_count::int,
       trial_count::int,
       success_count::int,

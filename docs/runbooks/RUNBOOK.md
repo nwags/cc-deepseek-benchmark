@@ -19,6 +19,24 @@ Current successor-team guidance begins in:
 docs/guides/README.md
 ```
 
+Page-specific dashboard interpretation:
+
+```text
+docs/guides/dashboard/README.md
+```
+
+Current durable evidence-promotion review procedure:
+
+```text
+docs/runbooks/EVIDENCE_PROMOTION_REVIEW.md
+```
+
+Current provider usage/cost automation reference:
+
+```text
+docs/reference/PROVIDER_USAGE_COST_AUTOMATION.md
+```
+
 ## 0. Quick status
 
 ```bash
@@ -137,10 +155,10 @@ configs/phases/           phase configs
 configs/tasks/            task lists
 
 docs/plans/               phase plans
-docs/reference/           glossary, model matrix, task selection
+docs/reference/           glossary, model/task, evidence/automation references
 docs/reports/             phase reports and analysis
 docs/runbooks/            repo operation docs
-docs/guides/              successor research/code/handoff guides
+docs/guides/              successor guides and dashboard page manual
 
 results/phase1/           frozen Phase 1 outputs
 results/phase2/           frozen Phase 2 outputs
@@ -171,9 +189,29 @@ Before any future benchmark execution:
 5. use canary and smoke gates before any approved paid full sweep;
 6. preserve frozen Phase 1/2/3 evidence.
 
+For a reviewed Canary -> Smoke or Smoke -> Full advancement decision, use:
+
+    docs/runbooks/EVIDENCE_PROMOTION_REVIEW.md
+
+The current durable sequence is:
+
+    Plan -> Check -> Rollback-only verification -> Apply
+
+The Planner remains read-only. It consumes current fail-closed promotion
+evidence but does not durably record the review or dispatch benchmark work.
+
 For implementation details, use:
 
     docs/guides/CODEBASE_GUIDE.md
+
+For provider usage/cost collection capabilities, credential/granularity
+boundaries, current repository automation, and the prospective collector
+expansion order, use:
+
+    docs/reference/PROVIDER_USAGE_COST_AUTOMATION.md
+
+That reference is the current navigation point for provider telemetry work. It
+does not itself authorize a provider probe or paid benchmark execution.
 
 ## Historical pre-closeout operating record
 
