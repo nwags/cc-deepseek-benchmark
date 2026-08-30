@@ -31,8 +31,8 @@ const executionAndScoringFlow: FlowItem[] = [
     detail: "Harbor orchestrates the isolated Terminal-Bench task environment and its result directory."
   },
   {
-    title: "Claude Code agent harness",
-    detail: "Claude Code remains the fixed agent harness that receives the task and performs observable work in the task environment."
+    title: "Configured agent harness",
+    detail: "For Phases 1–3, the Claude Code agent harness is the fixed principal harness. Harness identity is already canonical arm metadata; a future Phase 4 may vary this dimension only after a compatibility and methodology review."
   },
   {
     title: "LiteLLM route when applicable",
@@ -114,6 +114,38 @@ const canonicalPublicationFlow: FlowItem[] = [
   }
 ];
 
+
+const evidenceQualificationFlow: FlowItem[] = [
+  {
+    title: "Canonical arm run",
+    detail: "A completed canonical arm run is the execution identity that reconciliations and promotion review bind to. Normalized provider evidence may also attach to that arm run or an exact trial when allocation supports that precision; broader provider evidence can remain unallocated until reconciliation."
+  },
+  {
+    title: "Provider evidence collection and ingestion",
+    detail: "Provider usage, billing/cost, pricing, and model-identity evidence are retained as independent provenance rather than overwriting Harbor or harness telemetry."
+  },
+  {
+    title: "Normalized provider usage and cost evidence",
+    detail: "Provider-specific observations are normalized while preserving allocation scope, completeness, source identity, and limitations."
+  },
+  {
+    title: "Usage and cost reconciliations",
+    detail: "Independent reconciliation records select the current usage/model-identity authority and economic authority for the exact arm run."
+  },
+  {
+    title: "Guarded promotion review",
+    detail: "scripts/review_evidence_promotion.py records a reviewed Canary→Smoke or Smoke→Full decision using exact reconciliation UUIDs and a reviewed-state fingerprint."
+  },
+  {
+    title: "Fail-closed promotion view",
+    detail: "benchmark.v_evidence_promotion_gate derives whether the stored review and its exact current evidence chain effectively authorize advancement."
+  },
+  {
+    title: "Read-only Planner",
+    detail: "The Planner reads current promotion evidence, displays the evidence chain, and withholds Smoke/Full commands when effective advancement is absent. It does not itself write gates or dispatch work."
+  }
+];
+
 function FlowPanel({
   title,
   description,
@@ -161,7 +193,7 @@ export default function ArchitecturePage() {
   return (
     <AppShell
       title="Architecture"
-      description="Benchmark execution and scoring, optional live observation, final canonical publication, and dashboard read paths are separate but related flows."
+      description="Benchmark execution and scoring, optional live observation, canonical publication, provider-evidence qualification, promotion review, and dashboard read paths are separate but related flows."
     >
       <section className="quality-context-panel">
         <strong>Separate paths, separate responsibilities.</strong> Execution and verifier scoring create the benchmark result.
@@ -313,10 +345,30 @@ export default function ArchitecturePage() {
         </p>
       </section>
 
+      <FlowPanel
+        title="4. Provider evidence, reconciliation, and promotion review"
+        description="A post-execution evidence-authority path keeps provider observations, reviewed reconciliation, and benchmark-advancement decisions distinct from raw scoring."
+        items={evidenceQualificationFlow}
+        variant="artifact"
+      />
+
+      <section className="quality-context-panel">
+        <p>
+          <strong>Future-phase boundary:</strong> Phase 4 may vary the configured agent harness, but it is not
+          active. Before its first paid Canary, promotion authorization must be reviewed for experiment/suite scoping
+          so an earlier gate cannot authorize a new experiment based only on arm and target mode.
+        </p>
+        <p>
+          Phase 5 remains after Phase 4. Its planned procedure dimension introduces retained planning evidence
+          and separable planning/execution usage, cost, latency, and failure attribution; those are extension
+          requirements, not current canonical schema claims.
+        </p>
+      </section>
+
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <h2>4. Dashboard storage and read paths</h2>
+            <h2>5. Dashboard storage and read paths</h2>
             <p>Dashboard pages declare their evidence source; not every page reads from one common store.</p>
           </div>
           <div className="panel-heading-actions">

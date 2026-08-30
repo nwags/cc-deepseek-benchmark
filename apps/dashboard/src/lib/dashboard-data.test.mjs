@@ -516,3 +516,32 @@ test("Planner promotion loader reads only current fail-closed gate rows", async 
   assert.match(captured, /gate\.cost_reconciliation_id::text/);
   assert.match(captured, /gate\.selected_cost_usd::text/);
 });
+
+
+test("arm loader retains first-class agent harness identity", async () => {
+  let captured = "";
+  globalThis.__dashboardQueryHandler = async (sql) => {
+    captured = sql;
+    return [{
+      arm_id: "arm",
+      provider_family: "provider",
+      backend_model: "model",
+      router_model: null,
+      agent_harness: "claude-code",
+      run_count: 1,
+      trial_count: 1,
+      success_count: 1,
+      pass_rate: 1,
+      trial_cost_usd: 1,
+      cost_row_count: 1,
+      missing_cost_count: 0,
+      median_runtime_seconds: 1,
+    }];
+  };
+
+  const rows = await dashboardData.getArmRows();
+
+  assert.equal(rows[0].agent_harness, "claude-code");
+  assert.match(captured, /agent_harness/);
+  assert.match(captured, /from benchmark\.v_dashboard_arms/);
+});

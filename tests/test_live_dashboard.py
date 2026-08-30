@@ -1948,3 +1948,67 @@ def test_dr304_current_selected_outcome_cost_firewall() -> None:
     assert "selectedOutcomeCostAllocationStatus" not in spend
     assert "selectedTrialCostAllocationStatus" not in spend
     assert "phase3-reviewed-comparison" in spend
+
+
+
+def test_data_model_and_architecture_expose_current_evidence_and_future_phase_seams() -> None:
+    data_model = Path("apps/dashboard/src/app/data-model/page.tsx").read_text()
+    architecture = Path("apps/dashboard/src/app/architecture/page.tsx").read_text()
+    arms = Path("apps/dashboard/src/app/arms/page.tsx").read_text()
+    diagram = Path("docs/diagrams/DASHBOARD_DATA_MODEL_20260830.mmd").read_text()
+
+    for relation in (
+        "benchmark.benchmark_provider_evidence_sources",
+        "benchmark.benchmark_provider_usage_evidence",
+        "benchmark.benchmark_provider_cost_evidence",
+        "benchmark.benchmark_usage_reconciliations",
+        "benchmark.benchmark_cost_reconciliations",
+        "benchmark.benchmark_evidence_promotion_gates",
+        "benchmark.v_evidence_promotion_gate",
+    ):
+        assert relation in data_model
+        assert relation in diagram
+
+    for relationship in (
+        "provider_evidence_sources.arm_run_id",
+        "provider_evidence_sources.artifact_id",
+        "provider_usage_evidence.source_id",
+        "provider_usage_evidence.arm_run_id / trial_id",
+        "provider_pricing_snapshots.source_id",
+        "provider_cost_evidence.source_id",
+        "provider_cost_evidence.arm_run_id / trial_id",
+        "provider_cost_evidence.pricing_snapshot_id",
+        "cost_reconciliations.pricing_snapshot_id",
+        "evidence_promotion_gates.arm_id",
+    ):
+        assert relationship in data_model
+
+    for edge in (
+        'PSRC -.->|"arm_run_id"| BARUN',
+        'PSRC -.->|"artifact_id"| BART',
+        'PUSE -.->|"trial_id"| BTRIAL',
+        'PRICE -->|"source_id"| PSRC',
+        'PCOST -.->|"trial_id"| BTRIAL',
+        'PCOST -.->|"pricing_snapshot_id"| PRICE',
+        'CREC -.->|"pricing_snapshot_id"| PRICE',
+        'GATE -->|"arm_id"| BARM',
+    ):
+        assert edge in diagram
+
+    assert "Phase 4 and Phase 5 readiness" in data_model
+    assert "benchmark_arms.agent_harness" in data_model
+    assert "promotion-gate scope must be reviewed" in data_model
+    assert "Agent procedure" in data_model
+    assert "not yet first-class canonical relations" in data_model
+
+    assert "Configured agent harness" in architecture
+    assert (
+        "Provider evidence, reconciliation, and promotion review"
+        in architecture
+    )
+    assert "scripts/review_evidence_promotion.py" in architecture
+    assert "benchmark.v_evidence_promotion_gate" in architecture
+    assert "experiment/suite scoping" in architecture
+    assert "Phase 5 remains after Phase 4" in architecture
+
+    assert 'Harness: {row.agent_harness ?? "not recorded"}' in arms

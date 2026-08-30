@@ -20,6 +20,22 @@ const canonicalRelations = [
   "benchmark.benchmark_arm_runs",
 ] as const;
 
+const providerEvidenceRelations = [
+  "benchmark.benchmark_provider_evidence_sources",
+  "benchmark.benchmark_provider_usage_evidence",
+  "benchmark.benchmark_provider_pricing_snapshots",
+  "benchmark.benchmark_provider_cost_evidence",
+] as const;
+
+const evidenceAuthorityRelations = [
+  "benchmark.benchmark_usage_reconciliations",
+  "benchmark.benchmark_usage_reconciliation_sources",
+  "benchmark.benchmark_cost_reconciliations",
+  "benchmark.benchmark_cost_reconciliation_sources",
+  "benchmark.benchmark_evidence_promotion_gates",
+  "benchmark.v_evidence_promotion_gate",
+] as const;
+
 const derivedRelationGroups = [
   {
     label: "Validity",
@@ -71,7 +87,7 @@ export default function DataModelPage() {
   return (
     <AppShell
       title="Data Model"
-      description="A checked-in reference for live observation, canonical benchmark metadata, derived views, artifact bytes, reviewed snapshots, and dashboard consumers."
+      description="A checked-in reference for live observation, canonical benchmark metadata, provider evidence, reviewed authority, derived views, artifact bytes, reviewed snapshots, and dashboard consumers."
     >
       <section className="quality-context-panel data-model-orientation">
         <p>
@@ -93,14 +109,15 @@ export default function DataModelPage() {
         </div>
         <ol className="data-model-layer-index">
           <li><strong>A</strong><span>Live, non-canonical execution observations</span></li>
-          <li><strong>B</strong><span>Canonical benchmark metadata and relationships</span></li>
-          <li><strong>C</strong><span>Derived validity, quality, dashboard, and cost query layers</span></li>
-          <li><strong>D</strong><span>Cloudflare R2 evidence bytes outside Postgres</span></li>
-          <li><strong>E</strong><span>Checked-in reviewed and historical snapshots</span></li>
-          <li><strong>F</strong><span>Dashboard consumers with declared populations and sources</span></li>
+          <li><strong>B</strong><span>Canonical benchmark metadata and experimental identity</span></li>
+          <li><strong>C</strong><span>Provider evidence, reconciliation, and promotion authority</span></li>
+          <li><strong>D</strong><span>Derived validity, quality, dashboard, and cost query layers</span></li>
+          <li><strong>E</strong><span>Cloudflare R2 evidence bytes outside Postgres</span></li>
+          <li><strong>F</strong><span>Checked-in reviewed and historical snapshots</span></li>
+          <li><strong>G</strong><span>Dashboard consumers with declared populations and sources</span></li>
         </ol>
         <p className="data-model-source-reference">
-          Checked-in diagram source: <code>docs/diagrams/DASHBOARD_DATA_MODEL_20260812.mmd</code>. The semantic HTML below
+          Current checked-in diagram source: <code>docs/diagrams/DASHBOARD_DATA_MODEL_20260830.mmd</code>. The prior audited diagram <code>docs/diagrams/DASHBOARD_DATA_MODEL_20260812.mmd</code> remains retained as historical provenance. The semantic HTML below
           is the accessible text equivalent and remains complete without rendering Mermaid.
         </p>
       </section>
@@ -161,10 +178,156 @@ export default function DataModelPage() {
         </div>
       </section>
 
+
+      <section className="panel data-model-layer" aria-labelledby="data-model-provider-evidence">
+        <div className="panel-heading">
+          <div>
+            <p className="data-model-layer-label">Layer C · evidence / reviewed authority</p>
+            <h2 id="data-model-provider-evidence">Provider evidence, reconciliation, and promotion authority</h2>
+            <p>
+              Provider evidence remains separate from raw benchmark telemetry. Normalized usage/cost observations
+              become decision-facing authority only through explicit reconciliation, and benchmark advancement is a
+              separately reviewed gate over an exact arm-run evidence chain.
+            </p>
+          </div>
+          <Link href="/planner">Open Planner →</Link>
+        </div>
+
+        <div className="data-model-derived-grid">
+          <section aria-labelledby="provider-evidence-relations">
+            <h3 id="provider-evidence-relations">Normalized provider evidence</h3>
+            <RelationList relations={providerEvidenceRelations} />
+          </section>
+          <section aria-labelledby="evidence-authority-relations">
+            <h3 id="evidence-authority-relations">Reviewed authority and advancement</h3>
+            <RelationList relations={evidenceAuthorityRelations} />
+          </section>
+        </div>
+
+        <div className="data-model-relationship-block">
+          <h3>Principal evidence relationships</h3>
+          <dl className="data-model-edges">
+            <div>
+              <dt><code>provider_evidence_sources.arm_run_id</code></dt>
+              <dd>optionally references <code>benchmark_arm_runs.id</code> when the source itself is arm-run scoped</dd>
+            </div>
+            <div>
+              <dt><code>provider_evidence_sources.artifact_id</code></dt>
+              <dd>optionally references <code>benchmark_artifacts.id</code> when canonical artifact provenance exists</dd>
+            </div>
+            <div>
+              <dt><code>provider_usage_evidence.source_id</code></dt>
+              <dd>references the provider evidence source from which the normalized usage observation was derived</dd>
+            </div>
+            <div>
+              <dt><code>provider_usage_evidence.arm_run_id / trial_id</code></dt>
+              <dd>optionally bind usage to an exact canonical arm run and trial when allocation supports that precision</dd>
+            </div>
+            <div>
+              <dt><code>provider_pricing_snapshots.source_id</code></dt>
+              <dd>references the evidence source supporting the retained pricing snapshot</dd>
+            </div>
+            <div>
+              <dt><code>provider_cost_evidence.source_id</code></dt>
+              <dd>references the provider evidence source from which the normalized cost observation was derived</dd>
+            </div>
+            <div>
+              <dt><code>provider_cost_evidence.arm_run_id / trial_id</code></dt>
+              <dd>optionally bind cost to an exact canonical arm run and trial when allocation supports that precision</dd>
+            </div>
+            <div>
+              <dt><code>provider_cost_evidence.pricing_snapshot_id</code></dt>
+              <dd>optionally references the pricing snapshot used for rate-reconstructed cost evidence</dd>
+            </div>
+            <div>
+              <dt><code>usage_reconciliations.arm_run_id</code></dt>
+              <dd>selects usage/model-identity authority for one exact arm run</dd>
+            </div>
+            <div>
+              <dt><code>usage_reconciliation_sources</code></dt>
+              <dd>joins a usage reconciliation to the exact provider evidence sources and their evidence roles</dd>
+            </div>
+            <div>
+              <dt><code>cost_reconciliations.arm_run_id</code></dt>
+              <dd>selects economic authority for one exact arm run</dd>
+            </div>
+            <div>
+              <dt><code>cost_reconciliations.pricing_snapshot_id</code></dt>
+              <dd>optionally records the pricing snapshot supporting the selected economic authority</dd>
+            </div>
+            <div>
+              <dt><code>cost_reconciliation_sources</code></dt>
+              <dd>joins a cost reconciliation to the exact provider evidence sources and their evidence roles</dd>
+            </div>
+            <div>
+              <dt><code>evidence_promotion_gates.arm_id</code></dt>
+              <dd>references the canonical arm whose target-mode progression is under review</dd>
+            </div>
+            <div>
+              <dt><code>evidence_promotion_gates.source_arm_run_id</code></dt>
+              <dd>binds a reviewed Canary→Smoke or Smoke→Full decision to the exact source arm run</dd>
+            </div>
+            <div>
+              <dt><code>evidence_promotion_gates.*_reconciliation_id</code></dt>
+              <dd>pins the exact usage and cost reconciliations reviewed for advancement</dd>
+            </div>
+            <div>
+              <dt><code>v_evidence_promotion_gate</code></dt>
+              <dd>derives fail-closed effective advancement state consumed by the read-only Planner</dd>
+            </div>
+          </dl>
+        </div>
+
+        <aside className="data-model-caution">
+          <strong>Provider evidence does not overwrite benchmark truth.</strong> Raw trial telemetry, provider
+          evidence, selected reconciliation authority, and promotion review remain distinct provenance layers.
+        </aside>
+      </section>
+
+      <section className="panel data-model-layer" aria-labelledby="data-model-future-dimensions">
+        <div className="panel-heading">
+          <div>
+            <p className="data-model-layer-label">Future-phase extension seams · not active experiments</p>
+            <h2 id="data-model-future-dimensions">Phase 4 and Phase 5 readiness</h2>
+            <p>
+              These fields and extension points describe compatibility only. They do not activate either future
+              phase and they do not authorize new paid benchmark work.
+            </p>
+          </div>
+        </div>
+
+        <div className="data-model-consumer-grid">
+          <section>
+            <h3>Already first-class</h3>
+            <p>
+              <code>benchmark_runs.phase</code>, suite identity, logical mode, provider/backend/router identity,
+              and <code>benchmark_arms.agent_harness</code> already separate major experimental dimensions.
+            </p>
+          </section>
+          <section>
+            <h3>Phase 4 activation seam</h3>
+            <p>
+              Harness identity can vary without changing historical Phase 3 rows. Before Phase 4 paid execution,
+              promotion-gate scope must be reviewed so a current gate cannot authorize a different experiment
+              merely because <code>arm_id</code> and target mode match. Harness-version capture also needs an
+              explicit contract.
+            </p>
+          </section>
+          <section>
+            <h3>Phase 5 activation seam</h3>
+            <p>
+              Agent procedure, planner/executor role, plan→execution linkage, and separable
+              planning-versus-execution usage/cost are planned dimensions. They are not yet first-class canonical relations.
+              Their schema should be designed after Phase 4 rather than guessed now.
+            </p>
+          </section>
+        </div>
+      </section>
+
       <section className="panel data-model-layer" aria-labelledby="data-model-derived">
         <div className="panel-heading">
           <div>
-            <p className="data-model-layer-label">Layer C · query/derived</p>
+            <p className="data-model-layer-label">Layer D · query/derived</p>
             <h2 id="data-model-derived">Validity, quality, dashboard, and cost views</h2>
             <p>Representative query families over canonical metadata—not a second source of benchmark truth.</p>
           </div>
@@ -183,7 +346,7 @@ export default function DataModelPage() {
       <section className="panel data-model-layer data-model-layer-storage" aria-labelledby="data-model-r2">
         <div className="panel-heading">
           <div>
-            <p className="data-model-layer-label">Layer D · external byte storage</p>
+            <p className="data-model-layer-label">Layer E · external byte storage</p>
             <h2 id="data-model-r2">Cloudflare R2 evidence bytes</h2>
             <p>R2 sits outside the Supabase/Postgres entity boundary; its relationships are storage references, not database foreign keys.</p>
           </div>
@@ -208,7 +371,7 @@ export default function DataModelPage() {
       <section className="panel data-model-layer" aria-labelledby="data-model-reviewed">
         <div className="panel-heading">
           <div>
-            <p className="data-model-layer-label">Layer E · checked-in provenance</p>
+            <p className="data-model-layer-label">Layer F · checked-in provenance</p>
             <h2 id="data-model-reviewed">Reviewed and historical file-backed snapshots</h2>
             <p>Frozen provenance layers remain separate from operational database rows and are not silently refreshed from newer stored evidence.</p>
           </div>
@@ -225,7 +388,7 @@ export default function DataModelPage() {
       <section className="panel data-model-layer" aria-labelledby="data-model-consumers">
         <div className="panel-heading">
           <div>
-            <p className="data-model-layer-label">Layer F · consumers</p>
+            <p className="data-model-layer-label">Layer G · consumers</p>
             <h2 id="data-model-consumers">Representative dashboard consumers</h2>
             <p>Routes disclose their source and population; this list shows representative consumers rather than claiming every page reads every relation.</p>
           </div>
@@ -239,7 +402,7 @@ export default function DataModelPage() {
           <section>
             <h3>Canonical / operational</h3>
             <p><Link href="/runs">/runs</Link> · <Link href="/artifacts">/artifacts</Link> · <code>/trials/[trialId]</code></p>
-            <p><Link href="/arms">/arms</Link> · <Link href="/eval-suites">/eval-suites</Link> · <Link href="/evals">/evals</Link> · <Link href="/trial-quality">/trial-quality</Link></p>
+            <p><Link href="/arms">/arms</Link> · <Link href="/eval-suites">/eval-suites</Link> · <Link href="/evals">/evals</Link> · <Link href="/trial-quality">/trial-quality</Link> · <Link href="/planner">/planner</Link></p>
           </section>
           <section>
             <h3>Reviewed / file-backed</h3>

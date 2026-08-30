@@ -1,0 +1,98 @@
+flowchart LR
+  %% Current reviewable source as of 2026-08-30.
+  %% The semantic HTML on /data-model is the accessible fallback.
+
+  subgraph LIVE["A. Live / non-canonical execution state"]
+    LRUN["benchmark.live_runs"]
+    LEVENT["benchmark.live_run_events"]
+    LTRIAL["benchmark.live_trials"]
+    LART["benchmark.live_artifacts"]
+    LEVENT -->|"live_run_id"| LRUN
+    LTRIAL -->|"live_run_id"| LRUN
+    LART -->|"live_run_id"| LRUN
+  end
+
+  subgraph CANON["B. Canonical benchmark metadata / experimental identity"]
+    BRUN["benchmark.benchmark_runs\nphase"]
+    BARM["benchmark.benchmark_arms\nprovider · backend · router · agent_harness"]
+    BTASK["benchmark.benchmark_tasks"]
+    BSUITE["benchmark.benchmark_eval_suites\nphase · suite_type"]
+    BITEM["benchmark.benchmark_eval_suite_items"]
+    BARUN["benchmark.benchmark_arm_runs\nsuite_id · logical_mode"]
+    BTRIAL["benchmark.benchmark_trials"]
+    BART["benchmark.benchmark_artifacts"]
+
+    BARUN -->|"run_id"| BRUN
+    BARUN -->|"arm_id"| BARM
+    BARUN -->|"suite_id"| BSUITE
+    BITEM -->|"suite_id"| BSUITE
+    BITEM -->|"task_id"| BTASK
+    BTRIAL -->|"run_id"| BRUN
+    BTRIAL -->|"arm_id"| BARM
+    BTRIAL -->|"task_id"| BTASK
+    BTRIAL -->|"arm_run_id"| BARUN
+    BART -->|"run_id"| BRUN
+    BART -->|"trial_id"| BTRIAL
+  end
+
+  LRUN -.->|"canonical_arm_run_id — only direct live→canonical FK"| BARUN
+
+  subgraph EVID["C1. Normalized provider evidence"]
+    PSRC["benchmark.benchmark_provider_evidence_sources"]
+    PUSE["benchmark.benchmark_provider_usage_evidence"]
+    PRICE["benchmark.benchmark_provider_pricing_snapshots"]
+    PCOST["benchmark.benchmark_provider_cost_evidence"]
+
+    PSRC -.->|"arm_run_id"| BARUN
+    PSRC -.->|"artifact_id"| BART
+    PUSE -->|"source_id"| PSRC
+    PUSE -.->|"arm_run_id"| BARUN
+    PUSE -.->|"trial_id"| BTRIAL
+    PRICE -->|"source_id"| PSRC
+    PCOST -->|"source_id"| PSRC
+    PCOST -.->|"arm_run_id"| BARUN
+    PCOST -.->|"trial_id"| BTRIAL
+    PCOST -.->|"pricing_snapshot_id"| PRICE
+  end
+
+  subgraph AUTH["C2. Reconciliation / reviewed advancement authority"]
+    UREC["benchmark.benchmark_usage_reconciliations"]
+    USRC["benchmark.benchmark_usage_reconciliation_sources"]
+    CREC["benchmark.benchmark_cost_reconciliations"]
+    CSRC["benchmark.benchmark_cost_reconciliation_sources"]
+    GATE["benchmark.benchmark_evidence_promotion_gates"]
+    GVIEW["benchmark.v_evidence_promotion_gate"]
+
+    UREC -->|"arm_run_id"| BARUN
+    CREC -->|"arm_run_id"| BARUN
+    CREC -.->|"pricing_snapshot_id"| PRICE
+    USRC -->|"reconciliation_id"| UREC
+    USRC -->|"source_id"| PSRC
+    CSRC -->|"reconciliation_id"| CREC
+    CSRC -->|"source_id"| PSRC
+    GATE -->|"arm_id"| BARM
+    GATE -->|"source_arm_run_id"| BARUN
+    GATE -->|"usage_reconciliation_id"| UREC
+    GATE -->|"cost_reconciliation_id"| CREC
+    GATE --> GVIEW
+  end
+
+  DERIVED["D. Derived query layer\nvalidity · quality · dashboard · cost"]
+  CANON -->|"queries over canonical metadata"| DERIVED
+
+  R2[("E. Cloudflare R2\nartifact bytes outside Postgres")]
+  LART -.->|"r2_uri storage reference"| R2
+  BART -.->|"r2_uri storage reference"| R2
+
+  REVIEWED["F. Checked-in reviewed snapshots\nfrozen/current-reviewed/historical reporting"]
+  CONSUMERS["G. Dashboard consumers\nlive · operational · reviewed · Planner"]
+
+  LIVE -->|"live consumers"| CONSUMERS
+  DERIVED -->|"operational consumers"| CONSUMERS
+  GVIEW -->|"read-only advancement status"| CONSUMERS
+  R2 -->|"bounded preview / immutable download"| CONSUMERS
+  REVIEWED -->|"reviewed/file-backed facts"| CONSUMERS
+
+  FUTURE["Future extension seams — not activated\nPhase 4: vary agent_harness; review harness version + gate experiment/suite scope\nPhase 5: agent procedure + plan/execution linkage + separable economics"]
+  CANON -.-> FUTURE
+  AUTH -.-> FUTURE
