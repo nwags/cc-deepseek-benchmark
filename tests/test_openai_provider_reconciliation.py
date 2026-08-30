@@ -86,6 +86,47 @@ def test_private_source_manifest_is_complete_and_sanitized() -> None:
         assert row["raw_source_committed"] == "false"
         assert row["contains_private_identifiers"] == "true"
 
+    by_file = {
+        row["source_file"]: row
+        for row in rows
+    }
+
+    selected_types = {
+        "cost_2026-06-01_2026-07-01.csv": "provider_cost_export",
+        (
+            "completions_usage_2026-06-01_2026-07-01.csv"
+        ): "provider_usage_export",
+    }
+    selected_rule = (
+        "raw file remains private; only aggregate/date/model/token/cost "
+        "facts are retained"
+    )
+
+    for source_file, source_type in selected_types.items():
+        assert by_file[source_file]["source_type"] == source_type
+        assert (
+            by_file[source_file]["sanitization_rule"]
+            == selected_rule
+        )
+
+    nonselected = set(RAW_HASHES) - set(selected_types)
+    nonselected_rule = (
+        "raw file remains private; reviewed bytes contain only "
+        "start_time/end_time time-grid fields and no usage or cost metrics"
+    )
+
+    assert len(nonselected) == 6
+
+    for source_file in nonselected:
+        assert (
+            by_file[source_file]["source_type"]
+            == "provider_time_grid_no_metrics"
+        )
+        assert (
+            by_file[source_file]["sanitization_rule"]
+            == nonselected_rule
+        )
+
     _assert_sanitized(MANIFEST)
 
 

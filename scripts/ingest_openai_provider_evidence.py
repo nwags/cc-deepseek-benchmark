@@ -29,8 +29,8 @@ RECONCILIATION = (
 
 NORMALIZED_HASHES = {
     "source_manifest": (
-        "2c458c3122c012b97aea5bc8c7a14d566dfae69292263add"
-        "9d7f4bb3c8a901f8"
+        "1f8b6f52aa2d46d8dbcfb87d97a67e62317c4f0a8849a52c"
+        "81e5ee6686c1ea20"
     ),
     "activity": (
         "69004a2c5d13aa40091122a818047d1fbd44a23bad611f791"
