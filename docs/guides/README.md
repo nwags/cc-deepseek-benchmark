@@ -80,6 +80,14 @@ The research interpretation guide is:
 
     docs/guides/DASHBOARD_RESEARCH_GUIDE.md
 
+The page-specific companion manual is:
+
+    docs/guides/dashboard/README.md
+
+Use the Dashboard Research Guide for cross-page research reasoning and the
+page manual for exact route, source, population, authority, control, caveat,
+workflow, and evidence-tracing guidance.
+
 ## Authoritative format and PDF convenience snapshots
 
 The Markdown files are the **authoritative project documentation**.
@@ -189,12 +197,25 @@ The normative evidence criteria remain in:
 
     docs/methodology/USAGE_AND_COST_EVIDENCE_MODEL.md
 
+For current provider usage/cost capabilities, credential and granularity
+boundaries, repository automation coverage, closed Phase 3 authority, and the
+recommended collector-expansion sequence, use:
+
+    docs/reference/PROVIDER_USAGE_COST_AUTOMATION.md
+
+That reference explicitly separates what a provider currently exposes from what
+this repository currently automates.
+
 ## Required complete dashboard walkthrough
 
 **"Review the dashboard" means open all 15 principal dashboard surfaces.**
 
 Do not infer the dashboard's capabilities from Overview alone. Do not mark this
 walkthrough complete merely because several pages share navigation or data.
+
+For the page-specific manual covering all 15 surfaces, use:
+
+    docs/guides/dashboard/README.md
 
 | Dashboard surface | Minimum thing the reviewer should understand |
 |---|---|
@@ -311,8 +332,10 @@ the implementation or proposing a new experiment.
 | Goal | Start here |
 |---|---|
 | Discover insights | `docs/guides/DASHBOARD_RESEARCH_GUIDE.md` |
+| Interpret one dashboard page precisely | `docs/guides/dashboard/README.md` |
 | Understand the implementation | `docs/guides/CODEBASE_GUIDE.md` |
 | Access/run the dashboard locally | `apps/dashboard/README.md` |
+| Understand provider usage/cost automation | `docs/reference/PROVIDER_USAGE_COST_AUTOMATION.md` |
 | Operate the benchmark | `docs/runbooks/RUNBOOK.md`, then `docs/runbooks/EVAL_OPERATIONS.md` |
 | Inspect retained evidence and artifacts | `docs/guides/DASHBOARD_RESEARCH_GUIDE.md`, `docs/runbooks/ARTIFACT_POLICY.md` |
 | Observe live executions | `docs/runbooks/LIVE_RUN_SUPERVISION.md` |

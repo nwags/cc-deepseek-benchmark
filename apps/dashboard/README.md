@@ -97,7 +97,16 @@ navigation currently contains:
 Retired or contained historical routes may still exist for provenance, but they
 are not primary navigation.
 
-For research workflow guidance, use:
+For page-specific interpretation of all 15 principal dashboard surfaces, use:
+
+```text
+docs/guides/dashboard/README.md
+```
+
+That manual documents each page's route, data source, population/authority,
+controls, caveats, common workflows, and evidence-tracing path.
+
+For cross-page research workflow guidance, use:
 
 ```text
 docs/guides/DASHBOARD_RESEARCH_GUIDE.md
@@ -107,6 +116,13 @@ For the current durable Canary/Smoke promotion-review procedure, use:
 
 ```text
 docs/runbooks/EVIDENCE_PROMOTION_REVIEW.md
+```
+
+For provider usage/cost capability, collection, reconciliation, and future
+collector-automation guidance, use:
+
+```text
+docs/reference/PROVIDER_USAGE_COST_AUTOMATION.md
 ```
 
 For protected server-side dispatch as possible future work, use:

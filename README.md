@@ -68,6 +68,13 @@ dashboard surfaces:
 The detailed required walkthrough and the minimum question each page should
 answer are in `docs/guides/README.md` and the Dashboard Research Guide.
 
+For page-specific source, population, authority, controls, caveats, workflow,
+and evidence-tracing guidance, use the
+**[Dashboard page manual](docs/guides/dashboard/README.md)**.
+
+The Dashboard Research Guide remains the cross-page research guide. The page
+manual supplements it rather than replacing it.
+
 Dashboard access/setup instructions are in:
 
 - [`apps/dashboard/README.md`](apps/dashboard/README.md)
@@ -578,6 +585,14 @@ Required hand-off reading:
     docs/guides/DASHBOARD_RESEARCH_GUIDE.md
     docs/guides/CODEBASE_GUIDE.md
     docs/guides/PROJECT_HANDOFF_AND_FUTURE_ROADMAP.md
+
+Page-specific dashboard interpretation:
+
+    docs/guides/dashboard/README.md
+
+Provider usage/cost collection, reconciliation, and automation:
+
+    docs/reference/PROVIDER_USAGE_COST_AUTOMATION.md
 
 Then use the collaboration and operational references appropriate to the work:
 
