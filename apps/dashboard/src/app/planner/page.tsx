@@ -4,8 +4,14 @@ import { ArmConfigDraftBuilder } from "../../components/ArmConfigDraftBuilder";
 import { AppShell } from "../../components/AppShell";
 import { PlannerModeSelector } from "../../components/PlannerModeSelector";
 import { RunPlanBuilder } from "../../components/RunPlanBuilder";
+import { getCurrentEvidencePromotionGates } from "../../lib/dashboard-data";
 import { selectPlannerMode } from "../../lib/planner-modes";
-import type { ArmOption, TaskSetOption } from "../../lib/planner-types";
+import type {
+  ArmOption,
+  PromotionGateLoadStatus,
+  PromotionGateRow,
+  TaskSetOption,
+} from "../../lib/planner-types";
 
 export const dynamic = "force-dynamic";
 
@@ -80,6 +86,17 @@ export default async function PlannerPage({ searchParams }: PlannerPageProps) {
   const arms = readArms();
   const taskSets = selection.mode === "run" ? readTaskSets() : [];
 
+  let promotionGateLoadStatus: PromotionGateLoadStatus = "available";
+  let promotionGates: PromotionGateRow[] = [];
+
+  if (selection.mode === "run") {
+    try {
+      promotionGates = await getCurrentEvidencePromotionGates();
+    } catch {
+      promotionGateLoadStatus = "unavailable";
+    }
+  }
+
   return (
     <AppShell
       title="Planner"
@@ -103,7 +120,12 @@ export default async function PlannerPage({ searchParams }: PlannerPageProps) {
             </p>
           </section>
 
-          <RunPlanBuilder arms={arms} taskSets={taskSets} />
+          <RunPlanBuilder
+            arms={arms}
+            taskSets={taskSets}
+            promotionGateLoadStatus={promotionGateLoadStatus}
+            promotionGates={promotionGates}
+          />
 
           <section className="panel">
             <div className="panel-heading">

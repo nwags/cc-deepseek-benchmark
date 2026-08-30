@@ -1,5 +1,6 @@
 import { queryRows } from "./db";
 import type { CostProvenanceFocus } from "./evidence-links";
+import type { PromotionGateRow } from "./planner-types";
 
 export type OverviewRow = {
   run_count: number;
@@ -210,6 +211,39 @@ export async function getRecentRuns(): Promise<RecentRunRow[]> {
     where phase = 'phase3'
     order by created_at desc, run_label
     limit 12
+  `);
+}
+
+export async function getCurrentEvidencePromotionGates(): Promise<PromotionGateRow[]> {
+  return queryRows<PromotionGateRow>(`
+    select
+      gate.gate_id::text,
+      gate.arm_id,
+      gate.source_arm_run_id::text,
+      gate.usage_reconciliation_id::text,
+      gate.cost_reconciliation_id::text,
+      gate.source_mode,
+      gate.target_mode,
+      gate.decision,
+      gate.blocker_codes,
+      gate.derived_blocker_codes,
+      gate.waiver_reason,
+      gate.effective_can_advance,
+      gate.reviewed_by,
+      gate.reviewed_at::text,
+      gate.usage_validation_status,
+      gate.cost_validation_status,
+      gate.selected_usage_authority,
+      gate.selected_cost_basis,
+      gate.selected_cost_relation,
+      gate.selected_cost_usd::text,
+      gate.usage_limitation_codes,
+      gate.cost_limitation_codes
+    from benchmark.v_evidence_promotion_gate gate
+    join benchmark.benchmark_evidence_promotion_gates stored
+      on stored.id = gate.gate_id
+    where stored.is_current
+    order by gate.arm_id, gate.target_mode
   `);
 }
 
