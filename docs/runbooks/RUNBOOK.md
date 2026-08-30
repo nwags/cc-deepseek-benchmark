@@ -19,6 +19,12 @@ Current successor-team guidance begins in:
 docs/guides/README.md
 ```
 
+Current durable evidence-promotion review procedure:
+
+```text
+docs/runbooks/EVIDENCE_PROMOTION_REVIEW.md
+```
+
 ## 0. Quick status
 
 ```bash
@@ -170,6 +176,17 @@ Before any future benchmark execution:
 4. use cheap/local integration checks where practical;
 5. use canary and smoke gates before any approved paid full sweep;
 6. preserve frozen Phase 1/2/3 evidence.
+
+For a reviewed Canary -> Smoke or Smoke -> Full advancement decision, use:
+
+    docs/runbooks/EVIDENCE_PROMOTION_REVIEW.md
+
+The current durable sequence is:
+
+    Plan -> Check -> Rollback-only verification -> Apply
+
+The Planner remains read-only. It consumes current fail-closed promotion
+evidence but does not durably record the review or dispatch benchmark work.
 
 For implementation details, use:
 

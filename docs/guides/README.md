@@ -40,6 +40,8 @@ able to check every item below:
 - [ ] I understand that Migration 009 was already applied historically and
       must not be rerun as an onboarding step.
 - [ ] I know which runbooks apply to the work I am about to do.
+- [ ] If I will review Canary/Smoke advancement, I read
+      `docs/runbooks/EVIDENCE_PROMOTION_REVIEW.md`.
 - [ ] I know that onboarding does not authorize a paid sweep, provider probe,
       database/R2 benchmark write, protected dispatch implementation, or
       modification of frozen evidence.
@@ -172,6 +174,21 @@ Primary question:
 
 > What should the successor team do next?
 
+## Current operational references
+
+For a durable Canary -> Smoke or Smoke -> Full evidence review, use:
+
+    docs/runbooks/EVIDENCE_PROMOTION_REVIEW.md
+
+That runbook documents the current `Plan -> Check -> Rollback-only -> Apply`
+sequence, exact mutation pins, fail-closed waiver behavior, stale-state
+recovery, and the boundary between the read-only Planner and the durable review
+CLI.
+
+The normative evidence criteria remain in:
+
+    docs/methodology/USAGE_AND_COST_EVIDENCE_MODEL.md
+
 ## Required complete dashboard walkthrough
 
 **"Review the dashboard" means open all 15 principal dashboard surfaces.**
@@ -182,8 +199,8 @@ walkthrough complete merely because several pages share navigation or data.
 | Dashboard surface | Minimum thing the reviewer should understand |
 |---|---|
 | **Overview** | Which headline population is fixed/current-reviewed, which lower-level views are dynamic, and what the headline cost/performance numbers do and do not represent. |
-| **Architecture** | The execution path from configuration and dispatch through runner, Harbor, Claude Code, provider routing, verifier, publication, and optional live observation. |
-| **Data Model** | The distinction among live state, canonical metadata, derived data, R2 artifact bytes, checked-in reviewed snapshots, and dashboard consumers. |
+| **Architecture** | The execution/scoring path plus live observation, canonical publication, provider evidence/reconciliation, promotion review, and dashboard read responsibilities. |
+| **Data Model** | The distinction among live state, canonical experimental identity, provider evidence, reviewed reconciliation/promotion authority, derived data, R2 bytes, reviewed snapshots, dashboard consumers, and the explicit Phase 4/5 extension seams. |
 | **Glossary** | The project's canonical terminology before interpreting labels elsewhere in the dashboard. |
 | **Trial Quality** | Raw verifier outcomes versus reviewed diagnosis/taxonomy layers, denominator exclusions, and why review axes do not silently rescore raw outcomes. |
 | **Cross-phase** | How Phase 1, Phase 2, and Phase 3 evidence is combined, and which cost basis is used for the current Phase 3 comparison. |
@@ -191,10 +208,10 @@ walkthrough complete merely because several pages share navigation or data.
 | **Evals** | How task/eval drilldown differs from aggregate arm-level or run-level views. |
 | **Runs** | The canonical imported run inventory and why exact run identity matters. |
 | **Live Runs** | Why live supervision is mutable/provisional observation rather than a replacement for canonical publication. |
-| **Arms** | Model, provider, route, and canonical arm identity distinctions. |
+| **Arms** | Model, provider, route, canonical arm identity, and the already-first-class agent-harness dimension. |
 | **Artifacts** | How retained evidence is located, what provenance/integrity states mean, and why indexed bytes are not automatically verified complete evidence. |
 | **Evidence Review** | The frozen reviewed population, manifest validation, and the role of reviewed evidence in qualitative conclusions. |
-| **Planner** | That the Planner is currently review-first/read-only and **does not dispatch benchmark work**. |
+| **Planner** | How it reads the current fail-closed predecessor promotion gate, why evidence acknowledgement is bound to that review state, and why it still **does not write gates or dispatch benchmark work**. |
 | **Cost Coverage** | The distinction between current selected/provider-aware cost evidence, historical reviewed DR-303 evidence, allocation gaps, and unresolved/missing evidence. |
 
 For each page, a reviewer should be able to explain its purpose in their own
@@ -256,7 +273,10 @@ explain:
 
 - canonical imported evidence versus mutable live observation;
 - why a successful live observation is not itself canonical publication;
-- why Planner does not currently authorize or dispatch a paid run;
+- why Planner can consume an effective promotion pass and expose reviewed
+  commands without itself writing the gate or dispatching a paid run;
+- why a durable promotion decision is recorded through
+  `scripts/review_evidence_promotion.py`;
 - why Migration 009 is already-applied historical state;
 - what additional authorization would be required before a new benchmark
   experiment.

@@ -1,6 +1,6 @@
 # Usage and Cost Evidence Model
 
-Status: current methodology contract as of 2026-08-25.
+Status: current methodology contract as of 2026-08-30.
 
 This document defines how benchmark token usage and cost evidence must be
 captured, reconciled, qualified, and promoted before decision-facing benchmark
@@ -290,6 +290,15 @@ Supabase should retain first-class normalized records for:
 - cost reconciliations;
 - Canary/Smoke promotion gates.
 
+The current normalized schema and fail-closed promotion contract are implemented
+by Migration 011:
+
+    db/migrations/phase3/011_provider_evidence_contract.sql
+
+The durable human-review operator path is:
+
+    scripts/review_evidence_promotion.py
+
 The provider source row must retain enough provenance to recover exactly which
 provider artifact or provider record supported a conclusion.
 
@@ -428,8 +437,19 @@ The normal progression is:
 
 A policy waiver must never silently convert into an automatic pass.
 
-If a waiver mechanism is later implemented, it must be explicit, attributable,
-and visible separately from an evidence-qualified pass.
+The implemented promotion-review contract supports explicit `pass`, `blocked`,
+and `waived` decisions.
+
+A `waived` decision:
+
+- requires an attributable reviewer and a non-empty waiver reason;
+- is retained as review provenance;
+- remains separate from an evidence-qualified `pass`;
+- must derive `gate_decision_not_pass`;
+- must leave `effective_can_advance = false`.
+
+A later advancement requires a new reviewed `pass` that supersedes the waiver;
+the waiver itself is never authorization.
 
 ## Promotion binding and staleness invariants
 
@@ -461,6 +481,43 @@ the new evidence.
 The database may retain a stale or mismatched gate as auditable provenance.
 Retention is not authorization. Derived blocker codes must make the reason
 visible and `effective_can_advance` must remain false.
+
+### Durable review binding
+
+The implemented durable review path adds an operator-side race/staleness
+contract around those database invariants.
+
+`--check-only` reads the exact source run, current usage reconciliation, current
+cost reconciliation, and current promotion gate in a repeatable-read/read-only
+transaction. It emits four mutation pins:
+
+    expected_usage_reconciliation_id
+    expected_cost_reconciliation_id
+    expected_current_gate_id
+    expected_state_sha256
+
+The state SHA-256 covers material reviewed source-run, reconciliation,
+limitation, and current-gate state.
+
+`--rollback-only` and `--apply` require all four pins. They then:
+
+1. acquire a transaction-scoped advisory lock for the arm/target-mode review
+   slot;
+2. re-read the exact state under lock;
+3. reject stale UUIDs or a changed state fingerprint;
+4. preserve prior gate rows as immutable history by superseding rather than
+   deleting;
+5. verify the inserted review through `benchmark.v_evidence_promotion_gate`.
+
+Rollback-only mode rolls the proposed review back and uses a second connection
+to prove the exact prior gate history was restored.
+
+Apply mode commits once and uses a second connection to prove the new current
+gate and historical supersession persisted exactly.
+
+The operational procedure is:
+
+    docs/runbooks/EVIDENCE_PROMOTION_REVIEW.md
 
 Reconciliation states must also be internally consistent.
 
@@ -555,7 +612,14 @@ When this contract reaches the dashboard, it should make these states visible:
 - model-identity status;
 - selected authority/basis;
 - evidence limitations;
-- Canary/Smoke promotion readiness.
+- Canary/Smoke promotion readiness;
+- the exact source arm run and reconciliations behind a current gate;
+- reviewed versus derived blocker state;
+- whether the current gate is effectively authorizing advancement.
+
+The current Planner is a read-only consumer of the fail-closed promotion view.
+It may withhold Smoke/Full commands when effective advancement is absent, but it
+does not write review decisions or dispatch benchmark work.
 
 A successful benchmark must not receive a visually "green" economic status when
 usage or cost remains unverified.
@@ -581,6 +645,15 @@ harness.
 Provider validation is not permanently transferable across harnesses unless the
 relevant telemetry path is demonstrably identical.
 
+The current promotion-gate slot is keyed by arm and target mode. Before the
+first paid Phase 4 Canary, review whether promotion authorization must also bind
+explicit experiment/suite/phase identity so a prior experiment cannot authorize
+a new harness experiment merely because an arm identifier is reused.
+
+Phase 5 remains after Phase 4. Its planned procedure-level evidence and
+planning-versus-execution economic split are not yet first-class canonical
+schema dimensions and should not be guessed in advance.
+
 ## Operational rule
 
 Before authorizing a new full sweep, answer two independent questions:
@@ -593,3 +666,7 @@ and:
 
 If either answer is no or unknown, do not represent Full as economically
 qualified.
+
+For the current durable review procedure, use:
+
+    docs/runbooks/EVIDENCE_PROMOTION_REVIEW.md
