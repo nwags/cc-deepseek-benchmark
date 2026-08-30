@@ -103,9 +103,9 @@ If a PDF and its Markdown source ever disagree, **the Markdown controls**.
 | Codebase Guide | [`CODEBASE_GUIDE.md`](CODEBASE_GUIDE.md) | [`CODEBASE_GUIDE.pdf`](CODEBASE_GUIDE.pdf) |
 | Project Handoff and Future Roadmap | [`PROJECT_HANDOFF_AND_FUTURE_ROADMAP.md`](PROJECT_HANDOFF_AND_FUTURE_ROADMAP.md) | [`PROJECT_HANDOFF_AND_FUTURE_ROADMAP.pdf`](PROJECT_HANDOFF_AND_FUTURE_ROADMAP.pdf) |
 
-The current PDF snapshots were generated on **2026-08-23** from the substantive
-guide content present at the hand-off baseline merged into `main` at
-`9e66c00f99408c506a0195d26d8028a61563fed2`.
+The current PDF snapshots were regenerated on **2026-08-30** from the
+authoritative guide Markdown present at documentation baseline
+`854b00a4a3db36f5c36a4c13cd63cf2cefb42845`.
 
 When one of the authoritative Markdown guides changes materially, regenerate
 its PDF snapshot rather than editing the PDF independently.
