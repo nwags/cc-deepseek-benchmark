@@ -1,6 +1,7 @@
 import {
   formatCurrentCostRelation,
 } from "../lib/current-cost-presentation";
+import { formatTruncatedCurrency } from "../lib/format";
 import Link from "next/link";
 import {
   CHART_X_AXIS_OPTIONS,
@@ -35,7 +36,7 @@ function metricText(
   }
 
   const amount = formatCurrentCostRelation(
-    `$${value.decimalUsd}`,
+    formatTruncatedCurrency(value.decimalUsd),
     relation,
   );
 
@@ -51,7 +52,7 @@ function evidenceAmountText(
   }
 
   return formatCurrentCostRelation(
-    `$${value.decimalUsd}`,
+    formatTruncatedCurrency(value.decimalUsd),
     relation,
   );
 }
@@ -148,7 +149,7 @@ export function CostPerformanceChartTable({
                   <div>
                     Selected total:{" "}
                     {formatCurrentCostRelation(
-                      `$${row.selectedCostUsd}`,
+                      formatTruncatedCurrency(row.selectedCostUsd),
                       row.selectedCostRelation,
                     )}
                   </div>
@@ -156,7 +157,7 @@ export function CostPerformanceChartTable({
                     <div>
                       Historical reviewed total:{" "}
                       <Link href={row.costProvenanceHref}>
-                        ${row.historicalReviewedCostUsd}
+                        {formatTruncatedCurrency(row.historicalReviewedCostUsd)}
                       </Link>
                     </div>
                   ) : null}
@@ -180,7 +181,7 @@ export function CostPerformanceChartTable({
                 </td>
                 <td>
                   <div>Historical reviewed gap</div>
-                  <Link href={row.costProvenanceHref}>${row.accountingGapUsd}</Link>
+                  <Link href={row.costProvenanceHref}>{formatTruncatedCurrency(row.accountingGapUsd)}</Link>
                 </td>
                 <td>
                   {linkedEvidenceAmount(

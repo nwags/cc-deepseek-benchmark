@@ -42,7 +42,7 @@ import {
 import {
   getSpendDecompositionSource,
 } from "../../lib/spend-decomposition-source";
-import { formatNumber, formatPercent } from "../../lib/format";
+import { formatNumber, formatPercent, formatTruncatedCurrency } from "../../lib/format";
 import {
   currentCostRelationLabel,
   formatCurrentCostRelation,
@@ -88,17 +88,28 @@ type CostCoveragePageProps = {
   }>;
 };
 
-function formatCost(value: string | null, maximumFractionDigits = 6): string {
+function formatCost(value: string | null, requestedMaximumFractionDigits = 4): string {
   if (value === null) return "Unavailable";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
+  const maximumFractionDigits = Math.max(
+    0,
+    Math.min(requestedMaximumFractionDigits, 4),
+  );
+  return formatTruncatedCurrency(
+    value,
     maximumFractionDigits,
-  }).format(Number(value));
+    Math.min(2, maximumFractionDigits),
+  );
 }
 
-function linkedCost(value: string | null, href: string, maximumFractionDigits = 6) {
-  const formatted = formatCost(value, maximumFractionDigits);
+function linkedCost(
+  value: string | null,
+  href: string,
+  requestedMaximumFractionDigits = 4,
+) {
+  const formatted = formatCost(
+    value,
+    requestedMaximumFractionDigits,
+  );
   return value === null ? formatted : <Link href={href}>{formatted}</Link>;
 }
 
@@ -501,13 +512,13 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
         <section className="quality-context-panel" aria-label="Kimi K3 current selected and historical cost evidence">
           <p><strong>Kimi K3 current selected and historical cost evidence</strong></p>
           <p>
-            Current selected cost: {formatCurrentCostRelation(formatCost(kimi.selectedCostUsd, 7), kimi.selectedCostRelation)} · selected cost / attempt: {formatCurrentCostRelation(formatCost(kimi.selectedCostPerAttemptUsd, 7), kimi.selectedEfficiencyRelation)} · selected cost / clean success: {formatCurrentCostRelation(formatCost(kimi.selectedCostPerCleanSuccessUsd, 7), kimi.selectedEfficiencyRelation)}.
+            Current selected cost: {formatCurrentCostRelation(formatCost(kimi.selectedCostUsd, 4), kimi.selectedCostRelation)} · selected cost / attempt: {formatCurrentCostRelation(formatCost(kimi.selectedCostPerAttemptUsd, 4), kimi.selectedEfficiencyRelation)} · selected cost / clean success: {formatCurrentCostRelation(formatCost(kimi.selectedCostPerCleanSuccessUsd, 4), kimi.selectedEfficiencyRelation)}.
           </p>
           <p>
-            Selected basis: {evidenceLabel(kimi.selectedCostBasis)} · selected confidence: {kimi.selectedCostConfidence} · selected trial allocation: {evidenceLabel(kimi.selectedTrialCostAllocationStatus)} · selected outcome allocation: {evidenceLabel(kimi.selectedOutcomeCostAllocationStatus)} · provider-billed total: {formatCost(kimi.providerBilledCostUsd, 7)}.
+            Selected basis: {evidenceLabel(kimi.selectedCostBasis)} · selected confidence: {kimi.selectedCostConfidence} · selected trial allocation: {evidenceLabel(kimi.selectedTrialCostAllocationStatus)} · selected outcome allocation: {evidenceLabel(kimi.selectedOutcomeCostAllocationStatus)} · provider-billed total: {formatCost(kimi.providerBilledCostUsd, 4)}.
           </p>
           <p>
-            Historical harness recorded: {kimiChartArm ? linkedCost(kimi.historicalHarnessRecordedCostUsd, buildCostCoverageHref(selection.scopeId, { armId: kimi.armId, runLabel: kimiChartArm.selectedRunLabel }, onwardSourceScope), 6) : formatCost(kimi.historicalHarnessRecordedCostUsd, 6)} · historical qualified retained-rate reconstruction: {kimiChartArm ? linkedCost(kimi.historicalReviewedCostUsd, buildCostCoverageHref(selection.scopeId, { armId: kimi.armId, runLabel: kimiChartArm.selectedRunLabel }, onwardSourceScope), 7) : formatCost(kimi.historicalReviewedCostUsd, 7)} · historical accounting gap: {kimiChartArm ? linkedCost(kimi.accountingGapUsd, buildCostCoverageHref(selection.scopeId, { armId: kimi.armId, runLabel: kimiChartArm.selectedRunLabel }, onwardSourceScope), 7) : formatCost(kimi.accountingGapUsd, 7)}.
+            Historical harness recorded: {kimiChartArm ? linkedCost(kimi.historicalHarnessRecordedCostUsd, buildCostCoverageHref(selection.scopeId, { armId: kimi.armId, runLabel: kimiChartArm.selectedRunLabel }, onwardSourceScope), 4) : formatCost(kimi.historicalHarnessRecordedCostUsd, 4)} · historical qualified retained-rate reconstruction: {kimiChartArm ? linkedCost(kimi.historicalReviewedCostUsd, buildCostCoverageHref(selection.scopeId, { armId: kimi.armId, runLabel: kimiChartArm.selectedRunLabel }, onwardSourceScope), 4) : formatCost(kimi.historicalReviewedCostUsd, 4)} · historical accounting gap: {kimiChartArm ? linkedCost(kimi.accountingGapUsd, buildCostCoverageHref(selection.scopeId, { armId: kimi.armId, runLabel: kimiChartArm.selectedRunLabel }, onwardSourceScope), 4) : formatCost(kimi.accountingGapUsd, 4)}.
           </p>
           <p>
             Pricing-source provenance incomplete · arm-run/provider-log allocation confidence low · trial-level allocation unresolved · not invoice-level or provider-billed spend. The selected aggregate efficiency ratios do not imply trial-level or outcome-level allocation.
@@ -607,7 +618,7 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
             );
             const formattedCurrentCost =
               formatCurrentCostRelation(
-                formatCost(arm.selectedCostUsd, 7),
+                formatCost(arm.selectedCostUsd, 4),
                 arm.selectedCostRelation,
               );
             const hasPossibleAdditionalSpend =
@@ -679,7 +690,7 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
                           style={{
                             width: `${segmentWidth}%`,
                           }}
-                          title={`${segment.label}: ${formatCost(segment.amountUsd, 7)}`}
+                          title={`${segment.label}: ${formatCost(segment.amountUsd, 4)}`}
                         />
                       );
                     })}
@@ -711,9 +722,9 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
         <p className="historical-cost-fine-print">
           Preserved to explain the earlier benchmark-side accounting reconstruction. It is not
           the current cost comparison. Historical reviewed arm-sum:
-          {" "}{formatCost(currentScope.selectedCostEvidence.historicalReviewedArmSumCostUsd, 13)}
-          {" "}· historical recorded: {formatCost(cost.recordedCostUsd, 8)}
-          {" "}· historical accounting gap: {formatCost(cost.accountingGapUsd, 13)}.
+          {" "}{formatCost(currentScope.selectedCostEvidence.historicalReviewedArmSumCostUsd, 4)}
+          {" "}· historical recorded: {formatCost(cost.recordedCostUsd, 4)}
+          {" "}· historical accounting gap: {formatCost(cost.accountingGapUsd, 4)}.
         </p>
         <section
           className="quality-context-panel"
@@ -789,9 +800,9 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
                         <Link className="mono" href={buildExactRunHref(row.run_label, onwardSourceScope)}>{row.run_label}</Link>
                       </td>
                       <td><span className="mono">{row.task_id ?? "Unavailable"}</span><br />attempt {row.attempt_index ?? "Unavailable"}</td>
-                      <td>{formatCost(row.recorded_cost_usd, 8)}</td>
-                      <td>{formatCost(row.adjusted_cost_usd, 8)}</td>
-                      <td>{formatCost(row.known_accounting_gap_usd, 8)}</td>
+                      <td>{formatCost(row.recorded_cost_usd, 4)}</td>
+                      <td>{formatCost(row.adjusted_cost_usd, 4)}</td>
+                      <td>{formatCost(row.known_accounting_gap_usd, 4)}</td>
                       <td>{evidenceLabel(row.cost_source)} · {evidenceLabel(row.cost_confidence)}<div className="muted">{row.cost_gap_reason ? evidenceLabel(row.cost_gap_reason) : "No recorded gap reason"}</div></td>
                       <td>{outcomeLabel(row.outcome_bucket)}</td>
                     </tr>
@@ -861,7 +872,7 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
                     <td>
                       <strong>
                         {formatCurrentCostRelation(
-                          formatCost(arm.selectedCostUsd, 7),
+                          formatCost(arm.selectedCostUsd, 4),
                           arm.selectedCostRelation,
                         )}
                       </strong>
@@ -878,20 +889,20 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
                       <div>
                         Per attempt:{" "}
                         {formatCurrentCostRelation(
-                          formatCost(arm.selectedCostPerAttemptUsd, 7),
+                          formatCost(arm.selectedCostPerAttemptUsd, 4),
                           arm.selectedEfficiencyRelation,
                         )}
                       </div>
                       <div>
                         Per clean success:{" "}
                         {formatCurrentCostRelation(
-                          formatCost(arm.selectedCostPerCleanSuccessUsd, 7),
+                          formatCost(arm.selectedCostPerCleanSuccessUsd, 4),
                           arm.selectedEfficiencyRelation,
                         )}
                       </div>
                     </td>
                     <td>
-                      <div>Provider-billed total: {formatCost(arm.providerBilledCostUsd, 7)}</div>
+                      <div>Provider-billed total: {formatCost(arm.providerBilledCostUsd, 4)}</div>
                       <div className="muted">
                         Reconciliation: {evidenceLabel(arm.providerBillingReconciliationStatus)}
                       </div>
@@ -949,9 +960,9 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
                 <tr key={row.outcomeBucket}>
                   <td>{outcomeLabel(row.outcomeBucket)}</td>
                   <td>{formatNumber(row.trialCount)}</td>
-                  <td>{formatCost(row.recordedCostUsd, 7)}</td>
-                  <td>{formatCost(row.sourceAdjustedKnownCostUsd, 12)}</td>
-                  <td>{formatCost(row.sourceAccountingGapUsd, 12)}</td>
+                  <td>{formatCost(row.recordedCostUsd, 4)}</td>
+                  <td>{formatCost(row.sourceAdjustedKnownCostUsd, 4)}</td>
+                  <td>{formatCost(row.sourceAccountingGapUsd, 4)}</td>
                   <td>{formatNumber(row.missingRecordedCostCount)}</td>
                   <td>{formatNumber(row.unresolvedAdjustedCostCount)}</td>
                 </tr>
@@ -962,7 +973,7 @@ export default async function CostCoveragePage({ searchParams }: CostCoveragePag
         <details>
           <summary>Historical decimal reconciliation</summary>
           <p>
-            The preserved source outcome rows total ${outcomes.sourceAdjustedKnownCostTotalUsd}; the reviewed scope headline is ${outcomes.reviewedAdjustedKnownCostTotalUsd}. The ${outcomes.reviewedScopeReconciliationAdjustmentUsd} serialization adjustment remains scope-level and is not assigned to any outcome bucket.
+            The preserved source outcome rows total {formatCost(outcomes.sourceAdjustedKnownCostTotalUsd)}; the reviewed scope headline is {formatCost(outcomes.reviewedAdjustedKnownCostTotalUsd)}. The {formatCost(outcomes.reviewedScopeReconciliationAdjustmentUsd)} serialization adjustment remains scope-level and is not assigned to any outcome bucket.
           </p>
         </details>
       </section>

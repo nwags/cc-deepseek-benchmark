@@ -442,7 +442,7 @@ test(
 );
 
 test(
-  "visible table exposes exact decimal values, counts, friendly labels, and canonical arm IDs",
+  "visible table uses bounded decimal presentation while retaining evidence fields, counts, friendly labels, and canonical arm IDs",
   () => {
     assert.match(
       component,
@@ -450,7 +450,15 @@ test(
     );
     assert.match(
       component,
-      /exactUsd\(segment\.recordedCostUsd\)/,
+      /displayedUsd\(segment\.recordedCostUsd\)/,
+    );
+    assert.match(
+      component,
+      /formatTruncatedCurrency/,
+    );
+    assert.match(
+      component,
+      /presentation-truncated to at most four decimal places/,
     );
     assert.match(
       component,
@@ -479,6 +487,10 @@ test(
     assert.match(
       component,
       /segment\.missingRecordedCostCount/,
+    );
+    assert.doesNotMatch(
+      component,
+      /function exactUsd\(/,
     );
   },
 );

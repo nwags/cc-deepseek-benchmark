@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { friendlyArmLabel } from "../lib/presentation-labels";
+import { formatTruncatedCurrency } from "../lib/format";
 import {
   SPEND_DECOMPOSITION_KIMI_ARM_ID,
   SPEND_DECOMPOSITION_SEGMENTS,
@@ -51,8 +52,8 @@ const SEGMENT_DESCRIPTIONS: Readonly<
     "Recorded trial-cost dollars for successful outcomes that also retained an exception signal.",
 });
 
-function exactUsd(value: string): string {
-  return `$${value}`;
+function displayedUsd(value: string): string {
+  return formatTruncatedCurrency(value);
 }
 
 function evidenceLabel(value: string): string {
@@ -94,11 +95,11 @@ function geometryUsd(value: string): number {
   return amount;
 }
 
-function exactArmValue(
+function displayedArmValue(
   value: string,
   href: string | undefined,
 ) {
-  const formatted = exactUsd(value);
+  const formatted = displayedUsd(value);
   return href ? <Link href={href}>{formatted}</Link> : formatted;
 }
 
@@ -205,7 +206,7 @@ export function SpendDecompositionPanel({
             Historical DR-303 reviewed scope estimate
           </span>
           <strong>
-            {exactUsd(model.scopeSelectedReviewedCostUsd)}
+            {displayedUsd(model.scopeSelectedReviewedCostUsd)}
           </strong>
           <span>
             {scopeCostBasisLabel(model.scopeSelectedCostBasis)}
@@ -216,7 +217,7 @@ export function SpendDecompositionPanel({
           <span className="metric-label">
             Recorded outcome spend
           </span>
-          <strong>{exactUsd(model.recordedCostUsd)}</strong>
+          <strong>{displayedUsd(model.recordedCostUsd)}</strong>
           <span>sum of the four recorded outcome buckets</span>
         </article>
 
@@ -225,7 +226,7 @@ export function SpendDecompositionPanel({
             Summed arm-level known gap
           </span>
           <strong>
-            {exactUsd(model.summedArmAccountingGapUsd)}
+            {displayedUsd(model.summedArmAccountingGapUsd)}
           </strong>
           <span>fifth segment; not an outcome bucket</span>
         </article>
@@ -245,7 +246,7 @@ export function SpendDecompositionPanel({
       <p className="spend-decomposition-note">
         Bar lengths are not normalized per arm. Every segment uses the
         same dollar denominator: the largest selected reviewed arm cost
-        in this scope. Exact values are provided in the visible table
+        in this scope. Displayed values are capped at four decimal places in the visible table
         below.
       </p>
 
@@ -298,7 +299,7 @@ export function SpendDecompositionPanel({
                 <strong>{friendlyArmLabel(arm.armId)}</strong>
                 <code>{arm.armId}</code>
                 <span>
-                  {exactUsd(arm.selectedReviewedCostUsd)} historical
+                  {displayedUsd(arm.selectedReviewedCostUsd)} historical
                   DR-303 reviewed estimate
                 </span>
               </div>
@@ -318,7 +319,7 @@ export function SpendDecompositionPanel({
                       key={segment.id}
                       className={segmentClassName(segment.id)}
                       style={{ width: `${width}%` }}
-                      title={`${segment.label}: ${exactUsd(segment.recordedCostUsd)}`}
+                      title={`${segment.label}: ${displayedUsd(segment.recordedCostUsd)}`}
                     />
                   );
                 })}
@@ -333,13 +334,13 @@ export function SpendDecompositionPanel({
                           / maxSelectedCost
                         ) * 100}%`,
                     }}
-                    title={`Known accounting gap: ${exactUsd(arm.accountingGapUsd)}`}
+                    title={`Known accounting gap: ${displayedUsd(arm.accountingGapUsd)}`}
                   />
                 ) : null}
               </div>
 
               <div className="spend-decomposition-chart-total">
-                {exactUsd(arm.selectedReviewedCostUsd)}
+                {displayedUsd(arm.selectedReviewedCostUsd)}
               </div>
             </div>
           );
@@ -351,7 +352,7 @@ export function SpendDecompositionPanel({
         category even when its geometry is zero. In the selected scope,
         {` ${exceptionSuccess.trialCount} `}
         such trials contribute{" "}
-        {exactUsd(exceptionSuccess.recordedCostUsd)} recorded dollars
+        {displayedUsd(exceptionSuccess.recordedCostUsd)} recorded dollars
         and {` ${exceptionSuccess.missingRecordedCostCount} `}
         missing recorded-cost rows.
       </p>
@@ -359,9 +360,10 @@ export function SpendDecompositionPanel({
       <div className="table-wrap">
         <table className="spend-decomposition-table">
           <caption className="sr-only">
-            DR-303 exact five-part spend decomposition by arm. Dollar
-            values are the retained exact decimal strings; missing and
-            unresolved values are evidence-row counts.
+            DR-303 five-part spend decomposition by arm. Dollar values are
+            presentation-truncated to at most four decimal places; source
+            precision remains retained in the underlying reviewed evidence.
+            Missing and unresolved values are evidence-row counts.
           </caption>
           <thead>
             <tr>
@@ -403,7 +405,7 @@ export function SpendDecompositionPanel({
                     <td key={segment.id}>
                       <span className="spend-decomposition-table-value">
                         <strong>
-                          {exactUsd(segment.recordedCostUsd)}
+                          {displayedUsd(segment.recordedCostUsd)}
                         </strong>
                         <span className="muted">
                           {segment.trialCount} trials ·{" "}
@@ -415,14 +417,14 @@ export function SpendDecompositionPanel({
                   ))}
 
                   <td>
-                    {exactArmValue(
+                    {displayedArmValue(
                       arm.recordedCostUsd,
                       links?.costProvenanceHref,
                     )}
                   </td>
 
                   <td>
-                    {exactArmValue(
+                    {displayedArmValue(
                       arm.accountingGapUsd,
                       links?.costProvenanceHref,
                     )}
@@ -430,7 +432,7 @@ export function SpendDecompositionPanel({
 
                   <td>
                     <strong>
-                      {exactArmValue(
+                      {displayedArmValue(
                         arm.selectedReviewedCostUsd,
                         links?.costProvenanceHref,
                       )}
@@ -484,7 +486,7 @@ export function SpendDecompositionPanel({
         {kimi ? (
           <p>
             <strong>Kimi K3 qualification:</strong>{" "}
-            {exactUsd(kimi.accountingGapUsd)} is the known difference
+            {displayedUsd(kimi.accountingGapUsd)} is the known difference
             between its recorded trial cost and qualified retained-rate
             estimate. Outcome allocation remains{" "}
             <code>{kimi.outcomeCostAllocationStatus}</code>, and trial
@@ -495,12 +497,12 @@ export function SpendDecompositionPanel({
 
         <p>
           <strong>Scope reconciliation:</strong> summed selected arm
-          costs are {exactUsd(model.summedSelectedArmCostUsd)}; the
+          costs are {displayedUsd(model.summedSelectedArmCostUsd)}; the
           authoritative reviewed scope headline is{" "}
-          {exactUsd(model.scopeSelectedReviewedCostUsd)}. The retained
+          {displayedUsd(model.scopeSelectedReviewedCostUsd)}. The retained
           decimal difference is{" "}
-          {exactUsd(model.scopeReconciliationDeltaUsd)} with tolerance{" "}
-          {exactUsd(model.scopeReconciliationToleranceUsd)}. No
+          {displayedUsd(model.scopeReconciliationDeltaUsd)} with tolerance{" "}
+          {displayedUsd(model.scopeReconciliationToleranceUsd)}. No
           reconciliation amount is assigned to an outcome segment.
         </p>
 
@@ -508,9 +510,9 @@ export function SpendDecompositionPanel({
           !== model.scopeAccountingGapUsd ? (
           <p>
             The summed arm-level known gap is{" "}
-            {exactUsd(model.summedArmAccountingGapUsd)}, while the
+            {displayedUsd(model.summedArmAccountingGapUsd)}, while the
             reviewed scope-level gap is{" "}
-            {exactUsd(model.scopeAccountingGapUsd)}. This retained
+            {displayedUsd(model.scopeAccountingGapUsd)}. This retained
             scope/arm decimal difference is not redistributed.
           </p>
         ) : null}

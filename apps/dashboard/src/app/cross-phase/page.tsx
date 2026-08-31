@@ -2,6 +2,7 @@ import {
   formatCurrentCostRelation,
 } from "../../lib/current-cost-presentation";
 import Link from "next/link";
+import { formatTruncatedCurrency } from "../../lib/format";
 
 import { AppShell } from "../../components/AppShell";
 import { TermInfo } from "../../components/TermInfo";
@@ -32,13 +33,17 @@ function formatPercent(value: number | null): string {
   return `${(value * 100).toFixed(1)}%`;
 }
 
-function formatMoney(value: number | null, maximumFractionDigits = 2): string {
+function formatMoney(value: number | null, requestedMaximumFractionDigits = 2): string {
   if (value === null) return "Unavailable";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
+  const maximumFractionDigits = Math.max(
+    0,
+    Math.min(requestedMaximumFractionDigits, 4),
+  );
+  return formatTruncatedCurrency(
+    value,
     maximumFractionDigits,
-  }).format(value);
+    Math.min(2, maximumFractionDigits),
+  );
 }
 
 function linkedMoney(value: number | null, href: string, maximumFractionDigits = 2) {
@@ -177,7 +182,7 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
               </div>
               <div>
                 <dt>Comparison cost</dt>
-                <dd>{formatMoney(summary.comparison_cost_usd, 6)}</dd>
+                <dd>{formatMoney(summary.comparison_cost_usd, 4)}</dd>
               </div>
               <div>
                 <dt>Cost basis</dt>
@@ -219,10 +224,10 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
                   <td>{summary.trial_count}</td>
                   <td>{summary.success_count}</td>
                   <td>{formatPercent(summary.pass_rate)}</td>
-                  <td>{formatMoney(summary.comparison_cost_usd, 6)}</td>
+                  <td>{formatMoney(summary.comparison_cost_usd, 4)}</td>
                   <td>{summary.comparison_cost_label}</td>
                   <td>{formatMoney(summary.comparison_cost_per_clean_success_usd)}</td>
-                  <td>{formatMoney(summary.historical_reviewed_cost_usd, 6)}</td>
+                  <td>{formatMoney(summary.historical_reviewed_cost_usd, 4)}</td>
                   <td>{formatPercent(summary.historical_unclean_spend_share)}</td>
                 </tr>
               ))}
@@ -304,10 +309,10 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
                   </td>
                   <td>{row.success_count}/{row.trial_count}</td>
                   <td>{formatPercent(row.pass_rate)}</td>
-                  <td>{chartArm ? linkedMoney(row.recorded_cost_usd, chartArm.costProvenanceHref, 6) : formatMoney(row.recorded_cost_usd, 6)}</td>
+                  <td>{chartArm ? linkedMoney(row.recorded_cost_usd, chartArm.costProvenanceHref, 4) : formatMoney(row.recorded_cost_usd, 4)}</td>
                   <td>
                     {formatCurrentCostRelation(
-                      formatMoney(row.comparison_cost_usd, 7),
+                      formatMoney(row.comparison_cost_usd, 4),
                       row.comparison_cost_relation,
                     )}
                   </td>
@@ -318,7 +323,7 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
                       row.comparison_efficiency_relation,
                     )}
                   </td>
-                  <td>{chartArm ? linkedMoney(row.historical_reviewed_cost_usd, chartArm.costProvenanceHref, 7) : formatMoney(row.historical_reviewed_cost_usd, 7)}</td>
+                  <td>{chartArm ? linkedMoney(row.historical_reviewed_cost_usd, chartArm.costProvenanceHref, 4) : formatMoney(row.historical_reviewed_cost_usd, 4)}</td>
                   <td>{formatPercent(row.historical_unclean_spend_share)}</td>
                   <td className="table-cell-wrap">
                     <div>{row.comparison_cost_confidence} comparison-cost confidence</div>
@@ -388,7 +393,7 @@ export default async function CrossPhasePage({ searchParams }: CrossPhasePagePro
                     <td>{formatPercent(row.pass_rate)}</td>
                     <td>
                       {formatCurrentCostRelation(
-                        formatMoney(row.comparison_cost_usd, 7),
+                        formatMoney(row.comparison_cost_usd, 4),
                         row.comparison_cost_relation,
                       )}
                     </td>

@@ -2,6 +2,7 @@ import {
   PHASE3_CURRENT_REVIEWED_COMPARISON,
 } from "./phase3-current-reviewed-comparison";
 import { PHASE3_REVIEWED_COMPARISON } from "./phase3-reviewed-comparison";
+import { formatTruncatedCurrency } from "./format";
 
 export type CorpusScopeId =
   | "phase3-core"
@@ -150,9 +151,9 @@ export const CORPUS_SCOPES: Readonly<Record<CorpusScopeId, CorpusScope>> = Objec
     currentCostReviewedAt:
       PHASE3_CURRENT_REVIEWED_COMPARISON.reviewedAt,
     selectedCostDescription:
-      `Current selected arm-sum cost is $${Number(
+      `Current selected arm-sum cost is ${formatTruncatedCurrency(
         CURRENT_REVIEWED_CORE.selectedCostEvidence.selectedCostUsd,
-      ).toFixed(6)} using mixed best-available arm evidence. `
+      )} using mixed best-available arm evidence. `
       + `${CURRENT_REVIEWED_CORE.selectedCostEvidence.currentReconciledArmCount}/${REVIEWED_CORE.armCount} arms have current generalized reconciliation; ${CURRENT_REVIEWED_CORE.selectedCostEvidence.exactProviderBilledArmCount}/${REVIEWED_CORE.armCount} arms have exact provider-billed totals. Provider aggregates are not redistributed to trials or outcomes.`,
 
     adjustedKnownCostUsd: reviewedDecimal(
@@ -200,9 +201,9 @@ export const CORPUS_SCOPES: Readonly<Record<CorpusScopeId, CorpusScope>> = Objec
     currentCostReviewedAt:
       PHASE3_CURRENT_REVIEWED_COMPARISON.reviewedAt,
     selectedCostDescription:
-      `Current selected arm-sum cost is $${Number(
+      `Current selected arm-sum cost is ${formatTruncatedCurrency(
         CURRENT_REVIEWED_EXTENDED.selectedCostEvidence.selectedCostUsd,
-      ).toFixed(6)} using mixed best-available arm evidence. `
+      )} using mixed best-available arm evidence. `
       + `${CURRENT_REVIEWED_EXTENDED.selectedCostEvidence.currentReconciledArmCount}/${REVIEWED_EXTENDED.armCount} arms have current generalized reconciliation; ${CURRENT_REVIEWED_EXTENDED.selectedCostEvidence.exactProviderBilledArmCount}/${REVIEWED_EXTENDED.armCount} arms have exact provider-billed totals. Provider aggregates are not redistributed to trials or outcomes.`,
 
     adjustedKnownCostUsd: null,
@@ -213,7 +214,11 @@ export const CORPUS_SCOPES: Readonly<Record<CorpusScopeId, CorpusScope>> = Objec
     costDisplayLabel: "Phase 3 extended qualified adjusted-cost estimate",
     comparisonValid: true,
     costCoverageState: "reviewed_qualified_retained_rate_estimate",
-    costCoverageDescription: `The qualified extended estimate is $${Number(REVIEWED_EXTENDED.costEvidence.qualifiedAdjustedCostEstimateUsd).toFixed(6)}. Kimi K3 pricing-source provenance is incomplete, arm-run allocation confidence is low, trial allocation is unresolved, and the estimate is not invoice-level or provider-billed spend.`,
+    costCoverageDescription: `The qualified extended estimate is ${REVIEWED_EXTENDED.costEvidence.qualifiedAdjustedCostEstimateUsd === null
+      ? "Unavailable"
+      : formatTruncatedCurrency(
+          REVIEWED_EXTENDED.costEvidence.qualifiedAdjustedCostEstimateUsd,
+        )}. Kimi K3 pricing-source provenance is incomplete, arm-run allocation confidence is low, trial allocation is unresolved, and the estimate is not invoice-level or provider-billed spend.`,
     provenanceLabel: "Phase 3 core plus the reviewed Kimi K3 retained-rate reconciliation",
     snapshotDate: REVIEWED_EXTENDED.snapshotDate,
     kimiK3Disposition: reviewedKimiDisposition(REVIEWED_EXTENDED),

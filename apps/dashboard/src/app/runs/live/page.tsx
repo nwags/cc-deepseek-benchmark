@@ -23,6 +23,7 @@ import {
 import { buildLiveHeartbeatLiveness, findLatestObservedTimestamp } from "../../../lib/data-freshness";
 import { LIVE_ROUTE_FRESHNESS_SOURCES } from "../../../lib/data-freshness-sources";
 import { redactSecretsInText, sanitizeDisplayedUri } from "../../../lib/safe-display";
+import { formatTruncatedCurrency } from "../../../lib/format";
 import {
   friendlyArmLabel,
   friendlyProviderLabel,
@@ -56,7 +57,9 @@ function fmtNumber(value: number | null | undefined): string {
 }
 
 function fmtMoney(value: number | null | undefined): string {
-  return value === null || value === undefined ? "—" : `$${value.toFixed(4)}`;
+  return value === null || value === undefined
+    ? "—"
+    : formatTruncatedCurrency(value);
 }
 
 function fmtSeconds(value: number | null | undefined): string {
