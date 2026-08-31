@@ -58,12 +58,13 @@ ever disagree, use the Markdown file.
 A request to **"review the dashboard" means review the whole dashboard**, not
 only the Overview page or only the pages that initially appear relevant.
 
-Incoming team members are expected to open and inspect all 15 principal
+Incoming team members are expected to open and inspect all 16 principal
 dashboard surfaces:
 
 `Overview`, `Architecture`, `Data Model`, `Glossary`, `Trial Quality`,
 `Cross-phase`, `Eval Suites`, `Evals`, `Runs`, `Live Runs`, `Arms`,
-`Artifacts`, `Evidence Review`, `Planner`, and `Cost Coverage`.
+`Artifacts`, `Provider Evidence`, `Evidence Review`, `Planner`, and
+`Cost Coverage`.
 
 The detailed required walkthrough and the minimum question each page should
 answer are in `docs/guides/README.md` and the Dashboard Research Guide.

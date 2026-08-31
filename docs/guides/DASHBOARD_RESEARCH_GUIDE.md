@@ -1,6 +1,6 @@
 # Dashboard Research Guide
 
-Status: current research guide as of 2026-08-30.
+Status: current research guide as of 2026-08-31.
 
 ## Purpose
 
@@ -837,9 +837,19 @@ It is not canonical benchmark truth.
 | Live Runs | Observe in-progress executions | Mutable live Supabase/R2 state |
 | Arms | Broad arm inventory including canonical agent-harness identity | All imported; not a leaderboard |
 | Artifacts | Inspect retained evidence | Canonical metadata plus R2/local evidence state |
+| Provider Evidence | Trace normalized provider source, usage, pricing, cost, and reconciliation provenance | Dynamic normalized Migration-011 evidence; source presence is provenance, reconciliation determines authority |
 | Evidence Review | Complete reviewed trial filters, queue, controls, disagreements | Frozen comprehensive-review snapshot |
 | Planner | Review future run plans plus current predecessor promotion evidence | Checked-in configs + read-only fail-closed gate view; no gate writes or dispatch |
 | Cost Coverage | Current selected cost plus historical cost provenance | Current reviewed + historical DR-303 layers |
+
+### Dashboard presentation precision
+
+The dashboard has a presentation-only ceiling of four fractional digits.
+Values that exceed the ceiling are truncated toward zero, not rounded. Lower
+intentional precision remains lower precision. This rule changes neither the
+stored evidence nor the authority of a claim, so use retained/source values
+when exact machine precision matters. Missing or unavailable evidence remains
+missing or unavailable rather than becoming zero.
 
 ## A useful page-by-page research workflow
 
@@ -995,6 +1005,34 @@ each group.
 
 This is intentional: once a trial matches your question, the surrounding
 evidence should remain visible.
+
+### Provider Evidence
+
+Use Provider Evidence when the claim depends on provider-side provenance rather
+than benchmark execution bytes.
+
+Start from a source or filter by provider, phase, arm, run, evidence kind,
+scope, integrity state, or search text. Source detail exposes normalized usage,
+cost, pricing, usage reconciliations, cost reconciliations, all supporting
+source roles, and cross-source pricing provenance where applicable.
+
+Important boundaries:
+
+- a source row is provenance, not automatically selected authority;
+- a reconciliation can depend on several sources;
+- its pricing snapshot can belong to a different source record;
+- provider-window evidence is not automatically selected-run allocation;
+- the browser does not display arbitrary `raw_metadata` or raw provider
+  responses;
+- the browser does not call provider APIs or change provider evidence.
+
+For economic interpretation, a useful path is:
+
+    Overview / Cross-phase
+      -> Cost Coverage
+      -> Provider Evidence
+      -> exact source/reconciliation chain
+      -> pricing and allocation limitations
 
 ### Trial evidence
 
@@ -2153,6 +2191,11 @@ Artifacts:
     apps/dashboard/src/app/artifacts/[artifactId]/page.tsx
     apps/dashboard/src/components/ArtifactEvidenceGuide.tsx
 
+Provider Evidence:
+
+    apps/dashboard/src/app/provider-evidence/page.tsx
+    apps/dashboard/src/app/provider-evidence/[sourceId]/page.tsx
+
 Trial evidence:
 
     apps/dashboard/src/app/trials/[trialId]/page.tsx
@@ -2170,7 +2213,7 @@ Planner:
 
 Current selected Phase 3 comparison:
 
-    results/phase3/reporting/phase3_current_reviewed_comparison_20260821.json
+    results/phase3/reporting/phase3_current_reviewed_comparison_20260825.json
 
 Historical reviewed Phase 3 comparison:
 

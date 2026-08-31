@@ -13,6 +13,7 @@ const navItems = [
   { href: "/runs/live", label: "Live Runs" },
   { href: "/arms", label: "Arms" },
   { href: "/artifacts", label: "Artifacts" },
+  { href: "/provider-evidence", label: "Provider Evidence" },
   { href: "/comprehensive-review", label: "Evidence Review" },
   { href: "/planner", label: "Planner" },
   { href: "/cost-coverage", label: "Cost Coverage" }

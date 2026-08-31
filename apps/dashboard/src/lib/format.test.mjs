@@ -136,3 +136,50 @@ test("production dashboard source requests no presentation precision above four 
 
   assert.deepEqual(violations, []);
 });
+
+test("structured presentation data truncates decimal leaves without rewriting identifiers or short values", () => {
+  const input = {
+    numeric: 12.3456789,
+    numericString: "0.1234567",
+    shortDecimal: "1.2345",
+    integer: 42,
+    model: "gpt-5.4",
+    nested: [
+      {
+        rate: "-9.876543",
+        label: "provider-rate-v1.234567",
+      },
+    ],
+  };
+
+  assert.deepEqual(
+    formatting.truncateStructuredDecimalsForDisplay(input),
+    {
+      numeric: 12.3456,
+      numericString: "0.1234",
+      shortDecimal: "1.2345",
+      integer: 42,
+      model: "gpt-5.4",
+      nested: [
+        {
+          rate: "-9.8765",
+          label: "provider-rate-v1.234567",
+        },
+      ],
+    },
+  );
+
+  assert.deepEqual(input, {
+    numeric: 12.3456789,
+    numericString: "0.1234567",
+    shortDecimal: "1.2345",
+    integer: 42,
+    model: "gpt-5.4",
+    nested: [
+      {
+        rate: "-9.876543",
+        label: "provider-rate-v1.234567",
+      },
+    ],
+  });
+});

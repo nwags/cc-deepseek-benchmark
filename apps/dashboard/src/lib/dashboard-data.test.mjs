@@ -545,3 +545,450 @@ test("arm loader retains first-class agent harness identity", async () => {
   assert.match(captured, /agent_harness/);
   assert.match(captured, /from benchmark\.v_dashboard_arms/);
 });
+
+test("provider evidence browser pages source records with normalized and reconciliation context", async () => {
+  const calls = [];
+  globalThis.__dashboardQueryHandler = async (sql, params) => {
+    calls.push({ sql, params });
+
+    if (sql.includes("total_source_count")) {
+      return [{ total_source_count: 11 }];
+    }
+
+    return [{
+      source_id: "11111111-1111-1111-1111-111111111111",
+      provider: "openai",
+      arm_run_id: null,
+      artifact_id: null,
+      evidence_kind: "usage_export",
+      source_scope: "provider_window",
+      source_uri: null,
+      provider_reference: "usage.csv",
+      source_sha256: "a".repeat(64),
+      size_bytes: null,
+      source_format: "csv",
+      provider_window_started_at: null,
+      provider_window_finished_at: null,
+      captured_at: "2026-08-21T00:00:00Z",
+      integrity_status: "sha256_verified",
+      notes: "normalized source",
+      phases: ["phase3"],
+      suite_ids: ["phase3-full-20"],
+      arm_ids: ["router-gpt-5.4"],
+      run_labels: ["router-gpt-5.4/run"],
+      usage_row_count: 1,
+      cost_row_count: 0,
+      pricing_snapshot_count: 0,
+      usage_reconciliation_count: 1,
+      cost_reconciliation_count: 0,
+    }];
+  };
+
+  const page = await dashboardData.getProviderEvidenceBrowserPage({
+    provider: "openai",
+    arm_id: "router-gpt-5.4",
+    page: 2,
+    page_size: 10,
+  });
+
+  assert.equal(page.page, 2);
+  assert.equal(page.total_source_count, 11);
+  assert.equal(page.total_pages, 2);
+  assert.equal(page.sources.length, 1);
+  assert.deepEqual(page.sources[0].phases, ["phase3"]);
+  assert.deepEqual(page.sources[0].arm_ids, ["router-gpt-5.4"]);
+
+  assert.equal(calls.length, 2);
+  assert.match(
+    calls[0].sql,
+    /from benchmark\.benchmark_provider_evidence_sources source/,
+  );
+  assert.match(
+    calls[0].sql,
+    /benchmark_provider_usage_evidence/,
+  );
+  assert.match(
+    calls[0].sql,
+    /benchmark_provider_cost_evidence/,
+  );
+  assert.match(
+    calls[0].sql,
+    /benchmark_usage_reconciliation_sources/,
+  );
+  assert.match(
+    calls[0].sql,
+    /benchmark_cost_reconciliation_sources/,
+  );
+  assert.match(
+    calls[0].sql,
+    /\$2 = any\(arm_ids\)/,
+  );
+  assert.deepEqual(calls[0].params, [
+    "openai",
+    "router-gpt-5.4",
+  ]);
+  assert.deepEqual(calls[1].params, [
+    "openai",
+    "router-gpt-5.4",
+    10,
+    10,
+  ]);
+
+  for (const call of calls) {
+    assert.doesNotMatch(call.sql, /raw_metadata/);
+  }
+});
+
+test("provider evidence source detail loads normalized usage cost pricing and independent reconciliations", async () => {
+  const calls = [];
+
+  globalThis.__dashboardQueryHandler = async (sql, params) => {
+    calls.push({ sql, params });
+
+    if (
+      sql.includes("from provider_source_context")
+      && sql.includes("where source_id = $1")
+    ) {
+      return [{
+        source_id: "11111111-1111-1111-1111-111111111111",
+        provider: "openai",
+        arm_run_id: null,
+        artifact_id: null,
+        evidence_kind: "usage_export",
+        source_scope: "provider_window",
+        source_uri: null,
+        provider_reference: "usage.csv",
+        source_sha256: "a".repeat(64),
+        size_bytes: null,
+        source_format: "csv",
+        provider_window_started_at: null,
+        provider_window_finished_at: null,
+        captured_at: "2026-08-21T00:00:00Z",
+        integrity_status: "sha256_verified",
+        notes: "normalized source",
+        phases: ["phase3"],
+        suite_ids: ["phase3-full-20"],
+        arm_ids: ["router-gpt-5.4"],
+        run_labels: ["router-gpt-5.4/run"],
+        usage_row_count: 1,
+        cost_row_count: 1,
+        pricing_snapshot_count: 1,
+        usage_reconciliation_count: 1,
+        cost_reconciliation_count: 1,
+      }];
+    }
+
+    if (
+      sql.includes(
+        "from benchmark.benchmark_provider_usage_evidence usage_evidence",
+      )
+    ) {
+      return [{
+        evidence_id: "usage-id",
+        arm_run_id: "arm-run-id",
+        arm_id: "router-gpt-5.4",
+        suite_id: "phase3-full-20",
+        logical_mode: "full",
+        run_label: "router-gpt-5.4/run",
+        trial_id: null,
+        provider_request_id: null,
+        provider_model: "gpt-5.4-2026-03-05",
+        request_started_at: null,
+        request_finished_at: null,
+        ordinary_input_tokens: "10",
+        cache_read_input_tokens: "20",
+        cache_creation_input_tokens: null,
+        output_tokens: "3",
+        request_count: 4,
+        allocation_scope: "exact_arm_run",
+        completeness_status: "complete",
+        notes: null,
+        created_at: "2026-08-21T00:00:00Z",
+      }];
+    }
+
+    if (
+      sql.includes(
+        "from benchmark.benchmark_provider_cost_evidence cost_evidence",
+      )
+    ) {
+      return [{
+        evidence_id: "cost-id",
+        arm_run_id: "arm-run-id",
+        arm_id: "router-gpt-5.4",
+        suite_id: "phase3-full-20",
+        logical_mode: "full",
+        run_label: "router-gpt-5.4/run",
+        trial_id: null,
+        pricing_snapshot_id: null,
+        provider_model: "gpt-5.4-2026-03-05",
+        cost_kind: "provider_arm_run_billed",
+        amount_usd: "29.7919335",
+        currency: "USD",
+        allocation_scope: "exact_arm_run",
+        completeness_status: "complete",
+        notes: null,
+        created_at: "2026-08-21T00:00:00Z",
+      }];
+    }
+
+    if (
+      sql.includes(
+        "from benchmark.benchmark_provider_pricing_snapshots pricing",
+      )
+    ) {
+      return [{
+        pricing_snapshot_id: "pricing-id",
+        provider: "openai",
+        provider_model: "gpt-5.4-2026-03-05",
+        currency: "USD",
+        effective_from: null,
+        effective_until: null,
+        pricing_semantics: "provider_billed",
+        pricing_rules: { input: "1.25" },
+        official_source_uri: "https://example.test/pricing",
+        notes: null,
+        created_at: "2026-08-21T00:00:00Z",
+      }];
+    }
+
+    if (
+      sql.includes(
+        "from benchmark.benchmark_usage_reconciliation_sources source_link",
+      )
+    ) {
+      return [{
+        reconciliation_id: "usage-reconciliation-id",
+        evidence_role: "aggregate_usage",
+        arm_run_id: "arm-run-id",
+        arm_id: "router-gpt-5.4",
+        suite_id: "phase3-full-20",
+        logical_mode: "full",
+        run_label: "router-gpt-5.4/run",
+        reconciliation_version: "v1",
+        is_current: true,
+        harness_name: "claude-code",
+        harness_version: null,
+        configured_route_model: null,
+        configured_backend_model: "gpt-5.4",
+        harness_observed_model: "gpt-5.4",
+        provider_observed_model: "gpt-5.4-2026-03-05",
+        model_identity_status: "matched",
+        harness_input_tokens: "30",
+        harness_cache_tokens: "20",
+        harness_output_tokens: "3",
+        provider_ordinary_input_tokens: "10",
+        provider_cache_read_input_tokens: "20",
+        provider_cache_creation_input_tokens: null,
+        provider_output_tokens: "3",
+        provider_request_count: 4,
+        matched_provider_request_count: null,
+        unallocated_provider_request_count: null,
+        provider_evidence_visible: true,
+        selected_usage_authority: "provider_aggregate_usage",
+        validation_status: "validated_exact",
+        limitation_codes: [],
+        notes: null,
+        created_at: "2026-08-21T00:00:00Z",
+        reviewed_at: "2026-08-21T00:00:00Z",
+        evidence_sources: [{
+          source_id: "11111111-1111-1111-1111-111111111111",
+          provider: "openai",
+          evidence_kind: "usage_export",
+          source_scope: "provider_window",
+          evidence_role: "aggregate_usage",
+        }],
+      }];
+    }
+
+    if (
+      sql.includes(
+        "from benchmark.benchmark_cost_reconciliation_sources source_link",
+      )
+    ) {
+      return [{
+        reconciliation_id: "cost-reconciliation-id",
+        evidence_role: "billed",
+        arm_run_id: "arm-run-id",
+        arm_id: "router-gpt-5.4",
+        suite_id: "phase3-full-20",
+        logical_mode: "full",
+        run_label: "router-gpt-5.4/run",
+        reconciliation_version: "v1",
+        is_current: true,
+        harness_name: "claude-code",
+        harness_version: null,
+        harness_reported_cost_usd: "173.09483",
+        provider_billed_cost_usd: "29.7919335",
+        provider_rate_reconstructed_cost_usd: null,
+        selected_cost_usd: "29.7919335",
+        selected_cost_basis: "provider_billed",
+        selected_cost_relation: "exact",
+        validation_status: "validated_exact",
+        provider_evidence_visible: true,
+        pricing_snapshot_id: "pricing-id",
+        pricing_source_id:
+          "22222222-2222-2222-2222-222222222222",
+        pricing_source_provider: "openai",
+        pricing_source_evidence_kind: "pricing_snapshot",
+        pricing_source_scope: "pricing_snapshot",
+        limitation_codes: [],
+        notes: null,
+        created_at: "2026-08-21T00:00:00Z",
+        reviewed_at: "2026-08-21T00:00:00Z",
+        evidence_sources: [{
+          source_id: "11111111-1111-1111-1111-111111111111",
+          provider: "openai",
+          evidence_kind: "billing_export",
+          source_scope: "provider_window",
+          evidence_role: "billed",
+        }, {
+          source_id: "22222222-2222-2222-2222-222222222222",
+          provider: "openai",
+          evidence_kind: "pricing_snapshot",
+          source_scope: "pricing_snapshot",
+          evidence_role: "pricing",
+        }],
+      }];
+    }
+
+    throw new Error(`unexpected provider evidence query: ${sql}`);
+  };
+
+  const detail =
+    await dashboardData.getProviderEvidenceSourceDetail(
+      "11111111-1111-1111-1111-111111111111",
+    );
+
+  assert.ok(detail);
+  assert.equal(detail.usage_rows.length, 1);
+  assert.equal(detail.cost_rows.length, 1);
+  assert.equal(detail.pricing_snapshots.length, 1);
+  assert.equal(detail.usage_reconciliations.length, 1);
+  assert.equal(detail.cost_reconciliations.length, 1);
+  assert.equal(
+    detail.cost_reconciliations[0].selected_cost_relation,
+    "exact",
+  );
+
+  assert.equal(calls.length, 6);
+
+  assert.match(
+    calls[4].sql,
+    /jsonb_agg/,
+  );
+  assert.match(
+    calls[4].sql,
+    /benchmark_usage_reconciliation_sources all_link/,
+  );
+
+  assert.match(
+    calls[5].sql,
+    /benchmark_provider_pricing_snapshots pricing/,
+  );
+  assert.match(
+    calls[5].sql,
+    /pricing_source_id/,
+  );
+  assert.match(
+    calls[5].sql,
+    /benchmark_cost_reconciliation_sources all_link/,
+  );
+  assert.match(
+    calls[5].sql,
+    /jsonb_agg/,
+  );
+
+  for (const call of calls) {
+    assert.doesNotMatch(call.sql, /raw_metadata/);
+  }
+});
+
+test("Provider Evidence routes are first-class navigation and privacy-safe normalized evidence surfaces", async () => {
+  const [indexPage, detailPage, appShell] = await Promise.all([
+    readFile(
+      join(
+        here,
+        "../app/provider-evidence/page.tsx",
+      ),
+      "utf8",
+    ),
+    readFile(
+      join(
+        here,
+        "../app/provider-evidence/[sourceId]/page.tsx",
+      ),
+      "utf8",
+    ),
+    readFile(
+      join(
+        here,
+        "../components/AppShell.tsx",
+      ),
+      "utf8",
+    ),
+  ]);
+
+  assert.match(
+    appShell,
+    /\{ href: "\/provider-evidence", label: "Provider Evidence" \}/,
+  );
+  assert.match(
+    indexPage,
+    /getProviderEvidenceBrowserPage/,
+  );
+  assert.match(
+    indexPage,
+    /getProviderEvidenceBrowserFilterOptions/,
+  );
+  assert.match(
+    detailPage,
+    /getProviderEvidenceSourceDetail/,
+  );
+  assert.match(
+    detailPage,
+    /formatTruncatedCurrency/,
+  );
+  assert.match(
+    detailPage,
+    /sanitizeEvidenceOutput/,
+  );
+  assert.match(
+    detailPage,
+    /truncateStructuredDecimalsForDisplay/,
+  );
+  assert.match(
+    detailPage,
+    /formatTruncatedNumber/,
+  );
+  assert.match(
+    detailPage,
+    /displayedCostAmount/,
+  );
+  assert.match(
+    detailPage,
+    /EvidenceSourceChain/,
+  );
+  assert.match(
+    detailPage,
+    /pricing snapshot:/,
+  );
+  assert.match(
+    detailPage,
+    /pricing source:/,
+  );
+  assert.match(
+    detailPage,
+    /row\.pricing_source_id/,
+  );
+  assert.doesNotMatch(
+    detailPage,
+    /safeText\(row\.amount_usd\)/,
+  );
+  assert.match(
+    indexPage,
+    /Private raw provider payload metadata is not rendered/,
+  );
+  assert.doesNotMatch(indexPage, /raw_metadata/);
+  assert.doesNotMatch(detailPage, /raw_metadata/);
+});

@@ -4,7 +4,7 @@
 
 Authoritative successor-team handoff guide.
 
-Current as of 2026-08-30.
+Current as of 2026-08-31.
 
 This document describes the state of the Claude Code Backend Benchmark after:
 
@@ -18,6 +18,10 @@ This document describes the state of the Claude Code Backend Benchmark after:
   closure;
 - normalized provider evidence/reconciliation schema and fail-closed promotion
   contract;
+- source-centric read-only Provider Evidence browser with complete
+  reconciliation-source and cross-source pricing provenance;
+- dashboard-wide presentation-only four-fractional-digit ceiling with
+  truncation toward zero and no source-precision mutation;
 - read-only Planner promotion-evidence review surface;
 - guarded durable evidence-promotion review CLI;
 - live-supervision and canonical-publication implementation;
@@ -835,8 +839,8 @@ The current contract and future extensions should preserve the ability to:
 - generate machine-readable reconciliation records suitable for dashboard,
   report, and cross-phase use.
 
-The current dashboard already exposes much of this decision-facing chain
-through Overview, Cost Coverage, Data Model, and Planner:
+The current dashboard exposes this decision-facing chain through Overview,
+Cost Coverage, Provider Evidence, Data Model, and Planner:
 
     selected run
       -> router alias
@@ -849,6 +853,12 @@ through Overview, Cost Coverage, Data Model, and Planner:
       -> outcome allocation status
       -> promotion review when applicable
 
+The Provider Evidence browser supplies the source-level drilldown behind that
+chain. It exposes normalized source provenance, usage/cost evidence, complete
+reconciliation-source roles, and independently linked pricing sources without
+rendering arbitrary raw provider metadata. It is a read-only evidence consumer,
+not a provider collector or reconciliation editor.
+
 The Cost Coverage page surfaces evidence class alongside the dollar amount. A
 cost should not appear equally authoritative when one arm has an exact
 provider-billed total and another has only a qualified estimate, lower bound,
@@ -856,8 +866,9 @@ or accepted normalized absence.
 
 ### Current provider collection boundary
 
-Do not confuse the normalized Phase 3 evidence corpus with a generalized live
-collector for every provider.
+Do not confuse the normalized Phase 3 evidence corpus or the Provider Evidence
+dashboard browser with a generalized live collector for every provider. The
+browser issues no provider API requests and requires no provider API credential.
 
 The repository currently has:
 
@@ -2194,13 +2205,19 @@ Let observed research friction determine features.
 
 ### Priority 5 — Expand automatic provider evidence collection
 
-After the current documentation integration is accepted, resume provider
-usage/cost collector expansion.
+Do **not** begin this priority merely because the Provider Evidence browser,
+dashboard decimal hardening, documentation, and prerequisite branch integration
+are complete.
 
-Use the existing Anthropic read-only collector as one implementation pattern,
-but preserve each provider's actual credential model, API/export granularity,
-allocation limits, and provenance rather than forcing a false common schema at
-collection time.
+Two additional project-owner prerequisite items remain to be specified and
+resolved before the next provider API/collector stage begins. Until both are
+closed and the project owner explicitly authorizes provider API work, treat
+automatic provider collection as fail-closed and deferred.
+
+Once that later gate is explicitly opened, use the existing Anthropic
+read-only collector as one implementation pattern, but preserve each provider's
+actual credential model, API/export granularity, allocation limits, and
+provenance rather than forcing a false common schema at collection time.
 
 ### Priority 6 — Refresh Phase 4 design and activation prerequisites
 

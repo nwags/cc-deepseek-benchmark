@@ -82,6 +82,60 @@ export function formatTruncatedCurrency(
   }).format(truncated);
 }
 
+/**
+ * Recursively applies the dashboard decimal ceiling to structured
+ * presentation data such as normalized provider pricing rules.
+ *
+ * Pure decimal strings are changed only when they contain more than
+ * four fractional digits. Non-numeric strings, identifiers, integers,
+ * source objects, and stored evidence remain unchanged.
+ */
+export function truncateStructuredDecimalsForDisplay(
+  value: unknown,
+): unknown {
+  if (typeof value === "number") {
+    if (!Number.isFinite(value) || Number.isInteger(value)) {
+      return value;
+    }
+
+    return truncateDecimalPlaces(value);
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    const match = /^[+-]?\d+\.(\d+)$/.exec(trimmed);
+
+    if (
+      match === null
+      || match[1].length <= DASHBOARD_MAX_FRACTION_DIGITS
+    ) {
+      return value;
+    }
+
+    return String(truncateDecimalPlaces(trimmed));
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) =>
+      truncateStructuredDecimalsForDisplay(item)
+    );
+  }
+
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  const output: Record<string, unknown> = {};
+
+  for (const [key, item] of Object.entries(
+    value as Record<string, unknown>,
+  )) {
+    output[key] = truncateStructuredDecimalsForDisplay(item);
+  }
+
+  return output;
+}
+
 export function formatNumber(value: number | string | null | undefined): string {
   const n = Number(value ?? 0);
   return new Intl.NumberFormat("en-US").format(n);

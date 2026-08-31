@@ -35,7 +35,34 @@ export function getPool(): pg.Pool {
   return globalThis.__phase3DashboardPool;
 }
 
-export async function queryRows<T>(sql: string, params: unknown[] = []): Promise<T[]> {
-  const result = await getPool().query(sql, params);
-  return result.rows as T[];
+/**
+ * Execute one dashboard query inside an explicit PostgreSQL read-only
+ * transaction.
+ *
+ * The Supabase connection path does not honor startup
+ * default_transaction_read_only options consistently, so the dashboard
+ * enforces its read-only contract at the shared query boundary instead.
+ */
+export async function queryRows<T>(
+  sql: string,
+  params: unknown[] = [],
+): Promise<T[]> {
+  const client = await getPool().connect();
+
+  try {
+    await client.query("begin read only");
+    const result = await client.query(sql, params);
+    await client.query("commit");
+    return result.rows as T[];
+  } catch (error) {
+    try {
+      await client.query("rollback");
+    } catch {
+      // Preserve the original query/transaction failure.
+    }
+
+    throw error;
+  } finally {
+    client.release();
+  }
 }

@@ -199,6 +199,23 @@ Kimi, Qwen, and xAI therefore **do have reconciliation logic** even though
 there is no standalone `reconcile_kimi_family_usage.py`,
 `reconcile_qwen_family_usage.py`, or `reconcile_xai_family_usage.py`.
 
+### Dashboard Provider Evidence browser
+
+The dashboard has a source-centric read-only browser at:
+
+    /provider-evidence
+    /provider-evidence/[sourceId]
+
+It consumes the normalized Migration-011 source, usage, pricing, cost,
+reconciliation, and reconciliation-source relationships already present in
+Postgres. It is not another collection layer.
+
+The browser deliberately does not render arbitrary `raw_metadata`, does not
+call provider APIs, does not access provider API credentials, and does not
+change evidence or reconciliations. Cross-source pricing is followed explicitly
+because a reconciliation's pricing snapshot can be owned by a different source
+record than the source currently being inspected.
+
 ### Accepted absence
 
 No ingestion job should fabricate first-party selected-run evidence merely
@@ -866,6 +883,23 @@ Therefore:
 | GLM | No | Deliberate selected-run accepted absence |
 
 Do not add standalone reconcilers solely to make this table symmetrical.
+
+## Activation boundary for the next provider API stage
+
+The collector-expansion order below is a technical priority order, **not**
+authorization to start provider API work.
+
+Completion of the Provider Evidence browser, dashboard-wide decimal hardening,
+their documentation, and prerequisite branch integration is only one project
+gate. Two additional project-owner prerequisite items remain to be specified
+and resolved afterward.
+
+Until those two items are closed and explicit authorization is given:
+
+- do not access provider API credentials for new collection work;
+- do not issue provider API requests merely because an adapter is listed below;
+- do not treat this numbered expansion order as an execution checklist;
+- retain the existing closed Phase 3 evidence authority unchanged.
 
 ## Recommended collector expansion order
 

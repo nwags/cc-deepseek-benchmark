@@ -28,7 +28,7 @@ able to check every item below:
 - [ ] I read the Codebase Guide.
 - [ ] I read the Project Handoff and Future Roadmap.
 - [ ] I obtained access to the dashboard or documented an access blocker.
-- [ ] I opened and reviewed all 15 principal dashboard surfaces listed below.
+- [ ] I opened and reviewed all 16 principal dashboard surfaces listed below.
 - [ ] I completed the required evidence-tracing exercises below.
 - [ ] I understand which evidence is frozen, reviewed, canonical, dynamic,
       provisional, or historical.
@@ -49,7 +49,7 @@ able to check every item below:
 ## How to access the dashboard
 
 If the team provides a shared dashboard URL, use that URL and confirm that all
-15 principal surfaces below are available.
+16 principal surfaces below are available.
 
 If no shared dashboard is available, the repository's local setup instructions
 are authoritative in:
@@ -208,12 +208,12 @@ this repository currently automates.
 
 ## Required complete dashboard walkthrough
 
-**"Review the dashboard" means open all 15 principal dashboard surfaces.**
+**"Review the dashboard" means open all 16 principal dashboard surfaces.**
 
 Do not infer the dashboard's capabilities from Overview alone. Do not mark this
 walkthrough complete merely because several pages share navigation or data.
 
-For the page-specific manual covering all 15 surfaces, use:
+For the page-specific manual covering all 16 surfaces, use:
 
     docs/guides/dashboard/README.md
 
@@ -231,6 +231,7 @@ For the page-specific manual covering all 15 surfaces, use:
 | **Live Runs** | Why live supervision is mutable/provisional observation rather than a replacement for canonical publication. |
 | **Arms** | Model, provider, route, canonical arm identity, and the already-first-class agent-harness dimension. |
 | **Artifacts** | How retained evidence is located, what provenance/integrity states mean, and why indexed bytes are not automatically verified complete evidence. |
+| **Provider Evidence** | How normalized provider source records, usage/cost evidence, pricing snapshots, reconciliation source roles, and cross-source pricing provenance support a decision-facing interpretation without exposing raw provider metadata or implying that source presence equals selected authority. |
 | **Evidence Review** | The frozen reviewed population, manifest validation, and the role of reviewed evidence in qualitative conclusions. |
 | **Planner** | How it reads the current fail-closed predecessor promotion gate, why evidence acknowledgement is bound to that review state, and why it still **does not write gates or dispatch benchmark work**. |
 | **Cost Coverage** | The distinction between current selected/provider-aware cost evidence, historical reviewed DR-303 evidence, allocation gaps, and unresolved/missing evidence. |
@@ -277,7 +278,7 @@ Do not turn a qualitative diagnosis into a different raw benchmark score.
 
 ### Exercise 3: cost-semantics trace
 
-Using Overview, Cross-phase, and Cost Coverage, explain:
+Using Overview, Cross-phase, Cost Coverage, and Provider Evidence, explain:
 
 - current selected/provider-aware Phase 3 cost;
 - historical reviewed cost;
@@ -311,6 +312,8 @@ guessing:
 - raw benchmark/verifier outcome versus qualitative review/taxonomy;
 - canonical publication versus live observation;
 - current provider-aware cost versus historical reviewed cost;
+- provider source evidence versus reconciliation authority, including why a
+  pricing source may be a different source record;
 - known cost versus missing, unresolved, or qualified cost;
 - why provider aggregate costs cannot be fabricated into unsupported
   per-trial/per-outcome allocations;

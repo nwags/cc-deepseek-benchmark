@@ -1,6 +1,6 @@
 # Codebase Guide
 
-Status: current implementation guide as of 2026-08-30.
+Status: current implementation guide as of 2026-08-31.
 
 ## Purpose
 
@@ -1105,6 +1105,13 @@ The dashboard reads:
 
 server-side and uses a Postgres connection pool.
 
+The shared `queryRows()` boundary acquires a pool client, begins an explicit
+read-only transaction, executes the requested read, commits on success, and
+rolls back on failure before releasing the client. Operational dashboard code
+should not bypass that boundary with direct pool queries. This is an
+application-level defense in addition to database permissions; it does not turn
+the dashboard into a database writer.
+
 Database credentials do not belong in client components.
 
 Most operational query functions are implemented in:
@@ -1589,6 +1596,29 @@ The content reader distinguishes:
 
 Do not collapse those states to a single boolean such as `has_artifact`.
 
+### Provider Evidence
+
+The Provider Evidence routes are:
+
+    /provider-evidence
+    /provider-evidence/[sourceId]
+
+They are server-rendered, source-centric consumers of the normalized
+Migration-011 provider evidence and reconciliation tables.
+
+The index pages provider source records before expanding linked run/arm and
+reconciliation context, avoiding child-row fan-out as a pagination mechanism.
+Source detail loads normalized usage, cost, pricing snapshots, usage/cost
+reconciliations, every reconciliation source role, and the pricing source
+independently. That last relationship matters because the pricing snapshot can
+belong to a different evidence source than the source being viewed.
+
+The route deliberately does not select or render arbitrary `raw_metadata`.
+Displayed URIs, notes, provider references, labels, and structured pricing
+content pass through the existing sanitization/redaction boundary. The browser
+does not call provider APIs and does not write provider evidence or
+reconciliations.
+
 ### Architecture and Data Model routes
 
 These routes are code-adjacent documentation:
@@ -1672,6 +1702,25 @@ to remain the stable ID while:
     GPT-5.5
 
 is shown to a reader.
+
+### Presentation precision
+
+Dashboard numeric rendering has a maximum of four fractional digits. The
+shared formatting layer truncates toward zero when a value exceeds that
+ceiling rather than rounding it.
+
+Relevant helpers are in:
+
+    apps/dashboard/src/lib/format.ts
+
+including the shared maximum-fraction constant, truncated number/currency
+formatters, and structured display sanitization used for numeric leaves in
+structured evidence.
+
+This contract is presentation-only. Do not reduce precision in canonical
+database rows, generated reviewed evidence, retained source documents, hashes,
+IDs, timestamps, or model identifiers to make the UI match. Null/unavailable
+evidence must also remain unavailable rather than becoming numeric zero.
 
 ### Freshness
 

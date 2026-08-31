@@ -1298,7 +1298,14 @@ def test_cloud_detail_routes_expose_exact_freshness_and_artifact_provenance() ->
     assert "getValidEvalTaskLatestIncludedExecutionAt(decodedTaskId)" in task_page
     assert "getAllImportedEvalTaskLatestIncludedExecutionAt(decodedTaskId)" in task_page
     assert "DETAIL_ROUTE_FRESHNESS_SOURCES.evalTaskDetail[selection.scopeId]" in task_page
-    eval_freshness = data[data.index("export async function getValidEvalTaskLatestIncludedExecutionAt") :]
+    eval_freshness_start = data.index(
+        "export async function getValidEvalTaskLatestIncludedExecutionAt"
+    )
+    eval_freshness_end = data.index(
+        "export type SuiteTaskDifficultyRow",
+        eval_freshness_start,
+    )
+    eval_freshness = data[eval_freshness_start:eval_freshness_end]
     assert "max(arm_run.finished_at)::text" in eval_freshness
     assert "join benchmark.benchmark_trials trial" in eval_freshness
     assert "where trial.task_id = $1" in eval_freshness

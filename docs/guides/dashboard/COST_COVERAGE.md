@@ -75,8 +75,9 @@ interpretable without its evidence basis, relation, allocation state, and limita
 - Overview/Cross-phase selected cost → Cost Coverage arm → exact selected run → evidence
   basis/reconciliation/limitations.
 - Historical accounting gap → exact run/trial adjusted-cost coverage → recorded usage/cost evidence.
-- Current provider-aware value → provider evidence/reconciliation class; unsupported allocation
-  remains explicit rather than inferred.
+- Current provider-aware value → Provider Evidence source detail → current
+  usage/cost reconciliation → complete supporting-source and pricing-source
+  chain; unsupported allocation remains explicit rather than inferred.
 
 ## Related documentation
 
@@ -84,4 +85,5 @@ interpretable without its evidence basis, relation, allocation state, and limita
   and evidence-reading order.
 - [Overview page guide](OVERVIEW.md).
 - [Cross-phase page guide](CROSS_PHASE.md).
+- [Provider Evidence page guide](PROVIDER_EVIDENCE.md).
 - [Usage and Cost Evidence Model](../../methodology/USAGE_AND_COST_EVIDENCE_MODEL.md).
