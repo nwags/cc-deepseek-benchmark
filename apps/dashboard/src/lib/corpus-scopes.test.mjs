@@ -18,6 +18,12 @@ async function transpiledDataUrl(source) {
   return `data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`;
 }
 
+const formatSource = await readFile(
+  join(here, "format.ts"),
+  "utf8",
+);
+const formatModuleUrl = await transpiledDataUrl(formatSource);
+
 const historicalGeneratedSource = await readFile(
   resolve(here, "../generated/phase3-reviewed-comparison-data.ts"),
   "utf8",
@@ -75,6 +81,10 @@ const source = (
   .replace(
     'from "./phase3-reviewed-comparison"',
     `from "${reviewedModuleUrl}"`,
+  )
+  .replace(
+    'from "./format"',
+    `from "${formatModuleUrl}"`,
   );
 const moduleUrl = await transpiledDataUrl(source);
 const {

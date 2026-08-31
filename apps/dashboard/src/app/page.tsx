@@ -41,7 +41,7 @@ import {
   buildOverviewReviewedComparison,
   type DatabaseReadStatus,
 } from "../lib/overview-reviewed-comparison";
-import { formatRecordedCost, formatNumber, formatPercent, formatSeconds } from "../lib/format";
+import { formatRecordedCost, formatNumber, formatPercent, formatSeconds, formatTruncatedCurrency } from "../lib/format";
 import {
   deriveProviderFilterOptions,
   getCostPerformanceChartArms,
@@ -70,10 +70,7 @@ function formatReviewedUsd(value: string | null): string {
   if (value === null) return "Unavailable";
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return "Unavailable";
-  return `$${numeric.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 9,
-  })}`;
+  return formatTruncatedCurrency(value);
 }
 
 function linkedReviewedUsd(value: string | null, href: string) {

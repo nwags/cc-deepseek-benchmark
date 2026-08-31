@@ -3,6 +3,7 @@
 import {
   formatCurrentCostRelation,
 } from "../lib/current-cost-presentation";
+import { formatTruncatedCurrency } from "../lib/format";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -68,11 +69,13 @@ function providerColor(providerFamily: string): string {
 
 function formatUsdTick(value: number): string {
   const absolute = Math.abs(value);
-  const maximumFractionDigits = absolute < 0.01 ? 4 : absolute < 1 ? 3 : 2;
-  return `$${value.toLocaleString("en-US", {
-    minimumFractionDigits: 0,
+  const maximumFractionDigits =
+    absolute < 0.01 ? 4 : absolute < 1 ? 3 : 2;
+  return formatTruncatedCurrency(
+    value,
     maximumFractionDigits,
-  })}`;
+    0,
+  );
 }
 
 function formatPercent(value: number): string {
@@ -92,7 +95,7 @@ function metricValueText(
   }
 
   const amount = formatCurrentCostRelation(
-    `$${value.decimalUsd}`,
+    formatTruncatedCurrency(value.decimalUsd),
     relation,
   );
 
@@ -104,7 +107,7 @@ function failureSpendText(arm: ChartArmDatum): string {
 
   return spend.status === "available"
     ? formatCurrentCostRelation(
-        `$${spend.decimalUsd}`,
+        formatTruncatedCurrency(spend.decimalUsd),
         arm.selectedCostRelation,
       )
     : `Unavailable — ${spend.reason}`;
@@ -128,7 +131,7 @@ function pointAriaLabel(
     ? " Reviewed cost evidence has a confidence or accounting qualification."
     : "";
   const amount = formatCurrentCostRelation(
-    `$${point.xDecimalUsd}`,
+    formatTruncatedCurrency(point.xDecimalUsd),
     metricRelationForArm(point.arm, metric),
   );
 
@@ -501,16 +504,16 @@ export function CostPerformanceChart({
                     <dt>Selected cost total</dt>
                     <dd>
                       {formatCurrentCostRelation(
-                        `$${arm.selectedCostUsd}`,
+                        formatTruncatedCurrency(arm.selectedCostUsd),
                         arm.selectedCostRelation,
                       )}
                     </dd>
                   </div>
                   {arm.selectedCostUsd !== arm.historicalReviewedCostUsd ? (
-                    <div><dt>Historical reviewed cost total</dt><dd><Link href={arm.costProvenanceHref}>${arm.historicalReviewedCostUsd}</Link></dd></div>
+                    <div><dt>Historical reviewed cost total</dt><dd><Link href={arm.costProvenanceHref}>{formatTruncatedCurrency(arm.historicalReviewedCostUsd)}</Link></dd></div>
                   ) : null}
                   <div><dt>Selected cost sources / confidence</dt><dd>{arm.costSources.join(", ")} · {arm.costConfidence}</dd></div>
-                  <div><dt>Historical reviewed accounting gap</dt><dd><Link href={arm.costProvenanceHref}>${arm.accountingGapUsd}</Link></dd></div>
+                  <div><dt>Historical reviewed accounting gap</dt><dd><Link href={arm.costProvenanceHref}>{formatTruncatedCurrency(arm.accountingGapUsd)}</Link></dd></div>
                   <div><dt>Historical pricing provenance</dt><dd>{statusLabel(arm.pricingProvenanceStatus)}</dd></div>
                   <div><dt>Historical arm/run allocation</dt><dd>{statusLabel(arm.armRunAllocationConfidence)}</dd></div>
                   <div><dt>Selected trial allocation</dt><dd>{statusLabel(arm.trialAllocationStatus)}</dd></div>

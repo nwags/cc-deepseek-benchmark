@@ -2531,3 +2531,861 @@ export async function getAdjustedOutcomeCostRows(suiteId: string): Promise<Adjus
     [suiteId]
   );
 }
+
+// ---------------------------------------------------------------------------
+// Provider Evidence browser
+//
+// This is a read-only presentation layer over Migration 011. Raw provider
+// payload metadata is intentionally excluded from these dashboard loaders.
+// ---------------------------------------------------------------------------
+
+export type ProviderEvidenceBrowserFilters = {
+  provider?: string;
+  evidence_kind?: string;
+  source_scope?: string;
+  integrity_status?: string;
+  phase?: string;
+  arm_id?: string;
+  run_label?: string;
+  q?: string;
+  page?: number;
+  page_size?: number;
+};
+
+export type ProviderEvidenceSourceBrowserRow = {
+  source_id: string;
+  provider: string;
+  arm_run_id: string | null;
+  artifact_id: string | null;
+  evidence_kind: string;
+  source_scope: string;
+  source_uri: string | null;
+  provider_reference: string | null;
+  source_sha256: string | null;
+  size_bytes: number | null;
+  source_format: string | null;
+  provider_window_started_at: string | null;
+  provider_window_finished_at: string | null;
+  captured_at: string;
+  integrity_status: string;
+  notes: string | null;
+  phases: string[];
+  suite_ids: string[];
+  arm_ids: string[];
+  run_labels: string[];
+  usage_row_count: number;
+  cost_row_count: number;
+  pricing_snapshot_count: number;
+  usage_reconciliation_count: number;
+  cost_reconciliation_count: number;
+};
+
+export type ProviderEvidenceBrowserPage = {
+  sources: ProviderEvidenceSourceBrowserRow[];
+  page: number;
+  page_size: number;
+  total_source_count: number;
+  total_pages: number;
+};
+
+export type ProviderEvidenceBrowserFilterOptions = {
+  providers: string[];
+  evidence_kinds: string[];
+  source_scopes: string[];
+  integrity_statuses: string[];
+  phases: string[];
+  arm_ids: string[];
+  run_labels: string[];
+};
+
+export type ProviderUsageEvidenceRow = {
+  evidence_id: string;
+  arm_run_id: string | null;
+  arm_id: string | null;
+  suite_id: string | null;
+  logical_mode: string | null;
+  run_label: string | null;
+  trial_id: string | null;
+  provider_request_id: string | null;
+  provider_model: string | null;
+  request_started_at: string | null;
+  request_finished_at: string | null;
+  ordinary_input_tokens: string | null;
+  cache_read_input_tokens: string | null;
+  cache_creation_input_tokens: string | null;
+  output_tokens: string | null;
+  request_count: number;
+  allocation_scope: string;
+  completeness_status: string;
+  notes: string | null;
+  created_at: string;
+};
+
+export type ProviderCostEvidenceRow = {
+  evidence_id: string;
+  arm_run_id: string | null;
+  arm_id: string | null;
+  suite_id: string | null;
+  logical_mode: string | null;
+  run_label: string | null;
+  trial_id: string | null;
+  pricing_snapshot_id: string | null;
+  provider_model: string | null;
+  cost_kind: string;
+  amount_usd: string;
+  currency: string;
+  allocation_scope: string;
+  completeness_status: string;
+  notes: string | null;
+  created_at: string;
+};
+
+export type ProviderPricingSnapshotRow = {
+  pricing_snapshot_id: string;
+  provider: string;
+  provider_model: string;
+  currency: string;
+  effective_from: string | null;
+  effective_until: string | null;
+  pricing_semantics: string;
+  pricing_rules: unknown;
+  official_source_uri: string | null;
+  notes: string | null;
+  created_at: string;
+};
+
+export type ProviderEvidenceReconciliationSourceLink = {
+  source_id: string;
+  provider: string;
+  evidence_kind: string;
+  source_scope: string;
+  evidence_role: string;
+};
+
+export type ProviderUsageReconciliationRow = {
+  reconciliation_id: string;
+  evidence_role: string;
+  arm_run_id: string;
+  arm_id: string | null;
+  suite_id: string | null;
+  logical_mode: string | null;
+  run_label: string | null;
+  reconciliation_version: string;
+  is_current: boolean;
+  harness_name: string | null;
+  harness_version: string | null;
+  configured_route_model: string | null;
+  configured_backend_model: string | null;
+  harness_observed_model: string | null;
+  provider_observed_model: string | null;
+  model_identity_status: string;
+  harness_input_tokens: string | null;
+  harness_cache_tokens: string | null;
+  harness_output_tokens: string | null;
+  provider_ordinary_input_tokens: string | null;
+  provider_cache_read_input_tokens: string | null;
+  provider_cache_creation_input_tokens: string | null;
+  provider_output_tokens: string | null;
+  provider_request_count: number | null;
+  matched_provider_request_count: number | null;
+  unallocated_provider_request_count: number | null;
+  provider_evidence_visible: boolean;
+  selected_usage_authority: string;
+  validation_status: string;
+  limitation_codes: string[];
+  notes: string | null;
+  created_at: string;
+  reviewed_at: string | null;
+  evidence_sources: ProviderEvidenceReconciliationSourceLink[];
+};
+
+export type ProviderCostReconciliationRow = {
+  reconciliation_id: string;
+  evidence_role: string;
+  arm_run_id: string;
+  arm_id: string | null;
+  suite_id: string | null;
+  logical_mode: string | null;
+  run_label: string | null;
+  reconciliation_version: string;
+  is_current: boolean;
+  harness_name: string | null;
+  harness_version: string | null;
+  harness_reported_cost_usd: string | null;
+  provider_billed_cost_usd: string | null;
+  provider_rate_reconstructed_cost_usd: string | null;
+  selected_cost_usd: string | null;
+  selected_cost_basis: string;
+  selected_cost_relation: string;
+  validation_status: string;
+  provider_evidence_visible: boolean;
+  pricing_snapshot_id: string | null;
+  pricing_source_id: string | null;
+  pricing_source_provider: string | null;
+  pricing_source_evidence_kind: string | null;
+  pricing_source_scope: string | null;
+  limitation_codes: string[];
+  notes: string | null;
+  created_at: string;
+  reviewed_at: string | null;
+  evidence_sources: ProviderEvidenceReconciliationSourceLink[];
+};
+
+export type ProviderEvidenceSourceDetail = {
+  source: ProviderEvidenceSourceBrowserRow;
+  usage_rows: ProviderUsageEvidenceRow[];
+  cost_rows: ProviderCostEvidenceRow[];
+  pricing_snapshots: ProviderPricingSnapshotRow[];
+  usage_reconciliations: ProviderUsageReconciliationRow[];
+  cost_reconciliations: ProviderCostReconciliationRow[];
+};
+
+function providerEvidenceSourceContextCte(): string {
+  return `
+    with provider_source_context as (
+      select
+        source.id::text as source_id,
+        source.provider,
+        source.arm_run_id::text,
+        source.artifact_id::text,
+        source.evidence_kind,
+        source.source_scope,
+        source.source_uri,
+        source.provider_reference,
+        source.source_sha256,
+        source.size_bytes::float8 as size_bytes,
+        source.source_format,
+        source.provider_window_started_at::text,
+        source.provider_window_finished_at::text,
+        source.captured_at::text,
+        source.integrity_status,
+        source.notes,
+        coalesce(context.phases, '{}'::text[]) as phases,
+        coalesce(context.suite_ids, '{}'::text[]) as suite_ids,
+        coalesce(context.arm_ids, '{}'::text[]) as arm_ids,
+        coalesce(context.run_labels, '{}'::text[]) as run_labels,
+        (
+          select count(*)::int
+          from benchmark.benchmark_provider_usage_evidence usage_count
+          where usage_count.source_id = source.id
+        ) as usage_row_count,
+        (
+          select count(*)::int
+          from benchmark.benchmark_provider_cost_evidence cost_count
+          where cost_count.source_id = source.id
+        ) as cost_row_count,
+        (
+          select count(*)::int
+          from benchmark.benchmark_provider_pricing_snapshots pricing_count
+          where pricing_count.source_id = source.id
+        ) as pricing_snapshot_count,
+        (
+          select count(distinct usage_link.reconciliation_id)::int
+          from benchmark.benchmark_usage_reconciliation_sources usage_link
+          where usage_link.source_id = source.id
+        ) as usage_reconciliation_count,
+        (
+          select count(distinct cost_link.reconciliation_id)::int
+          from benchmark.benchmark_cost_reconciliation_sources cost_link
+          where cost_link.source_id = source.id
+        ) as cost_reconciliation_count
+      from benchmark.benchmark_provider_evidence_sources source
+      left join lateral (
+        select
+          coalesce(
+            array_agg(distinct association.phase order by association.phase)
+              filter (where association.phase is not null),
+            '{}'::text[]
+          ) as phases,
+          coalesce(
+            array_agg(distinct association.suite_id order by association.suite_id)
+              filter (where association.suite_id is not null),
+            '{}'::text[]
+          ) as suite_ids,
+          coalesce(
+            array_agg(distinct association.arm_id order by association.arm_id)
+              filter (where association.arm_id is not null),
+            '{}'::text[]
+          ) as arm_ids,
+          coalesce(
+            array_agg(distinct association.run_label order by association.run_label)
+              filter (where association.run_label is not null),
+            '{}'::text[]
+          ) as run_labels
+        from (
+          select
+            benchmark_run.phase,
+            arm_run.suite_id,
+            arm_run.arm_id,
+            benchmark_run.run_label
+          from benchmark.benchmark_arm_runs arm_run
+          join benchmark.benchmark_runs benchmark_run
+            on benchmark_run.id = arm_run.run_id
+          where arm_run.id = source.arm_run_id
+
+          union
+
+          select
+            benchmark_run.phase,
+            arm_run.suite_id,
+            arm_run.arm_id,
+            benchmark_run.run_label
+          from benchmark.benchmark_artifacts artifact
+          join benchmark.benchmark_trials trial
+            on trial.id = artifact.trial_id
+          join benchmark.benchmark_arm_runs arm_run
+            on arm_run.id = trial.arm_run_id
+          join benchmark.benchmark_runs benchmark_run
+            on benchmark_run.id = arm_run.run_id
+          where artifact.id = source.artifact_id
+
+          union
+
+          select
+            benchmark_run.phase,
+            arm_run.suite_id,
+            arm_run.arm_id,
+            benchmark_run.run_label
+          from benchmark.benchmark_provider_usage_evidence usage_evidence
+          left join benchmark.benchmark_trials trial
+            on trial.id = usage_evidence.trial_id
+          join benchmark.benchmark_arm_runs arm_run
+            on arm_run.id = coalesce(
+              usage_evidence.arm_run_id,
+              trial.arm_run_id
+            )
+          join benchmark.benchmark_runs benchmark_run
+            on benchmark_run.id = arm_run.run_id
+          where usage_evidence.source_id = source.id
+
+          union
+
+          select
+            benchmark_run.phase,
+            arm_run.suite_id,
+            arm_run.arm_id,
+            benchmark_run.run_label
+          from benchmark.benchmark_provider_cost_evidence cost_evidence
+          left join benchmark.benchmark_trials trial
+            on trial.id = cost_evidence.trial_id
+          join benchmark.benchmark_arm_runs arm_run
+            on arm_run.id = coalesce(
+              cost_evidence.arm_run_id,
+              trial.arm_run_id
+            )
+          join benchmark.benchmark_runs benchmark_run
+            on benchmark_run.id = arm_run.run_id
+          where cost_evidence.source_id = source.id
+
+          union
+
+          select
+            benchmark_run.phase,
+            arm_run.suite_id,
+            arm_run.arm_id,
+            benchmark_run.run_label
+          from benchmark.benchmark_usage_reconciliation_sources usage_link
+          join benchmark.benchmark_usage_reconciliations reconciliation
+            on reconciliation.id = usage_link.reconciliation_id
+          join benchmark.benchmark_arm_runs arm_run
+            on arm_run.id = reconciliation.arm_run_id
+          join benchmark.benchmark_runs benchmark_run
+            on benchmark_run.id = arm_run.run_id
+          where usage_link.source_id = source.id
+
+          union
+
+          select
+            benchmark_run.phase,
+            arm_run.suite_id,
+            arm_run.arm_id,
+            benchmark_run.run_label
+          from benchmark.benchmark_cost_reconciliation_sources cost_link
+          join benchmark.benchmark_cost_reconciliations reconciliation
+            on reconciliation.id = cost_link.reconciliation_id
+          join benchmark.benchmark_arm_runs arm_run
+            on arm_run.id = reconciliation.arm_run_id
+          join benchmark.benchmark_runs benchmark_run
+            on benchmark_run.id = arm_run.run_id
+          where cost_link.source_id = source.id
+        ) association
+      ) context on true
+    )
+  `;
+}
+
+function providerEvidenceBrowserQueryParts(
+  filters: ProviderEvidenceBrowserFilters = {},
+) {
+  const conditions = ["true"];
+  const params: unknown[] = [];
+
+  function addCondition(sql: string, value: string | undefined) {
+    if (!value) return;
+    params.push(value);
+    conditions.push(sql.replace("$param", `$${params.length}`));
+  }
+
+  addCondition("provider = $param", filters.provider);
+  addCondition("evidence_kind = $param", filters.evidence_kind);
+  addCondition("source_scope = $param", filters.source_scope);
+  addCondition("integrity_status = $param", filters.integrity_status);
+  addCondition("$param = any(phases)", filters.phase);
+  addCondition("$param = any(arm_ids)", filters.arm_id);
+  addCondition("$param = any(run_labels)", filters.run_label);
+
+  if (filters.q) {
+    params.push(`%${filters.q}%`);
+    const placeholder = `$${params.length}`;
+    conditions.push(`(
+      provider ilike ${placeholder}
+      or evidence_kind ilike ${placeholder}
+      or source_scope ilike ${placeholder}
+      or integrity_status ilike ${placeholder}
+      or coalesce(provider_reference, '') ilike ${placeholder}
+      or coalesce(source_uri, '') ilike ${placeholder}
+      or coalesce(source_sha256, '') ilike ${placeholder}
+      or coalesce(notes, '') ilike ${placeholder}
+      or array_to_string(phases, ' ') ilike ${placeholder}
+      or array_to_string(arm_ids, ' ') ilike ${placeholder}
+      or array_to_string(run_labels, ' ') ilike ${placeholder}
+    )`);
+  }
+
+  const ctes = `
+    ${providerEvidenceSourceContextCte()},
+    matching_sources as (
+      select *
+      from provider_source_context
+      where ${conditions.join("\n        and ")}
+    )
+  `;
+
+  return { ctes, params };
+}
+
+export async function getProviderEvidenceBrowserPage(
+  filters: ProviderEvidenceBrowserFilters = {},
+): Promise<ProviderEvidenceBrowserPage> {
+  const pageSize = [10, 25, 50, 100].includes(filters.page_size ?? 25)
+    ? filters.page_size ?? 25
+    : 25;
+  const requestedPage = Math.max(filters.page ?? 1, 1);
+  const { ctes, params } = providerEvidenceBrowserQueryParts(filters);
+
+  const countRows = await queryRows<{ total_source_count: number }>(
+    `${ctes}
+      select count(*)::int as total_source_count
+      from matching_sources
+    `,
+    params,
+  );
+
+  const totalSourceCount = countRows[0]?.total_source_count ?? 0;
+  const totalPages = Math.max(Math.ceil(totalSourceCount / pageSize), 1);
+  const page = Math.min(requestedPage, totalPages);
+  const offset = (page - 1) * pageSize;
+
+  if (totalSourceCount === 0) {
+    return {
+      sources: [],
+      page: 1,
+      page_size: pageSize,
+      total_source_count: 0,
+      total_pages: 1,
+    };
+  }
+
+  const rows = await queryRows<ProviderEvidenceSourceBrowserRow>(
+    `${ctes}
+      select *
+      from matching_sources
+      order by captured_at desc, provider, source_id
+      limit $${params.length + 1}
+      offset $${params.length + 2}
+    `,
+    [...params, pageSize, offset],
+  );
+
+  return {
+    sources: rows,
+    page,
+    page_size: pageSize,
+    total_source_count: totalSourceCount,
+    total_pages: totalPages,
+  };
+}
+
+export async function getProviderEvidenceBrowserLatestCapturedAt(
+  filters: ProviderEvidenceBrowserFilters = {},
+): Promise<string | null> {
+  const { ctes, params } = providerEvidenceBrowserQueryParts(filters);
+  const rows = await queryRows<{ latest_captured_at: string | null }>(
+    `${ctes}
+      select max(captured_at)::text as latest_captured_at
+      from matching_sources
+    `,
+    params,
+  );
+
+  return rows[0]?.latest_captured_at ?? null;
+}
+
+export async function getProviderEvidenceBrowserFilterOptions():
+Promise<ProviderEvidenceBrowserFilterOptions> {
+  const rows = await queryRows<ProviderEvidenceBrowserFilterOptions>(`
+    ${providerEvidenceSourceContextCte()}
+    select
+      coalesce(array(
+        select distinct provider
+        from provider_source_context
+        where provider is not null
+        order by provider
+        limit 500
+      ), '{}'::text[]) as providers,
+      coalesce(array(
+        select distinct evidence_kind
+        from provider_source_context
+        where evidence_kind is not null
+        order by evidence_kind
+        limit 500
+      ), '{}'::text[]) as evidence_kinds,
+      coalesce(array(
+        select distinct source_scope
+        from provider_source_context
+        where source_scope is not null
+        order by source_scope
+        limit 500
+      ), '{}'::text[]) as source_scopes,
+      coalesce(array(
+        select distinct integrity_status
+        from provider_source_context
+        where integrity_status is not null
+        order by integrity_status
+        limit 500
+      ), '{}'::text[]) as integrity_statuses,
+      coalesce(array(
+        select distinct item.value
+        from provider_source_context source_context
+        cross join lateral unnest(source_context.phases) item(value)
+        order by item.value
+        limit 500
+      ), '{}'::text[]) as phases,
+      coalesce(array(
+        select distinct item.value
+        from provider_source_context source_context
+        cross join lateral unnest(source_context.arm_ids) item(value)
+        order by item.value
+        limit 500
+      ), '{}'::text[]) as arm_ids,
+      coalesce(array(
+        select distinct item.value
+        from provider_source_context source_context
+        cross join lateral unnest(source_context.run_labels) item(value)
+        order by item.value
+        limit 500
+      ), '{}'::text[]) as run_labels
+  `);
+
+  return rows[0] ?? {
+    providers: [],
+    evidence_kinds: [],
+    source_scopes: [],
+    integrity_statuses: [],
+    phases: [],
+    arm_ids: [],
+    run_labels: [],
+  };
+}
+
+export async function getProviderEvidenceSourceDetail(
+  sourceId: string,
+): Promise<ProviderEvidenceSourceDetail | null> {
+  const sourceRows = await queryRows<ProviderEvidenceSourceBrowserRow>(
+    `${providerEvidenceSourceContextCte()}
+      select *
+      from provider_source_context
+      where source_id = $1
+    `,
+    [sourceId],
+  );
+
+  const source = sourceRows[0];
+  if (!source) return null;
+
+  const [
+    usageRows,
+    costRows,
+    pricingSnapshots,
+    usageReconciliations,
+    costReconciliations,
+  ] = await Promise.all([
+    queryRows<ProviderUsageEvidenceRow>(
+      `
+        select
+          usage_evidence.id::text as evidence_id,
+          usage_evidence.arm_run_id::text,
+          arm_run.arm_id,
+          arm_run.suite_id,
+          arm_run.logical_mode,
+          benchmark_run.run_label,
+          usage_evidence.trial_id::text,
+          usage_evidence.provider_request_id,
+          usage_evidence.provider_model,
+          usage_evidence.request_started_at::text,
+          usage_evidence.request_finished_at::text,
+          usage_evidence.ordinary_input_tokens::text,
+          usage_evidence.cache_read_input_tokens::text,
+          usage_evidence.cache_creation_input_tokens::text,
+          usage_evidence.output_tokens::text,
+          usage_evidence.request_count::int,
+          usage_evidence.allocation_scope,
+          usage_evidence.completeness_status,
+          usage_evidence.notes,
+          usage_evidence.created_at::text
+        from benchmark.benchmark_provider_usage_evidence usage_evidence
+        left join benchmark.benchmark_trials trial
+          on trial.id = usage_evidence.trial_id
+        left join benchmark.benchmark_arm_runs arm_run
+          on arm_run.id = coalesce(
+            usage_evidence.arm_run_id,
+            trial.arm_run_id
+          )
+        left join benchmark.benchmark_runs benchmark_run
+          on benchmark_run.id = arm_run.run_id
+        where usage_evidence.source_id = $1::uuid
+        order by usage_evidence.created_at, usage_evidence.id
+      `,
+      [source.source_id],
+    ),
+
+    queryRows<ProviderCostEvidenceRow>(
+      `
+        select
+          cost_evidence.id::text as evidence_id,
+          cost_evidence.arm_run_id::text,
+          arm_run.arm_id,
+          arm_run.suite_id,
+          arm_run.logical_mode,
+          benchmark_run.run_label,
+          cost_evidence.trial_id::text,
+          cost_evidence.pricing_snapshot_id::text,
+          cost_evidence.provider_model,
+          cost_evidence.cost_kind,
+          cost_evidence.amount_usd::text,
+          cost_evidence.currency,
+          cost_evidence.allocation_scope,
+          cost_evidence.completeness_status,
+          cost_evidence.notes,
+          cost_evidence.created_at::text
+        from benchmark.benchmark_provider_cost_evidence cost_evidence
+        left join benchmark.benchmark_trials trial
+          on trial.id = cost_evidence.trial_id
+        left join benchmark.benchmark_arm_runs arm_run
+          on arm_run.id = coalesce(
+            cost_evidence.arm_run_id,
+            trial.arm_run_id
+          )
+        left join benchmark.benchmark_runs benchmark_run
+          on benchmark_run.id = arm_run.run_id
+        where cost_evidence.source_id = $1::uuid
+        order by cost_evidence.created_at, cost_evidence.id
+      `,
+      [source.source_id],
+    ),
+
+    queryRows<ProviderPricingSnapshotRow>(
+      `
+        select
+          pricing.id::text as pricing_snapshot_id,
+          pricing.provider,
+          pricing.provider_model,
+          pricing.currency,
+          pricing.effective_from::text,
+          pricing.effective_until::text,
+          pricing.pricing_semantics,
+          pricing.pricing_rules,
+          pricing.official_source_uri,
+          pricing.notes,
+          pricing.created_at::text
+        from benchmark.benchmark_provider_pricing_snapshots pricing
+        where pricing.source_id = $1::uuid
+        order by pricing.effective_from nulls first, pricing.created_at, pricing.id
+      `,
+      [source.source_id],
+    ),
+
+    queryRows<ProviderUsageReconciliationRow>(
+      `
+        select
+          reconciliation.id::text as reconciliation_id,
+          source_link.evidence_role,
+          reconciliation.arm_run_id::text,
+          arm_run.arm_id,
+          arm_run.suite_id,
+          arm_run.logical_mode,
+          benchmark_run.run_label,
+          reconciliation.reconciliation_version,
+          reconciliation.is_current,
+          reconciliation.harness_name,
+          reconciliation.harness_version,
+          reconciliation.configured_route_model,
+          reconciliation.configured_backend_model,
+          reconciliation.harness_observed_model,
+          reconciliation.provider_observed_model,
+          reconciliation.model_identity_status,
+          reconciliation.harness_input_tokens::text,
+          reconciliation.harness_cache_tokens::text,
+          reconciliation.harness_output_tokens::text,
+          reconciliation.provider_ordinary_input_tokens::text,
+          reconciliation.provider_cache_read_input_tokens::text,
+          reconciliation.provider_cache_creation_input_tokens::text,
+          reconciliation.provider_output_tokens::text,
+          reconciliation.provider_request_count::int,
+          reconciliation.matched_provider_request_count::int,
+          reconciliation.unallocated_provider_request_count::int,
+          reconciliation.provider_evidence_visible,
+          reconciliation.selected_usage_authority,
+          reconciliation.validation_status,
+          reconciliation.limitation_codes,
+          reconciliation.notes,
+          reconciliation.created_at::text,
+          reconciliation.reviewed_at::text,
+          coalesce(
+            all_sources.evidence_sources,
+            '[]'::jsonb
+          ) as evidence_sources
+        from benchmark.benchmark_usage_reconciliation_sources source_link
+        join benchmark.benchmark_usage_reconciliations reconciliation
+          on reconciliation.id = source_link.reconciliation_id
+        left join benchmark.benchmark_arm_runs arm_run
+          on arm_run.id = reconciliation.arm_run_id
+        left join benchmark.benchmark_runs benchmark_run
+          on benchmark_run.id = arm_run.run_id
+        left join lateral (
+          select
+            jsonb_agg(
+              jsonb_build_object(
+                'source_id',
+                all_link.source_id::text,
+                'provider',
+                evidence_source.provider,
+                'evidence_kind',
+                evidence_source.evidence_kind,
+                'source_scope',
+                evidence_source.source_scope,
+                'evidence_role',
+                all_link.evidence_role
+              )
+              order by
+                all_link.evidence_role,
+                all_link.source_id::text
+            ) as evidence_sources
+          from benchmark.benchmark_usage_reconciliation_sources all_link
+          join benchmark.benchmark_provider_evidence_sources evidence_source
+            on evidence_source.id = all_link.source_id
+          where
+            all_link.reconciliation_id = reconciliation.id
+        ) all_sources on true
+        where source_link.source_id = $1::uuid
+        order by reconciliation.is_current desc,
+          reconciliation.created_at desc,
+          reconciliation.id,
+          source_link.evidence_role
+      `,
+      [source.source_id],
+    ),
+
+    queryRows<ProviderCostReconciliationRow>(
+      `
+        select
+          reconciliation.id::text as reconciliation_id,
+          source_link.evidence_role,
+          reconciliation.arm_run_id::text,
+          arm_run.arm_id,
+          arm_run.suite_id,
+          arm_run.logical_mode,
+          benchmark_run.run_label,
+          reconciliation.reconciliation_version,
+          reconciliation.is_current,
+          reconciliation.harness_name,
+          reconciliation.harness_version,
+          reconciliation.harness_reported_cost_usd::text,
+          reconciliation.provider_billed_cost_usd::text,
+          reconciliation.provider_rate_reconstructed_cost_usd::text,
+          reconciliation.selected_cost_usd::text,
+          reconciliation.selected_cost_basis,
+          reconciliation.selected_cost_relation,
+          reconciliation.validation_status,
+          reconciliation.provider_evidence_visible,
+          reconciliation.pricing_snapshot_id::text,
+          pricing.source_id::text as pricing_source_id,
+          pricing_source.provider
+            as pricing_source_provider,
+          pricing_source.evidence_kind
+            as pricing_source_evidence_kind,
+          pricing_source.source_scope
+            as pricing_source_scope,
+          reconciliation.limitation_codes,
+          reconciliation.notes,
+          reconciliation.created_at::text,
+          reconciliation.reviewed_at::text,
+          coalesce(
+            all_sources.evidence_sources,
+            '[]'::jsonb
+          ) as evidence_sources
+        from benchmark.benchmark_cost_reconciliation_sources source_link
+        join benchmark.benchmark_cost_reconciliations reconciliation
+          on reconciliation.id = source_link.reconciliation_id
+        left join benchmark.benchmark_arm_runs arm_run
+          on arm_run.id = reconciliation.arm_run_id
+        left join benchmark.benchmark_runs benchmark_run
+          on benchmark_run.id = arm_run.run_id
+        left join benchmark.benchmark_provider_pricing_snapshots pricing
+          on pricing.id = reconciliation.pricing_snapshot_id
+        left join benchmark.benchmark_provider_evidence_sources pricing_source
+          on pricing_source.id = pricing.source_id
+        left join lateral (
+          select
+            jsonb_agg(
+              jsonb_build_object(
+                'source_id',
+                all_link.source_id::text,
+                'provider',
+                evidence_source.provider,
+                'evidence_kind',
+                evidence_source.evidence_kind,
+                'source_scope',
+                evidence_source.source_scope,
+                'evidence_role',
+                all_link.evidence_role
+              )
+              order by
+                all_link.evidence_role,
+                all_link.source_id::text
+            ) as evidence_sources
+          from benchmark.benchmark_cost_reconciliation_sources all_link
+          join benchmark.benchmark_provider_evidence_sources evidence_source
+            on evidence_source.id = all_link.source_id
+          where
+            all_link.reconciliation_id = reconciliation.id
+        ) all_sources on true
+        where source_link.source_id = $1::uuid
+        order by reconciliation.is_current desc,
+          reconciliation.created_at desc,
+          reconciliation.id,
+          source_link.evidence_role
+      `,
+      [source.source_id],
+    ),
+  ]);
+
+  return {
+    source,
+    usage_rows: usageRows,
+    cost_rows: costRows,
+    pricing_snapshots: pricingSnapshots,
+    usage_reconciliations: usageReconciliations,
+    cost_reconciliations: costReconciliations,
+  };
+}

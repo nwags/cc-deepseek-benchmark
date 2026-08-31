@@ -3,7 +3,7 @@
 ## Executive summary
 
 These guides are the page-specific companion to the
-[Dashboard Research Guide](../DASHBOARD_RESEARCH_GUIDE.md). They cover the 15
+[Dashboard Research Guide](../DASHBOARD_RESEARCH_GUIDE.md). They cover the 16
 principal surfaces in the dashboard navigation and explain each page's evidence
 source, population, authority, controls, caveats, research workflows, and
 evidence-tracing path.
@@ -27,6 +27,7 @@ Research Guide first when the question spans several pages or evidence classes.
 | Live Runs | `/runs/live` | [Live Runs](LIVE_RUNS.md) | Mutable live Supabase/R2 observation |
 | Arms | `/arms` | [Arms](ARMS.md) | All-imported operational arm inventory |
 | Artifacts | `/artifacts` | [Artifacts](ARTIFACTS.md) | Canonical artifact metadata plus retained byte/storage evidence |
+| Provider Evidence | `/provider-evidence` | [Provider Evidence](PROVIDER_EVIDENCE.md) | Normalized Migration-011 provider source, usage, pricing, cost, and reconciliation provenance |
 | Evidence Review | `/comprehensive-review` | [Evidence Review](EVIDENCE_REVIEW.md) | Frozen manifest-validated comprehensive-review snapshot |
 | Planner | `/planner` | [Planner](PLANNER.md) | Checked-in config plus read-only current promotion authority |
 | Cost Coverage | `/cost-coverage` | [Cost Coverage](COST_COVERAGE.md) | Current-reviewed V4 cost plus separate historical DR-303 provenance |
@@ -65,6 +66,15 @@ content. Their dates, source hashes, scope, and provenance boundaries matter.
 Runs and canonical artifact/trial metadata represent published benchmark
 evidence in Supabase/Postgres.
 
+### Normalized provider evidence and reconciliation
+
+Provider Evidence reads the Migration-011 normalized source, usage, pricing,
+cost, reconciliation, and reconciliation-source relationship tables. Source
+presence establishes provenance; the reconciliation's selected authority,
+basis, relation, validation state, and limitations determine what claim the
+evidence supports. A reconciliation can legitimately depend on multiple
+provider-evidence sources.
+
 ### Dynamic imported aggregate
 
 Eval Suites, Evals, Arms, and parts of Overview/Trial Quality query current
@@ -82,9 +92,18 @@ Failure taxonomy, composition, selected-cost presentation, and other derived
 views explain retained evidence. They do not silently rewrite raw benchmark
 rewards.
 
+## Dashboard presentation precision contract
+
+Dashboard rendering has a maximum of four visible fractional digits. Values
+that exceed that ceiling are truncated toward zero rather than rounded. This
+is presentation-only: stored database values, generated reviewed evidence,
+retained artifacts, IDs, hashes, timestamps, and canonical model names are not
+rewritten. Intentional lower precision remains lower precision, and unavailable
+evidence remains unavailable rather than becoming zero.
+
 ## Non-principal and compatibility routes
 
-The 15 guides above match the 15-item `AppShell` navigation.
+The 16 guides above match the 16-item `AppShell` navigation.
 
 Other routes exist but are not separate principal manual entries:
 
@@ -95,8 +114,8 @@ Other routes exist but are not separate principal manual entries:
 - `/runners` explains the limits of runner-fleet inference.
 - `/scaffold` and `/tasks` are support/compatibility surfaces.
 - detail routes under `/runs`, `/trials`, `/evals`, `/eval-suites`,
-  `/artifacts`, and `/live-artifacts` are evidence-tracing surfaces documented
-  by the relevant principal-page guide.
+  `/artifacts`, `/provider-evidence`, and `/live-artifacts` are evidence-tracing
+  surfaces documented by the relevant principal-page guide.
 
 ## Cross-page evidence workflows
 
@@ -111,8 +130,9 @@ evidence.
 
 ### Cost semantics
 
-Overview or Cross-phase → Cost Coverage → exact selected run → provider
-evidence/reconciliation class → explicit allocation limitations.
+Overview or Cross-phase → Cost Coverage → Provider Evidence → exact selected
+run → complete provider source/reconciliation chain → explicit allocation
+limitations.
 
 ### Promotion to execution
 

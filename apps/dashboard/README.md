@@ -11,7 +11,7 @@ Start with the required hand-off/onboarding index:
 
 `docs/guides/README.md`
 
-That checklist requires review of all 15 principal dashboard surfaces, all
+That checklist requires review of all 16 principal dashboard surfaces, all
 three primary handoff guides, and the evidence-tracing exercises. If dashboard
 access or required credentials are unavailable, record and resolve that as an
 onboarding blocker rather than silently skipping dashboard review.
@@ -44,9 +44,12 @@ The dashboard reads Supabase Postgres views in the benchmark schema:
 - benchmark.live_artifacts
 - benchmark.benchmark_provider_evidence_sources
 - benchmark.benchmark_provider_usage_evidence
+- benchmark.benchmark_provider_pricing_snapshots
 - benchmark.benchmark_provider_cost_evidence
 - benchmark.benchmark_usage_reconciliations
+- benchmark.benchmark_usage_reconciliation_sources
 - benchmark.benchmark_cost_reconciliations
+- benchmark.benchmark_cost_reconciliation_sources
 - benchmark.v_evidence_promotion_gate
 
 The Data Model route documents the wider checked-in relationship set; individual
@@ -61,6 +64,19 @@ active. A stale orphan alone does not keep the page on an eight-second loop.
 The workstation-local `.run/live` reader is development-only. Set
 `DASHBOARD_LIVE_LOCAL_FALLBACK=true` to use it only when shared live state is
 unavailable.
+
+## Read-only and presentation contracts
+
+Operational dashboard database reads use the shared `queryRows()` boundary,
+which opens an explicit read-only transaction for each query and rolls back on
+failure. Dashboard pages should not bypass that boundary with direct pool
+queries.
+
+The dashboard also has a presentation-only precision ceiling of four
+fractional digits. Values that exceed the ceiling are truncated toward zero,
+not rounded. Lower intentional precision remains lower precision. Stored,
+generated, reviewed, and retained evidence precision is unchanged, and missing
+or unavailable values never become zero merely for display.
 
 ## Current dashboard role
 
@@ -87,6 +103,9 @@ navigation currently contains:
 - **Arms** — imported arm inventory including canonical agent-harness
   identity when recorded.
 - **Artifacts** — retained artifact inventory and bounded evidence access.
+- **Provider Evidence** — source-centric normalized provider usage, pricing,
+  cost, and reconciliation provenance with complete supporting-source and
+  cross-source pricing links; it is read-only and does not call provider APIs.
 - **Evidence Review** — manifest-validated frozen comprehensive review.
 - **Planner** — review-first run-plan construction/validation that reads
   the current fail-closed predecessor promotion gate; it does not write gates
@@ -97,7 +116,7 @@ navigation currently contains:
 Retired or contained historical routes may still exist for provenance, but they
 are not primary navigation.
 
-For page-specific interpretation of all 15 principal dashboard surfaces, use:
+For page-specific interpretation of all 16 principal dashboard surfaces, use:
 
 ```text
 docs/guides/dashboard/README.md

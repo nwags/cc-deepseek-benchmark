@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { formatTruncatedCurrency } from "../lib/format";
 import type {
   ArmOption,
   PromotionGateLoadStatus,
@@ -406,7 +407,7 @@ export function RunPlanBuilder({
                                 {" · "}
                                 {gate.selected_cost_usd === null
                                   ? "cost unavailable"
-                                  : `$${gate.selected_cost_usd}`}
+                                  : formatTruncatedCurrency(gate.selected_cost_usd)}
                               </div>
                             </>
                           ) : "—"}
